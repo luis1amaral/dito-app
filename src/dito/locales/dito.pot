@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dito\n"
 "Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
-"POT-Creation-Date: 2026-08-16 08:08-0300\n"
+"POT-Creation-Date: 2026-08-16 08:18-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -109,13 +109,13 @@ msgstr ""
 msgid "Dito — hold {dictate} to dictate, {meeting} for a meeting"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:429
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:436
-msgid "Dito — meeting saved"
-msgstr ""
-
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:378
 msgid "Dito — nothing was picked up"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:429
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:436
+msgid "Dito — saved in Obsidian"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:334
@@ -154,14 +154,6 @@ msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:255
 msgid "Meeting (toggle)"
-msgstr ""
-
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:435
-msgid "Meeting saved"
-msgstr ""
-
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:428
-msgid "Meeting saved, with a caveat"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:261
@@ -250,6 +242,14 @@ msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/window.py:156
 msgid "Refresh"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:435
+msgid "Saved in Obsidian"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:428
+msgid "Saved in Obsidian, with a caveat"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:125
@@ -400,8 +400,7 @@ msgstr ""
 msgid "could not create the environment"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:55
-#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:88
+#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:86
 #, python-brace-format
 msgid "could not create {folder}: {error}"
 msgstr ""
@@ -428,12 +427,12 @@ msgstr ""
 msgid "could not start recording: {error}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:71
+#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:69
 #, python-brace-format
 msgid "could not write in {folder}: {error}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:79
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:55
 #, python-brace-format
 msgid "could not write the note: {error}"
 msgstr ""
@@ -570,10 +569,6 @@ msgstr ""
 msgid "meeting key"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:25
-msgid "meeting saved"
-msgstr ""
-
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:56
 msgid "microphone"
 msgstr ""
@@ -694,6 +689,10 @@ msgstr ""
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/tray.py:81
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:313
 msgid "recording"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:24
+msgid "recording saved"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/tray.py:82
@@ -845,7 +844,7 @@ msgstr ""
 msgid "the transcription failed: {error}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:81
+#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:79
 #, python-brace-format
 msgid "the vault {vault} does not exist — the note stayed next to the recording"
 msgstr ""

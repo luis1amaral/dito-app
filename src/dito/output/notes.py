@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import re
-import shutil
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
 from ..config import Config
-from ..core.library import AUDIO_FILES
 from ..i18n import _
 
 # Leaves room for the date prefix and a `-12` collision suffix on every filesystem.
@@ -66,12 +64,12 @@ def write_meeting_note(note: MeetingNote, cfg: Config) -> WrittenNote:
     folder, reason = _vault_folder(cfg)
     if folder is not None:
         try:
-            return WrittenNote(_write(folder, stem, note, cfg), in_vault=True)
+            return WrittenNote(_write(folder, stem, note), in_vault=True)
         except OSError as exc:
             reason = _("could not write in {folder}: {error}").format(folder=folder, error=exc)
 
     note.folder.mkdir(parents=True, exist_ok=True)
-    return WrittenNote(_write(note.folder, stem, note, cfg), in_vault=False, reason=reason)
+    return WrittenNote(_write(note.folder, stem, note), in_vault=False, reason=reason)
 
 
 def _vault_folder(cfg: Config) -> tuple[Path | None, str | None]:
@@ -89,12 +87,11 @@ def _vault_folder(cfg: Config) -> tuple[Path | None, str | None]:
     return folder, None
 
 
-def _write(folder: Path, stem: str, note: MeetingNote, cfg: Config) -> Path:
-    """Claim the filename first: the body names the audio beside it, suffix and all."""
+def _write(folder: Path, stem: str, note: MeetingNote) -> Path:
+    """Claim the filename first, then fill it: armadilhas 10.5, `exists()` then write races."""
     path = _claim(folder, stem)
     try:
-        audio = _copy_audio(note, path, cfg)
-        path.write_text(_render(note, audio), encoding="utf-8")
+        path.write_text(_render(note), encoding="utf-8")
     except OSError:
         path.unlink(missing_ok=True)
         raise
@@ -115,25 +112,7 @@ def _claim(folder: Path, stem: str) -> Path:
         return path
 
 
-def _copy_audio(note: MeetingNote, path: Path, cfg: Config) -> str | None:
-    """Off by default, and that default matters — see docs/armadilhas.md 10.4 (Obsidian Git)."""
-    if not cfg.meeting.obsidian.copy_audio:
-        return None
-
-    source = next((note.folder / name for name in AUDIO_FILES if (note.folder / name).is_file()),
-                  None)
-    if source is None:
-        return None
-
-    target = path.with_suffix(source.suffix)
-    try:
-        shutil.copy2(source, target)
-    except OSError:
-        return None
-    return target.name
-
-
-def _render(note: MeetingNote, audio_name: str | None) -> str:
+def _render(note: MeetingNote) -> str:
     tags = list(DEFAULT_TAGS) + [t for t in note.tags if t not in DEFAULT_TAGS]
     duration = hms(note.seconds)
 
@@ -149,11 +128,8 @@ def _render(note: MeetingNote, audio_name: str | None) -> str:
         f"# Reunião — {note.subject.strip()}" if note.subject.strip() else "# Reunião",
         "",
         f"Gravada pelo Dito em {note.started:%d/%m/%Y às %H:%M} · {duration}.",
-        f"Áudio e transcrição: [{note.folder.name}]({_uri(note.folder)})",
+        f"Gravação: [{note.folder.name}]({_uri(note.folder)})",
     ]
-    if audio_name:
-        lines.append(f"![[{audio_name}]]")
-
     # Empty on purpose — see docs/armadilhas.md 10.3: Dito heard the meeting, it was not in it.
     lines += ["", "## Decidido", "", "## Pendências", "", "## Discutido, sem decisão", ""]
 

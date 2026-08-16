@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dito\n"
 "Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
-"POT-Creation-Date: 2026-08-16 08:08-0300\n"
+"POT-Creation-Date: 2026-08-16 08:18-0300\n"
 "PO-Revision-Date: 2026-08-15 23:06-0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -111,14 +111,14 @@ msgstr "Dito — diagnóstico"
 msgid "Dito — hold {dictate} to dictate, {meeting} for a meeting"
 msgstr "Dito — segure {dictate} para ditar, {meeting} para reunião"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:429
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:436
-msgid "Dito — meeting saved"
-msgstr "Dito — reunião salva"
-
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:378
 msgid "Dito — nothing was picked up"
 msgstr "Dito — nada foi captado"
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:429
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:436
+msgid "Dito — saved in Obsidian"
+msgstr "Dito — guardado no Obsidian"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:334
 msgid "Fix"
@@ -157,14 +157,6 @@ msgstr "Reunião"
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:255
 msgid "Meeting (toggle)"
 msgstr "Reunião (alternar)"
-
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:435
-msgid "Meeting saved"
-msgstr "Reunião salva"
-
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:428
-msgid "Meeting saved, with a caveat"
-msgstr "Reunião salva, com ressalva"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:261
 msgid "Microphone"
@@ -255,6 +247,14 @@ msgstr "Gravando"
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/window.py:156
 msgid "Refresh"
 msgstr "Atualizar"
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:435
+msgid "Saved in Obsidian"
+msgstr "Guardado no Obsidian"
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:428
+msgid "Saved in Obsidian, with a caveat"
+msgstr "Guardado no Obsidian, com uma ressalva"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:125
 msgid "Send"
@@ -404,8 +404,7 @@ msgstr "não foi possível checar"
 msgid "could not create the environment"
 msgstr "não consegui criar o ambiente"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:55
-#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:88
+#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:86
 #, python-brace-format
 msgid "could not create {folder}: {error}"
 msgstr "não consegui criar {folder}: {error}"
@@ -432,12 +431,12 @@ msgstr "não consegui salvar a reunião: {error}"
 msgid "could not start recording: {error}"
 msgstr "não consegui começar a gravar: {error}"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:71
+#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:69
 #, python-brace-format
 msgid "could not write in {folder}: {error}"
 msgstr "não consegui escrever em {folder}: {error}"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:79
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:55
 #, python-brace-format
 msgid "could not write the note: {error}"
 msgstr "não consegui escrever a nota: {error}"
@@ -574,10 +573,6 @@ msgstr "reunião"
 msgid "meeting key"
 msgstr "tecla de reunião"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:25
-msgid "meeting saved"
-msgstr "reunião salva"
-
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:56
 msgid "microphone"
 msgstr "microfone"
@@ -699,6 +694,10 @@ msgstr "pronto."
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:313
 msgid "recording"
 msgstr "gravando"
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/publish.py:24
+msgid "recording saved"
+msgstr "gravação guardada"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/tray.py:82
 msgid "recording the meeting"
@@ -849,7 +848,7 @@ msgstr "o resto da janela muda de idioma na próxima vez que abrir"
 msgid "the transcription failed: {error}"
 msgstr "a transcrição falhou: {error}"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:81
+#: /home/luis/Desktop/Projetos/dito/src/dito/output/notes.py:79
 #, python-brace-format
 msgid "the vault {vault} does not exist — the note stayed next to the recording"
 msgstr "o cofre {vault} não existe — a nota ficou junto da gravação"
@@ -973,6 +972,15 @@ msgstr "— sem texto —"
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:122
 msgid "⏎ sends · Tab discards"
 msgstr "⏎ envia · Tab descarta"
+
+#~ msgid "Dito — meeting saved"
+#~ msgstr "Dito — reunião salva"
+
+#~ msgid "Meeting saved"
+#~ msgstr "Reunião salva"
+
+#~ msgid "meeting saved"
+#~ msgstr "reunião salva"
 
 #~ msgid "Meeting subject:"
 #~ msgstr "Assunto da reunião:"

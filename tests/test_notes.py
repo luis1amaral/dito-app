@@ -185,15 +185,14 @@ def test_audio_never_reaches_the_vault_by_default(vault: Path, session: Path):
     assert list((vault / "trabalho").glob("*.opus")) == []
 
 
-def test_audio_is_copied_only_when_asked(vault: Path, session: Path):
-    cfg = make_cfg(vault)
-    cfg.meeting.obsidian.copy_audio = True
+def test_the_note_never_carries_audio(vault: Path, session: Path):
+    """`copy_audio` went with the folder layout it depended on: it looked for `audio.wav` beside
+    the note's folder, a name nothing writes since a session became one file. And the WAV is gone
+    by publishing time anyway — see docs/armadilhas.md 10.8."""
+    result = write_meeting_note(make_note(session), make_cfg(vault))
 
-    result = write_meeting_note(make_note(session), cfg)
-    copied = result.path.with_suffix(".wav")
-
-    assert copied.is_file()
-    assert f"![[{copied.name}]]" in result.path.read_text(encoding="utf-8")
+    assert list(result.path.parent.glob("*.wav")) == []
+    assert "![[" not in result.path.read_text(encoding="utf-8")
 
 
 # ---- helpers -------------------------------------------------------------------------------------

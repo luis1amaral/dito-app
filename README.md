@@ -42,6 +42,9 @@ vira nota no cofre com o **título tirado do que foi dito** — sem caixa pergun
 opt-in de propósito: o cofre é para o que vale guardar, e uma chave que lembra do "ligado" enche
 ele de tudo.
 
+A nota é a **única** coisa que a publicação escreve: ela carrega a transcrição e aponta para a
+pasta da sessão. Nada é copiado para a biblioteca.
+
 A diferença entre as teclas é só por dentro: o F10 transcreve **em pedaços enquanto você fala**, que
 é o que permite gravar uma hora sem esperar a transcrição no fim.
 
@@ -105,7 +108,7 @@ Depois: procure **Dito** no menu e abra uma vez. A primeira execução mostra um
 Conferir que deu certo:
 
 ```bash
-dito --version     # dito 0.3.1
+dito --version     # dito 0.3.2
 dito doctor        # microfone, atalhos, modelo, colagem
 ```
 

@@ -425,15 +425,15 @@ class DitoApp:
             minutes=event.minutes, words=event.words
         )
         if event.warning:
-            self.overlay.show_toast(_("Meeting saved, with a caveat"), event.warning, ms=6000)
-            notify.notify(_("Dito — meeting saved"), event.warning)
+            self.overlay.show_toast(_("Saved in Obsidian, with a caveat"), event.warning, ms=6000)
+            notify.notify(_("Dito — saved in Obsidian"), event.warning)
         else:
             where = (
                 _("note in the vault") if event.note_in_vault
                 else _("note next to the recording")
             )
-            self.overlay.show_toast(_("Meeting saved"), f"{detail} · {where}")
-            notify.notify(_("Dito — meeting saved"), f"{detail}\n{event.folder}")
+            self.overlay.show_toast(_("Saved in Obsidian"), f"{detail} · {where}")
+            notify.notify(_("Dito — saved in Obsidian"), f"{detail}\n{event.folder}")
         if self._window is not None and self._window.isVisible():
             self._window.sessions.reload()
 

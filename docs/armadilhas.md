@@ -863,6 +863,22 @@ sai do **layout da linha**, não do widget inteiro: o `_detail` tem `setWordWrap
 pílula até a largura da tela. Medido depois: `Fix` → 378 px, `Corrigir` → 400 px, nenhum dos dois
 cortando.
 
+### 7.15 Limpar `fuzzy` em massa passa no portão com tradução ERRADA
+
+**Sintoma:** `tools/i18n.sh check` respondeu *"0 sem tradução, 0 duvidosa"* com quatro entradas
+traduzidas erradas. `Saved in Obsidian` estava como *"Guardar no Obsidian"* (infinitivo, é um aviso
+de que já guardou), `recording saved` como *"gravando"* e `Dito — saved in Obsidian` como
+*"Dito — diagnóstico"*.
+
+**Causa:** o `msgmerge` casa string nova com string velha **por similaridade** e marca o palpite
+como `fuzzy`, exatamente para um humano decidir — é o que o cabeçalho do `i18n.sh` promete. Limpar
+os marcadores em bloco, sem ler, transforma o palpite em verdade e o portão passa a aprovar mentira.
+Pior que faltar tradução: falta é visível, errado não.
+
+**Correção:** marcador de `fuzzy` sai **um a um**, depois de ler o par. E a conferência final não é
+o `check` — é carregar o `.mo` compilado e imprimir cada string traduzida, que é o que o app vai
+mostrar. Foi só assim que os quatro apareceram.
+
 ---
 
 ## 8. Biblioteca e retenção
@@ -1136,3 +1152,29 @@ crítica, e o do Cinnamon ignora.
 A troca é honesta porque a notificação é o **quarto** canal do alarme, não o primeiro. A pílula já
 grita por forma, cor, movimento e som (9.4); a notificação existe para quem está em outra área de
 trabalho. Uma que não fecha não é mais urgente — ela treina a pessoa a ignorar todas.
+
+### 10.8 Publicar copiava o texto para uma pasta que a limpeza nunca alcançaria
+
+**Sintoma:** cada gravação enviada ao cofre criava
+`~/Documentos/Dito/2026-08-16_0753-titulo/transcricao.md`, com o mesmo texto que o JSON da sessão
+já guardava. Depois de três dias de uso já havia três dessas na raiz da biblioteca.
+
+**Causa:** a publicação nasceu antes de a sessão morar na biblioteca. Quando ela era só um JSON em
+`~/.local/share`, copiar o texto para uma pasta em Documentos era o que entregava o texto ao dono.
+Com a sessão já arquivada em `<biblioteca>/2026/08/16/`, a cópia virou duplicata — e uma duplicata
+que **a varredura de retenção não pega**, porque a pasta não tem forma de data (8.3). Ou seja: o
+lugar onde o texto se acumula para sempre era justamente o criado para organizar.
+
+**Correção:** publicar escreve **uma** coisa, a nota, e ela aponta para a pasta da sessão que já
+existe. Nada é copiado.
+
+Duas coisas caíram junto, por dependerem do layout antigo:
+
+- **`meeting.obsidian.copy_audio`**, que procurava `audio.wav`/`audio.opus` ao lado da nota —
+  nomes que nada escreve desde que a sessão virou um arquivo só. Configuração que não pode fazer
+  efeito é configuração que mente.
+- **`Published.transcript`**, que não existe mais para apontar.
+
+Quando o cofre não existe, a nota continua caindo ao lado da gravação (10.4) — agora dentro da
+pasta do dia. Ela é `.md`, e a varredura só remove o que o app escreve como sessão, então uma nota
+salva sobrevive à limpeza de propósito: ela é o que o dono pediu para guardar.

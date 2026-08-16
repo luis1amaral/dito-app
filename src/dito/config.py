@@ -60,8 +60,6 @@ class Output:
 class Obsidian:
     vault: str = "~/notas"
     folder: str = "trabalho"
-    # Off by default — see docs/armadilhas.md 10.4: the vault is a git repo with auto-commit.
-    copy_audio: bool = False
 
 
 @dataclass

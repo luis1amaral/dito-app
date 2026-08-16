@@ -1,5 +1,51 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — publicar escreve só a nota, e nada mais se acumula na biblioteca
+
+### O quê
+1. **Publicar não copia mais o texto para uma pasta própria.** Escreve a nota no cofre, e ela
+   aponta para a pasta da sessão que já existe.
+2. `meeting.obsidian.copy_audio` **removido** — procurava `audio.wav`/`audio.opus`, nomes que nada
+   escreve desde que a sessão virou um arquivo só.
+3. `Published.transcript` removido; `Published.folder` passa a ser a pasta da sessão.
+4. Os avisos deixaram de dizer "reunião": agora é *"Guardado no Obsidian"*.
+
+### Por quê
+Cada gravação enviada ao cofre criava `~/Documentos/Dito/2026-08-16_0753-titulo/transcricao.md`,
+com o mesmo texto que o JSON da sessão já guardava. Em três dias de uso já eram três pastas.
+
+O pior não é a duplicata: é que **a varredura de retenção nunca alcançaria** essas pastas, porque
+elas não têm forma de data. O lugar onde o texto ia se acumular para sempre era justamente o que
+foi criado para organizar.
+
+A publicação nasceu antes de a sessão morar na biblioteca. Quando ela era um JSON em
+`~/.local/share`, copiar o texto para Documentos **era** o que entregava o texto ao dono. Depois da
+mudança de casa, virou cópia sem função.
+
+### A regra que não foi enfraquecida
+Cofre inexistente continua não sendo criado, e a nota cai ao lado da gravação com a ressalva na
+tela. Ela é `.md`, e a varredura só remove o que o app escreve como sessão — uma nota salva
+sobrevive à limpeza de propósito: é o que o dono pediu para guardar.
+
+### Um erro meu, no meio do caminho
+Ao traduzir as strings novas eu limpei os marcadores `fuzzy` **em bloco**. O `msgmerge` casa string
+nova com velha por similaridade e marca o palpite como duvidoso justamente para um humano decidir;
+limpar sem ler transformou palpite em verdade. O portão respondeu *"0 sem tradução, 0 duvidosa"*
+com quatro entradas erradas — `recording saved` como *"gravando"*, `Dito — saved in Obsidian` como
+*"Dito — diagnóstico"*. Corrigidas uma a uma, e a conferência final passou a ser **carregar o `.mo`
+e imprimir cada string**, que é o que o app mostra. Está em `docs/armadilhas.md` **7.15**.
+
+### Como foi verificado
+271 testes verdes, `ruff` limpo, catálogo com 0 sem tradução e 0 duvidosa — desta vez conferido
+pelo `.mo` carregado, string por string. `tests/test_publish.py` foi reescrito para o contrato novo:
+publicar não muda o conteúdo da biblioteca, a nota carrega a transcrição e aponta para a sessão, e
+o `.md` ao lado da gravação não é confundido com sessão na listagem.
+
+### Documentação
+`docs/armadilhas.md` **10.8** e **7.15**.
+
+---
+
 ## 2026-08-16 — o áudio voltou a se apagar, o Obsidian virou escolha, e a biblioteca se limpa
 
 ### O quê

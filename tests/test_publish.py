@@ -1,7 +1,11 @@
-"""Publishing a meeting: text and note reaching the user's own folder.
+"""Sending an approved recording to the vault.
 
-Audio is not part of this any more — the session deletes the WAV as soon as the transcription is
-on disk, so what publishing owes the user is the text, the note, and never losing either.
+Publishing writes **one** thing: the note. It used to also copy the transcript into a folder of
+its own inside the library, which duplicated text the session JSON already held and — worse —
+left a folder the retention sweep could never reach, because it is not shaped like a date. See
+docs/armadilhas.md 10.8.
+
+Audio never gets here: the session deletes the WAV the moment the transcription is on disk.
 """
 
 from __future__ import annotations
@@ -26,43 +30,55 @@ def cfg(tmp_path: Path) -> cfgmod.Config:
     return c
 
 
-def make_sessions(tmp_path: Path) -> Path:
-    """Where the session's files live: one folder for all of them, one file per session."""
-    folder = tmp_path / "sessions"
+def session_day(cfg: cfgmod.Config) -> Path:
+    """Where a session lives now: `<biblioteca>/2026/08/15`, filed by date."""
+    folder = cfg.library_dir() / "2026" / "08" / "15"
     folder.mkdir(parents=True, exist_ok=True)
+    (folder / "14-30-00.json").write_text("{}", encoding="utf-8")
     return folder
 
 
-def test_transcript_lands_in_the_library_folder(tmp_path, cfg):
-    sessions = make_sessions(tmp_path)
-    result = publish.publish_meeting(sessions, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
+def test_publishing_writes_the_note_and_nothing_else(tmp_path, cfg):
+    """The library gains no folder: the session is already in it, and a second copy of the text
+    is one more thing to keep in sync and one the sweep cannot clean."""
+    day = session_day(cfg)
+    before = sorted(p.name for p in cfg.library_dir().iterdir())
 
-    assert result.folder.parent == cfg.library_dir()
-    assert "orcamento" in result.folder.name
-    assert result.transcript.exists()
-    body = result.transcript.read_text(encoding="utf-8")
-    assert TEXT in body
-    assert "15/08/2026" in body
+    result = publish.publish_meeting(day, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
+
+    assert sorted(p.name for p in cfg.library_dir().iterdir()) == before
+    assert result.folder == day
+    assert result.note is not None and result.note.exists()
+
+
+def test_the_note_points_at_the_session_on_disk(tmp_path, cfg):
+    (tmp_path / "notas" / "trabalho").mkdir(parents=True)
+    day = session_day(cfg)
+
+    result = publish.publish_meeting(day, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
+
+    body = result.note.read_text(encoding="utf-8")
+    assert TEXT in body, "a transcrição tem que estar na nota, é o único lugar agora"
+    assert day.name in body
 
 
 def test_publishing_never_touches_the_audio(tmp_path, cfg):
     """Deleting the WAV is the session's decision, taken the moment the text reached disk. If one
     is still here it is because there was nothing to replace it, and publishing must not take it."""
-    sessions = make_sessions(tmp_path)
-    wav = sessions / "2026-08-15_143000_meeting.wav"
+    day = session_day(cfg)
+    wav = day / "14-30-00.wav"
     wav.write_bytes(b"RIFF" + b"\0" * 4000)
 
-    result = publish.publish_meeting(sessions, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
+    publish.publish_meeting(day, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
 
     assert wav.is_file(), "publicar mexeu no áudio da sessão"
-    assert list(result.folder.glob("*.wav")) == [], "só o texto vai para a biblioteca"
-    assert list(result.folder.glob("*.opus")) == []
 
 
 def test_note_goes_to_the_vault_when_it_exists(tmp_path, cfg):
     (tmp_path / "notas" / "trabalho").mkdir(parents=True)
-    sessions = make_sessions(tmp_path)
-    result = publish.publish_meeting(sessions, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
+    day = session_day(cfg)
+
+    result = publish.publish_meeting(day, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
 
     assert result.note_in_vault
     assert result.note is not None
@@ -70,77 +86,56 @@ def test_note_goes_to_the_vault_when_it_exists(tmp_path, cfg):
     assert not result.warnings
 
 
-def test_a_missing_vault_is_not_created_and_the_meeting_still_lands(tmp_path, cfg):
-    """The `reuniao` skill's rule: do not create the vault. Losing the meeting over it would be
-    a far worse answer than putting the note beside the transcript and saying so."""
-    sessions = make_sessions(tmp_path)
-    result = publish.publish_meeting(sessions, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
+def test_a_missing_vault_is_not_created_and_the_note_still_lands(tmp_path, cfg):
+    """The `reuniao` skill's rule: do not create the vault. Losing the note over it would be a far
+    worse answer than putting it beside the recording and saying so."""
+    day = session_day(cfg)
+
+    result = publish.publish_meeting(day, TEXT, 90.0, STARTED, cfg, subject="Orçamento")
 
     assert not (tmp_path / "notas").exists()
     assert not result.note_in_vault
     assert result.note is not None and result.note.exists()
+    assert result.note.parent == day, "a nota fica junto da sessão que ela descreve"
     assert result.warnings and "vault" in result.warnings[0]
-    assert result.transcript.exists(), "a ressalva na nota não pode custar a transcrição"
 
 
-def test_two_meetings_with_the_same_subject_do_not_collide(tmp_path, cfg):
-    sessions = make_sessions(tmp_path)
-    first = publish.publish_meeting(sessions, TEXT, 60.0, STARTED, cfg, "Diária")
-    second = publish.publish_meeting(sessions, TEXT, 60.0, STARTED, cfg, "Diária")
+def test_two_recordings_with_the_same_subject_do_not_collide(tmp_path, cfg):
+    (tmp_path / "notas" / "trabalho").mkdir(parents=True)
+    day = session_day(cfg)
 
-    assert first.folder != second.folder
-    assert first.transcript.exists() and second.transcript.exists()
+    first = publish.publish_meeting(day, TEXT, 60.0, STARTED, cfg, "Diária")
+    second = publish.publish_meeting(day, TEXT, 60.0, STARTED, cfg, "Diária")
 
-
-def test_an_unwritable_library_falls_back_to_the_session_space(tmp_path, cfg, monkeypatch):
-    """The library is the user's own path and can be anywhere, including somewhere unwritable.
-    A meeting is not thrown away over a bad setting."""
-    sessions = make_sessions(tmp_path)
-    real_mkdir = Path.mkdir
-
-    def refuse(self: Path, *args, **kwargs):
-        if self == cfg.library_dir() or cfg.library_dir() in self.parents:
-            raise OSError("permissão negada")
-        return real_mkdir(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "mkdir", refuse)
-    result = publish.publish_meeting(sessions, TEXT, 60.0, STARTED, cfg, "Orçamento")
-
-    assert result.folder.parent == sessions
-    assert result.transcript.exists()
-    assert TEXT in result.transcript.read_text(encoding="utf-8")
-    assert result.warnings
+    assert first.note != second.note
+    assert first.note.exists() and second.note.exists()
 
 
-def test_the_fallback_folder_is_not_mistaken_for_a_session(tmp_path, cfg, monkeypatch):
-    """It sits among the session files, so the listing has to tell a published meeting from a
-    recording — otherwise the app offers to «recuperar» a meeting that was already saved."""
+def test_the_note_beside_the_session_is_not_mistaken_for_a_recording(tmp_path, cfg):
+    """It lands in the date folder, so the listing has to tell a note from a session — otherwise
+    the app offers to «recuperar» something that was already saved."""
     from dito.core import library
 
-    sessions = make_sessions(tmp_path)
-    real_mkdir = Path.mkdir
+    day = session_day(cfg)
+    (day / "14-30-00.json").unlink()
 
-    def refuse(self: Path, *args, **kwargs):
-        if self == cfg.library_dir() or cfg.library_dir() in self.parents:
-            raise OSError("permissão negada")
-        return real_mkdir(self, *args, **kwargs)
+    publish.publish_meeting(day, TEXT, 60.0, STARTED, cfg, "Orçamento")
 
-    monkeypatch.setattr(Path, "mkdir", refuse)
-    publish.publish_meeting(sessions, TEXT, 60.0, STARTED, cfg, "Orçamento")
-
-    assert library.list_sessions(sessions) == []
+    assert library.list_sessions(cfg.library_dir()) == []
 
 
-def test_subject_cannot_escape_the_library_folder(tmp_path, cfg):
-    sessions = make_sessions(tmp_path)
-    result = publish.publish_meeting(sessions, TEXT, 60.0, STARTED, cfg, "../../etc/passwd")
+def test_a_subject_cannot_escape_the_vault_folder(tmp_path, cfg):
+    (tmp_path / "notas" / "trabalho").mkdir(parents=True)
+    day = session_day(cfg)
 
-    assert cfg.library_dir() in result.folder.parents or result.folder.parent == cfg.library_dir()
+    result = publish.publish_meeting(day, TEXT, 60.0, STARTED, cfg, "../../etc/passwd")
+
+    assert result.note.parent == tmp_path / "notas" / "trabalho"
 
 
 def test_message_prefers_the_warning_over_the_happy_path():
     """Silence about a problem is what this whole project exists to prevent."""
-    quiet = publish.Published(Path("/tmp"), Path("/tmp/t.md"), None, False, ())
-    loud = publish.Published(Path("/tmp"), Path("/tmp/t.md"), None, False, ("deu ruim",))
-    assert quiet.message == "meeting saved"
+    quiet = publish.Published(Path("/tmp"), Path("/tmp/n.md"), False, ())
+    loud = publish.Published(Path("/tmp"), Path("/tmp/n.md"), False, ("deu ruim",))
+    assert quiet.message == "recording saved"
     assert loud.message == "deu ruim"
