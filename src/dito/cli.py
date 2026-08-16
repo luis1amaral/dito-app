@@ -341,7 +341,7 @@ def _listen_headless(args: argparse.Namespace) -> int:
             if outcome.message:
                 print(f"  {_paint(outcome.message, WARN)}")
                 # The audio is gone by now; what recovers the text is the session file.
-                print(f"  {_paint(str(paths.session_file(result.session_id)), DIM)}")
+                print(f"  {_paint(str(session.meta_path), DIM)}")
 
     manager = HotkeyManager(
         on_start=begin, on_stop=end, grab=cfg.hotkeys.grab,

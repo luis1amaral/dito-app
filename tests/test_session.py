@@ -377,18 +377,32 @@ def test_preflight_does_not_probe_the_default_device(monkeypatch):
 # ---- one file per session, and the audio that goes with the text ------------------------
 
 
-def test_a_session_is_one_file_beside_its_audio(cfg, tmp_path):
-    """115 MB/h was the complaint; a folder per recording was the other half of the mess."""
+def test_a_session_is_one_file_filed_by_date_in_the_library(cfg):
+    """Recordings live where a person can find them: `~/Documentos/Dito/2026/08/16/07-42-13.json`,
+    and the name is the second it started, so two of them can never collide."""
     session, _ = make(cfg)
+    started = session.started
     assert session.start().ok
     try:
-        root = tmp_path / "sessions"
-        assert session.meta_path == root / f"{session.session_id}.json"
-        assert session.wav_path == root / f"{session.session_id}.wav"
+        day = cfg.library_dir() / f"{started:%Y}" / f"{started:%m}" / f"{started:%d}"
+        assert session.meta_path.parent == day
+        assert session.meta_path.name == f"{started:%H-%M-%S}.json"
+        assert session.wav_path == day / f"{started:%H-%M-%S}.wav"
         assert session.meta_path.is_file() and session.wav_path.is_file()
-        assert [p for p in root.iterdir() if p.is_dir()] == [], "criou pasta para a sessão"
+        assert [p for p in day.iterdir() if p.is_dir()] == [], "criou pasta para a sessão"
     finally:
         session.stop()
+
+
+def test_two_recordings_started_in_the_same_second_do_not_overwrite(cfg):
+    """F9 and F10 can be pressed within the same second, and the loser would lose everything."""
+    first, _ = make(cfg)
+    assert first.start().ok
+    try:
+        second, _ = make(cfg)
+        assert second.meta_path != first.meta_path
+    finally:
+        first.stop()
 
 
 def test_the_audio_goes_the_moment_the_dictation_is_transcribed(cfg):

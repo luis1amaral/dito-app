@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import config as cfgmod
+from .. import paths
 from ..core import library
 from ..i18n import _
 from .settings_page import SettingsPage
@@ -175,7 +176,8 @@ class SessionsPage(QWidget):
 
     def reload(self) -> None:
         self._list.clear()
-        sessions = library.list_sessions()
+        # Both roots: recordings live in the library now, and the ones from before still do not.
+        sessions = library.list_sessions(self.cfg.library_dir(), paths.sessions_dir())
 
         self._empty.setVisible(not sessions)
         self._list.setVisible(bool(sessions))
@@ -187,7 +189,7 @@ class SessionsPage(QWidget):
             self._list.addItem(item)
             self._list.setItemWidget(item, row)
 
-        total = library.total_size()
+        total = sum(s.size_bytes for s in sessions)
         broken = [s for s in sessions if not s.done]
         parts = [_("{count} recordings").format(count=len(sessions)), _human_size(total)]
         if broken:

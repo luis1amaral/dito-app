@@ -82,13 +82,14 @@ class Session:
         self.emit = emit
         self._log = on_log or (lambda _m: None)
 
-        stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        self.session_id = f"{stamp}_{mode.value}"
-        # One file per session: `folder` is only the directory those files share.
-        self.folder = paths.sessions_dir()
-        self.wav_path = paths.session_audio(self.session_id)
-        self.transcript_path = paths.session_partials(self.session_id)
-        self.meta_path = paths.session_file(self.session_id)
+        # A session lives in the library, filed by date: `~/Documentos/Dito/2026/08/16/07-42-13`.
+        self.started = datetime.now()
+        self.folder = paths.session_dir(cfg.library_dir(), self.started)
+        stem = paths.free_stem(self.folder, paths.session_stem(self.started))
+        self.session_id = f"{self.started:%Y-%m-%d}_{stem}"
+        self.wav_path = self.folder / f"{stem}{paths.AUDIO_SUFFIX}"
+        self.transcript_path = self.folder / f"{stem}{paths.PARTIALS_SUFFIX}"
+        self.meta_path = self.folder / f"{stem}{paths.SESSION_SUFFIX}"
 
         self._capture: Capture | None = None
         self._writer: WavWriter | None = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 APP = "dito"
@@ -45,19 +46,23 @@ def sessions_dir() -> Path:
     return data_dir() / "sessions"
 
 
-def session_file(session_id: str) -> Path:
-    """`2026-08-15_223322_dictation.json` — the name carries date, time and mode, no subfolder."""
-    return sessions_dir() / f"{session_id}{SESSION_SUFFIX}"
+def session_dir(root: Path, started: datetime) -> Path:
+    """`<root>/2026/08/16`: a year of dictation has to stay findable by hand, by anyone."""
+    return root / f"{started:%Y}" / f"{started:%m}" / f"{started:%d}"
 
 
-def session_audio(session_id: str) -> Path:
-    """The safety net while recording; it goes as soon as the transcription is on disk."""
-    return sessions_dir() / f"{session_id}{AUDIO_SUFFIX}"
+def session_stem(started: datetime) -> str:
+    """`07-42-13` — the second the recording began, which is what makes the name unique."""
+    return f"{started:%H-%M-%S}"
 
 
-def session_partials(session_id: str) -> Path:
-    """A meeting's chunks as they land; deleted once the final JSON carries the whole text."""
-    return sessions_dir() / f"{session_id}{PARTIALS_SUFFIX}"
+def free_stem(folder: Path, stem: str) -> str:
+    """Two keys pressed in the same second must not overwrite each other, so the second gets -2."""
+    candidate, n = stem, 1
+    while (folder / f"{candidate}{SESSION_SUFFIX}").exists():
+        n += 1
+        candidate = f"{stem}-{n}"
+    return candidate
 
 
 def selftest_audio() -> Path:

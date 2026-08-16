@@ -54,26 +54,41 @@ class SessionInfo:
         return self.state == DONE
 
 
-def list_sessions(root: Path | None = None) -> list[SessionInfo]:
-    """Newest first, both layouts. What cannot be read is listed as `unknown`, never skipped."""
-    root = root or paths.sessions_dir()
-    try:
-        with os.scandir(root) as entries:
-            found = [(Path(e.path), e.is_dir(follow_symlinks=False)) for e in entries]
-    except OSError:
-        return []
-
-    stems = {p.stem for p, is_dir in found if not is_dir and p.suffix in SESSION_SUFFIXES}
-    sessions = [_read_files(root, stem) for stem in stems]
-    sessions += [_read_folder(p) for p, is_dir in found if is_dir and _is_legacy_session(p)]
+def list_sessions(*roots: Path) -> list[SessionInfo]:
+    """Newest first, every layout. What cannot be read is listed as `unknown`, never skipped."""
+    sessions: list[SessionInfo] = []
+    seen: set[Path] = set()
+    for base in roots or (paths.sessions_dir(),):
+        for session in _scan(base):
+            if session.path not in seen:
+                seen.add(session.path)
+                sessions.append(session)
 
     sessions.sort(key=lambda s: (s.started or datetime.min, s.id), reverse=True)
     return sessions
 
 
-def recoverable(root: Path | None = None) -> list[SessionInfo]:
+def _scan(base: Path) -> list[SessionInfo]:
+    """Walks the tree: sessions are filed under `<root>/2026/08/16`, not in one flat folder."""
+    found: list[SessionInfo] = []
+    stems: set[tuple[Path, str]] = set()
+    for folder, subdirs, files in os.walk(base):
+        here = Path(folder)
+        if _is_legacy_session(here):
+            # A pre-2026-08 session is a leaf; whatever sits inside it is its own files, not
+            # another recording, and descending would list the same session twice.
+            subdirs[:] = []
+            found.append(_read_folder(here))
+            continue
+        for name in files:
+            if Path(name).suffix in SESSION_SUFFIXES:
+                stems.add((here, Path(name).stem))
+    return found + [_read_files(folder, stem) for folder, stem in stems]
+
+
+def recoverable(*roots: Path) -> list[SessionInfo]:
     """Everything that did not reach `done` — what the app offers to retry after a crash."""
-    return [s for s in list_sessions(root) if not s.done]
+    return [s for s in list_sessions(*roots) if not s.done]
 
 
 def open_folder(path: Path | str) -> bool:
@@ -93,8 +108,8 @@ def open_folder(path: Path | str) -> bool:
     return True
 
 
-def total_size(root: Path | None = None) -> int:
-    return sum(s.size_bytes for s in list_sessions(root))
+def total_size(*roots: Path) -> int:
+    return sum(s.size_bytes for s in list_sessions(*roots))
 
 
 # ---- reading one session ----------------------------------------------------------------------
@@ -108,6 +123,7 @@ def _read_files(root: Path, stem: str) -> SessionInfo:
 
     meta = _load_meta(meta_path)
     stamp, mode_from_name = _from_name(stem)
+    stamp = stamp or _from_path(root, stem)
 
     seconds = _as_float(meta.get("seconds"))
     if seconds <= 0:
@@ -176,6 +192,17 @@ def _from_name(name: str) -> tuple[datetime | None, str]:
     except ValueError:
         when = None
     return when, mode if mode in (MODE_DICTATION, MODE_MEETING) else UNKNOWN
+
+
+def _from_path(folder: Path, stem: str) -> datetime | None:
+    """`…/2026/08/16` plus `07-42-13`: the date survives a JSON that does not."""
+    parts = folder.parts[-3:]
+    if len(parts) < 3:
+        return None
+    try:
+        return datetime.strptime("-".join(parts) + "_" + stem[:8], "%Y-%m-%d_%H-%M-%S")
+    except ValueError:
+        return None
 
 
 def _parse_started(value: Any) -> datetime | None:

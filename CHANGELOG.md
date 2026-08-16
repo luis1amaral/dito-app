@@ -1,5 +1,38 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — as gravações mudaram de casa: `~/Documentos/Dito`, por ano/mês/dia
+
+### O quê
+1. Uma sessão passa a morar em **`~/Documentos/Dito/2026/08/16/07-42-13.json`**, com o `.wav` e os
+   parciais ao lado, mesmo nome. Antes era `~/.local/share/dito/sessions/` num diretório plano.
+2. O nome é o **segundo** em que a gravação começou. Duas na mesma segunda (F9 e F10 juntos) ganham
+   `-2`, nunca sobrescrevem.
+3. A tela de transcrições varre a árvore inteira e lê **as duas raízes** — nada do que já existia
+   sai da lista.
+4. A data sobrevive a um JSON corrompido: ela é recuperável de `…/2026/08/16` + `07-42-13`.
+
+### Por quê
+Pedido do dono: a gravação tem que estar numa pasta comum, em Documentos, para ele — ou qualquer
+programa — pegar e usar como contexto sem saber nada do Dito. `~/.local/share` é o lugar certo para
+estado de aplicativo e o lugar errado para o produto do trabalho de alguém.
+
+### A barreira que faltava
+Ao mover, a suíte escreveu **38 arquivos de teste dentro do `~/Documentos/Dito` real**, ao lado de
+uma gravação de verdade. Foi a segunda vez que a suíte tocou nos arquivos do dono (a primeira foi o
+`config.toml`, em 7.13). As duas vezes o efeito era invisível para a fixture, porque o caminho é
+resolvido a partir do `$HOME` lá no fundo do código.
+
+Agora existe `tests/conftest.py`: `$HOME` e todos os `XDG_*` apontam para um diretório temporário
+durante a suíte inteira, e a raiz da biblioteca é fixada por teste. `XAUTHORITY` fica de fora de
+propósito — os testes de X11 falam com um servidor X de verdade.
+
+### Como foi verificado
+261 testes verdes, `ruff` limpo. Conferido depois de rodar: `~/Documentos/Dito` continua com **1**
+arquivo (a gravação real) e o `config.toml` está com o mtime de antes. Prova manual dos dois
+formatos convivendo, e de um JSON corrompido ainda mostrando a data certa.
+
+---
+
 ## 2026-08-16 — o alarme de uma gravação que nunca começou ficava na tela para sempre
 
 ### O quê

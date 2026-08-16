@@ -37,10 +37,20 @@ Daí as duas garantias do Dito:
 As teclas são trocadas na tela, sem reiniciar. Ao parar uma reunião, ele pergunta o assunto e
 salva o texto em `~/Documentos/Dito`, mais uma nota no cofre do Obsidian.
 
+**Onde ficam as gravações.** Em `~/Documentos/Dito`, arquivadas por data, com o horário no nome:
+
+```
+~/Documentos/Dito/2026/08/16/07-42-13.json
+```
+
+É pasta comum, em Documentos, para você — ou qualquer programa — pegar e usar como contexto sem
+saber nada do Dito. O nome é o **segundo** em que a gravação começou, então dois arquivos nunca
+colidem.
+
 **O áudio não é guardado.** Ele vai para o disco enquanto você fala — é o que salva a gravação se
 o app morrer no meio — e é apagado assim que a transcrição está gravada e conferida. Só sobrevive
 quando a transcrição falha ou quando nada foi captado, que é justamente quando há o que recuperar.
-Uma sessão terminada ocupa **238 bytes**: um arquivo JSON solto, com a data no nome.
+Uma sessão terminada ocupa **238 bytes**.
 
 ## Comandos
 
