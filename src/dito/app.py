@@ -155,10 +155,32 @@ class DitoApp:
             self._shutdown()
 
     def _shutdown(self) -> None:
+        """Quitting must not throw away a recording in progress.
+
+        This used to `clear()` the session dictionary without calling stop() on anything, so
+        quitting from the tray during a forty-minute meeting lost the whole thing: no transcript,
+        no publish, session.json frozen at "recording". Now every live session is finished
+        properly first, and only then does the rest come down.
+        """
+        with self._sessions_lock:
+            live = list(self._sessions.values())
+            self._sessions.clear()
+
+        for session in live:
+            try:
+                print("[saindo] finalizando a gravação em andamento…", flush=True)
+                result = session.stop()
+                if isinstance(result, ev.Finished) and result.mode == MEETING and result.text:
+                    started = datetime.now() - timedelta(seconds=result.seconds)
+                    publish.publish_meeting(
+                        Path(result.folder), result.text, result.seconds, started,
+                        self.cfg, f"reuniao-{started:%H%M}",
+                    )
+            except Exception as exc:
+                self._log_error(f"ao finalizar a gravação: {type(exc).__name__}: {exc}")
+
         self.hotkeys.stop()
         self.control.stop()
-        with self._sessions_lock:
-            self._sessions.clear()
 
     def _quit(self) -> None:
         self._shutdown()
@@ -184,9 +206,25 @@ class DitoApp:
                 return
             self._sessions[name] = session
 
-        if not session.start().ok:
+        # start() must not be able to leave a ghost behind. It was unprotected, and an OSError
+        # from the WavWriter (full disk, unwritable folder) propagated into the pynput thread
+        # leaving the entry in place — after which every later press hit the "already recording"
+        # guard and the key never worked again, with nothing on screen to say why.
+        try:
+            ok = session.start().ok
+        except Exception as exc:
+            ok = False
+            self._log_error(f"não consegui começar a gravar: {type(exc).__name__}: {exc}")
+            self.bridge.event.emit(
+                ev.Failed(session.session_id, f"não consegui começar a gravar: {exc}",
+                          str(session.folder))
+            )
+        if not ok:
             with self._sessions_lock:
                 self._sessions.pop(name, None)
+
+    def _log_error(self, message: str) -> None:
+        print(f"[erro] {message}", flush=True)
 
     def _end(self, name: str) -> None:
         with self._sessions_lock:

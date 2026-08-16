@@ -190,6 +190,8 @@ class HotkeyManager:
         self._state: KeyState | None = None
         self._grabber: KeyGrabber | None = None
         self._lock = threading.Lock()
+        self._watcher: threading.Thread | None = None
+        self._shutting_down = False
 
     # ---- bindings -------------------------------------------------------------------
 
@@ -212,6 +214,7 @@ class HotkeyManager:
     def start(self) -> None:
         from pynput import keyboard
 
+        self._shutting_down = False
         self._state = KeyState()
         self._apply_grabs()
 
@@ -225,6 +228,14 @@ class HotkeyManager:
         self._listener.start()
 
     def stop(self) -> None:
+        """Order matters. Closing the X connection while the hold watcher is mid-`query_keymap`
+        raises ConnectionClosedError inside that thread, so `on_stop` never fires and a recording
+        in progress is simply abandoned. The watcher is told to finish, and waited for, first."""
+        self._shutting_down = True
+        watcher, self._watcher = self._watcher, None
+        if watcher is not None and watcher.is_alive():
+            watcher.join(timeout=GRACE_S + 1.0)
+
         if self._listener is not None:
             self._listener.stop()
             self._listener = None
@@ -302,9 +313,10 @@ class HotkeyManager:
             self._watching = True
 
         self.on_start(binding.name)
-        threading.Thread(
+        self._watcher = threading.Thread(
             target=self._watch_hold, args=(binding,), daemon=True, name="dito-hold"
-        ).start()
+        )
+        self._watcher.start()
 
     def _watch_hold(self, binding: Binding) -> None:
         """Finish only when the key has been PHYSICALLY up for GRACE_S continuously.
@@ -321,6 +333,9 @@ class HotkeyManager:
             while True:
                 if self._active != binding.name:
                     return
+                if self._shutting_down:
+                    # Quitting mid-hold: finish the recording rather than abandoning it.
+                    break
                 now = time.monotonic()
                 if state.is_down(binding.key):
                     if up_since is not None and now - up_since > 0.05:

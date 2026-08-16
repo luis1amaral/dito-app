@@ -90,9 +90,18 @@ class WavWriter:
         self._fh.write(data)
         self._bytes += len(data)
 
+        # Sizes are patched on EVERY block, not on the fsync interval. Patching only every five
+        # seconds meant any recording shorter than that still had RIFF=0/data=0 on disk, so a
+        # kill -9 four seconds in produced a file no player would open — and a dictation is
+        # typically two to five seconds long, which made the guarantee false for the common case.
+        # The cost is two four-byte writes into the page cache; fsync is what is expensive, and
+        # that stays on the interval.
+        self._patch_sizes()
+        self._fh.flush()
+
         now = time.monotonic()
         if now - self._last_fsync >= self.fsync_every_s:
-            self.flush(fsync=True)
+            os.fsync(self._fh.fileno())
             self._last_fsync = now
 
     def _patch_sizes(self) -> None:
