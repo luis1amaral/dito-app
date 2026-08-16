@@ -15,11 +15,17 @@ running, a second process took the same lock without complaint.
 
 from __future__ import annotations
 
+import os
 import socket
 
 import pytest
 
 from dito.platform.linux_x11 import instance
+
+# A name of our own: the real one may be held by a Dito that is actually running, and a test that
+# goes red because the application is working is worse than no test. The frozen-name test below
+# still checks the real constant.
+TEST_LOCK = f"dito-test-{os.getpid()}"
 
 
 def test_the_lock_name_is_frozen():
@@ -29,18 +35,18 @@ def test_the_lock_name_is_frozen():
 
 
 def test_a_second_claim_is_refused_while_the_first_is_held():
-    first = instance.claim()
+    first = instance.claim(TEST_LOCK)
     try:
         with pytest.raises(instance.AlreadyRunning):
-            instance.claim()
+            instance.claim(TEST_LOCK)
     finally:
         first.close()
 
 
 def test_the_lock_is_released_when_the_holder_closes_it():
-    first = instance.claim()
+    first = instance.claim(TEST_LOCK)
     first.close()
-    second = instance.claim()          # must not raise
+    second = instance.claim(TEST_LOCK)   # must not raise
     second.close()
 
 
@@ -48,7 +54,7 @@ def test_holding_the_lock_requires_keeping_the_socket_alive():
     """The exact bug in the previous version: the returned socket was discarded, refcounting
     closed it, and the lock evaporated. This asserts the mechanism really depends on the caller
     holding on — so anyone who 'cleans up' the assignment sees this fail."""
-    lock = instance.claim()
+    lock = instance.claim(TEST_LOCK)
     held_name = lock.getsockname()
     assert held_name  # bound
 
@@ -60,7 +66,7 @@ def test_holding_the_lock_requires_keeping_the_socket_alive():
     # With nothing holding it, the name is free again — which is why DitoApp keeps it in a field.
     probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        probe.bind("\0" + instance.LEGACY_LOCK_NAME)
+        probe.bind("\0" + TEST_LOCK)
     finally:
         probe.close()
 

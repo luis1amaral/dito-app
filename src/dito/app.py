@@ -30,12 +30,14 @@ from .core import publish
 from .core.session import Mode, Session
 from .output import paste as paster
 from .platform.linux_x11 import audio_system, instance, notify
+from .platform.linux_x11.focus import FocusBroker
 from .platform.linux_x11.hotkeys import HotkeyManager
 from .platform.linux_x11.hotkeys import Mode as KeyMode
 from .stt.engine import WhisperEngine
 from .ui import theme
 from .ui.icons import app_icon
 from .ui.overlay import Overlay
+from .ui.review import ReviewCard
 from .ui.tray import Tray
 from .ui.window import MainWindow
 
@@ -62,6 +64,7 @@ class DitoApp:
         self._paused = False
         self._alarm_ringing = False
         self._last_alarm_sound = 0.0
+        self._pending: ev.Finished | None = None
 
     # ---- lifecycle -------------------------------------------------------------------
 
@@ -94,6 +97,14 @@ class DitoApp:
 
         self.overlay = Overlay(self.palette)
         self.overlay.fix_requested.connect(self._fix_audio)
+
+        # The review card takes focus (you type in it) and must give it back before pasting.
+        # The broker keeps every X round-trip off the UI thread — a round-trip there is what
+        # froze the badge in the previous version.
+        self.focus = FocusBroker()
+        self.review = ReviewCard(self.palette, focus_broker=self.focus)
+        self.review.send.connect(self._review_sent)
+        self.review.discard.connect(self._review_discarded)
 
         self.engine = WhisperEngine(
             model=self.cfg.stt.model,
@@ -194,16 +205,24 @@ class DitoApp:
             # A meeting is written to a file, never pasted: dumping an hour of transcript into
             # whatever field happens to have focus would be a small catastrophe.
             return
-        if result.text and self.cfg.output.paste:
-            outcome = paster.paste(
-                result.text,
-                send_enter=self.cfg.output.enter,
-                restore_clipboard=self.cfg.output.restore_clipboard,
-            )
-            if outcome.message:
-                self.bridge.event.emit(
-                    ev.Failed(result.session_id, outcome.message, result.folder)
-                )
+        if not result.text:
+            return
+        if self.cfg.output.confirm:
+            # The review card owns the paste from here: it has to hand focus back to the window
+            # the user was typing in first, or the text lands in the card itself.
+            self._pending = result
+            return
+        if self.cfg.output.paste:
+            self._paste_now(result.text, result.session_id, result.folder)
+
+    def _paste_now(self, text: str, session_id: str, folder: str) -> None:
+        outcome = paster.paste(
+            text,
+            send_enter=self.cfg.output.enter,
+            restore_clipboard=self.cfg.output.restore_clipboard,
+        )
+        if outcome.message:
+            self.bridge.event.emit(ev.Failed(session_id, outcome.message, folder))
 
     # ---- events (Qt thread) ----------------------------------------------------------
 
@@ -278,6 +297,9 @@ class DitoApp:
             self.tray.set_last_text(event.text)
             if event.mode == MEETING:
                 self._publish_meeting(event)
+            elif self.cfg.output.confirm:
+                self.overlay.dismiss()
+                self.review.present(event.text)
             else:
                 self.overlay.dismiss()
         elif not event.ever_heard_audio:
@@ -341,6 +363,31 @@ class DitoApp:
             notify.notify("Dito — reunião salva", f"{detail}\n{event.folder}")
         if self._window is not None and self._window.isVisible():
             self._window.sessions.reload()
+
+    # ---- review card -----------------------------------------------------------------
+
+    def _review_sent(self, text: str) -> None:
+        pending, self._pending = self._pending, None
+        self._last_text = text
+        self.tray.set_last_text(text)
+        if not self.cfg.output.paste:
+            return
+
+        def work() -> None:
+            # Focus went back a moment ago and X takes a beat to settle; pasting immediately can
+            # land the Ctrl+V in the window that is on its way out.
+            time.sleep(0.15)
+            self._paste_now(
+                text,
+                pending.session_id if pending else "",
+                pending.folder if pending else "",
+            )
+
+        threading.Thread(target=work, daemon=True, name="dito-paste").start()
+
+    def _review_discarded(self) -> None:
+        self._pending = None
+        self.overlay.show_toast("Descartado", ms=1200)
 
     # ---- actions ---------------------------------------------------------------------
 

@@ -41,12 +41,17 @@ class AlreadyRunning(RuntimeError):
     pass
 
 
-def claim() -> socket.socket:
+def claim(name: str = LEGACY_LOCK_NAME) -> socket.socket:
     """Take the exclusion lock, or raise. The returned socket must stay alive for the whole
-    process: closing it releases the lock."""
+    process: closing it releases the lock.
+
+    `name` exists so the tests can exercise the mechanism under their own name. Without it they
+    would fight the running daemon for the real lock and fail — a test that goes red because the
+    application is working is worse than no test.
+    """
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        sock.bind("\0" + LEGACY_LOCK_NAME)
+        sock.bind("\0" + name)
     except OSError as exc:
         sock.close()
         raise AlreadyRunning(
