@@ -11,9 +11,9 @@
        apart from `recording` by SHAPE alone, without relying on colour. The level meter appears
        only when there is a level to show. -->
   <path d="M 6.5 3.5 H 15 A 5.5 5.5 0 0 1 15 14.5 H 8.5 L 3.5 20.5 V 6.5 A 3 3 0 0 1 6.5 3.5 Z"
-        fill="none" stroke="#f7f7f9" stroke-width="4"
+        fill="none" stroke="#f7f7f9" stroke-width="3.4"
         stroke-linejoin="round" stroke-linecap="round"/>
   <path d="M 6.5 3.5 H 15 A 5.5 5.5 0 0 1 15 14.5 H 8.5 L 3.5 20.5 V 6.5 A 3 3 0 0 1 6.5 3.5 Z"
-        fill="none" stroke="#6b6b7a" stroke-width="2.5"
+        fill="none" stroke="#6b6b7a" stroke-width="2"
         stroke-linejoin="round" stroke-linecap="round"/>
 </svg>

@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
@@ -64,6 +65,27 @@ def tap(dsp, key_name: str, hold_s: float) -> None:
     time.sleep(hold_s)
     xtest.fake_input(dsp, X.KeyRelease, code)
     dsp.sync()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def exclusive_keyboard():
+    """Only one of these test runs may exist at a time, machine-wide.
+
+    XTest injects into the X server, not into a process, so two concurrent runs press each
+    other's keys and both fail — which happened for real, with a parallel agent running the same
+    suite. A test that fails for the wrong reason is worse than no test, so the second run waits
+    rather than producing a phantom failure.
+    """
+    import fcntl
+    import tempfile
+
+    path = Path(tempfile.gettempdir()) / "dito-x11-tests.lock"
+    with path.open("w") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 @pytest.fixture
