@@ -149,10 +149,17 @@ Novo-Atalho $Atalho (Join-Path $Scripts 'ditow.exe') 'ui' 'Dito — ditado por v
 if ($icone) { Ok 'Dito.lnk criado com o ícone do Dito' }
 else { Aviso 'Dito.lnk criado sem ícone próprio — rode: python tools/gen_icons.py' }
 
+# Sem esta propriedade no atalho, a notificação sai com o nome do interpretador ("Python"):
+# o id no processo sozinho não basta, o shell resolve nome e ícone por aqui.
+& (Join-Path $Scripts 'python.exe') (Join-Path $PSScriptRoot 'set_app_id.py') $Atalho 'com.defalt.dito' | Out-Null
+if ($LASTEXITCODE -eq 0) { Ok 'identidade do app registrada (a notificação diz Dito)' }
+else { Aviso 'não consegui registrar a identidade — a notificação pode sair como Python' }
+
 Passo 'Iniciar com o Windows'
 if ($ComWindows) {
     # `listen` and not `ui`: at login only the tray icon may appear, never a window.
     Novo-Atalho $Startup (Join-Path $Scripts 'ditow.exe') 'listen' 'Dito — ditado por voz' $icone
+    & (Join-Path $Scripts 'python.exe') (Join-Path $PSScriptRoot 'set_app_id.py') $Startup 'com.defalt.dito' | Out-Null
     Ok 'ligado — sobe calado, só o ícone da bandeja'
 } else {
     if (Test-Path $Startup) { Remove-Item $Startup -Force }
