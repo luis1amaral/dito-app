@@ -187,7 +187,7 @@ class Overlay(QWidget):
         painter.fillPath(path, fill)
 
         if self._state is HudState.QUIET:
-            painter.setPen(QColor(self._palette.alert))
+            painter.setPen(QColor(self._palette.hud_alert))
             painter.drawPath(path)
 
     # ---- placement and motion --------------------------------------------------------
@@ -233,11 +233,11 @@ class Overlay(QWidget):
         # On the alarm the foreground is fixed white, not `text_inverse`: that token flips with
         # the theme, so in dark mode the dot came out near-black on the red fill.
         dot = {
-            HudState.RECORDING: p.danger,
-            HudState.QUIET: p.alert,
+            HudState.RECORDING: p.hud_recording,
+            HudState.QUIET: p.hud_alert,
             HudState.DEAD: p.hud_text,
-            HudState.WORKING: p.alert,
-            HudState.TOAST: p.success,
+            HudState.WORKING: p.hud_alert,
+            HudState.TOAST: p.hud_ok,
         }.get(self._state, p.hud_muted)
 
         size = 10
@@ -288,7 +288,7 @@ class Overlay(QWidget):
         self._title.setText("Áudio muito baixo")
         self._detail.setText(reason)
         self._detail.show()
-        self._wave.set_color(self._palette.alert)
+        self._wave.set_color(self._palette.hud_alert)
         self._apply_colors()
         self._nudge()
 

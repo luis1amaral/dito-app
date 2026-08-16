@@ -67,10 +67,18 @@ class Palette:
     hud_surface: str
     hud_text: str
     hud_muted: str
-    # The alarm fill is NOT the theme's `danger`. The pill carries its own surface in both themes,
-    # and in the dark theme `danger` is a light red on which white text measures 2.77 — unreadable,
-    # in the one state the whole product exists for. Fixed here, measured at 5.18 against white.
+    # The pill's own accent set, fixed in both themes — none of these may be the theme token.
+    #
+    # The pill's surface is dark whichever theme the desktop is in, so anything painted on it has
+    # to be legible against a dark ground. Measured on #17171c, the light-theme tokens only just
+    # clear the 3.0 floor for a graphical object (danger 3.21, alert 3.02) and `primary` fails
+    # outright at 2.45. The dark-theme values sit at 6.45 / 10.04 / 5.46, so those are used in
+    # both. `hud_danger` is the inverse case: it is the alarm FILL, and white on the dark theme's
+    # light red measures 2.77 — unreadable in the one state this product exists for.
     hud_danger: str
+    hud_recording: str
+    hud_alert: str
+    hud_ok: str
 
 
 LIGHT = Palette(
@@ -98,6 +106,9 @@ LIGHT = Palette(
     hud_text="#f7f7f9",
     hud_muted="#a3a3b2",
     hud_danger="#d02a30",
+    hud_recording="#ff6b6f",
+    hud_alert="#f0b95c",
+    hud_ok="#4ecf8f",
 )
 
 DARK = Palette(
@@ -127,6 +138,9 @@ DARK = Palette(
     hud_text="#f7f7f9",
     hud_muted="#a3a3b2",
     hud_danger="#d02a30",
+    hud_recording="#ff6b6f",
+    hud_alert="#f0b95c",
+    hud_ok="#4ecf8f",
 )
 
 

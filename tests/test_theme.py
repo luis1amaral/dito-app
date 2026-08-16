@@ -92,11 +92,25 @@ def test_the_alarm_is_readable_on_the_red_fill(p: Palette):
 
 
 @pytest.mark.parametrize("p", THEMES)
-def test_the_alarm_fill_is_the_same_in_both_themes(p: Palette):
+def test_the_whole_pill_palette_is_the_same_in_both_themes(p: Palette):
     """The pill floats over arbitrary content, so it cannot inherit the desktop's theme and stay
-    legible. Its surface set is theme-independent by design."""
-    assert p.hud_danger == LIGHT.hud_danger == DARK.hud_danger
-    assert p.hud_surface == LIGHT.hud_surface == DARK.hud_surface
+    legible. Its entire colour set is theme-independent by design."""
+    for token in ("hud_surface", "hud_text", "hud_muted", "hud_danger",
+                  "hud_recording", "hud_alert", "hud_ok"):
+        assert getattr(p, token) == getattr(LIGHT, token) == getattr(DARK, token), token
+
+
+@pytest.mark.parametrize("p", THEMES)
+def test_every_accent_painted_on_the_pill_clears_the_graphical_floor(p: Palette):
+    """The pill's ground is dark in both themes, so a light-theme accent is the wrong value there.
+
+    Measured on #17171c, the theme tokens only scrape the 3.0 floor for a graphical object
+    (danger 3.21, alert 3.02) and `primary` fails outright at 2.45. The hud_* set uses the
+    dark-theme values in both themes, which measure 6.45 / 10.04 / 5.46. This test is what stops
+    someone reaching for `palette.danger` inside the overlay again."""
+    for token in ("hud_recording", "hud_alert", "hud_ok", "hud_text"):
+        ratio = contrast(getattr(p, token), p.hud_surface)
+        assert ratio >= CONTRAST_FLOOR["control_edge"], f"{token}: {ratio:.2f}"
 
 
 def _hue(hex_color: str) -> float:
