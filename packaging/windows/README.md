@@ -6,26 +6,44 @@ custar de novo se forem ignoradas.
 
 ## Estado real, hoje
 
+Conferido em 16/08/2026, na versão 0.2.1, com 256 testes verdes.
+
 | | |
 |---|---|
-| `src/dito/platform/windows/__init__.py` | existe e está **vazio** (0 bytes) — nada portado |
-| `src/dito/platform/linux_x11/` | atalhos, `pactl`, `amixer` — tudo específico de Linux |
+| `src/dito/platform/__init__.py` | **vazio (0 bytes)** — não existe despacho por plataforma, e é o primeiro trabalho |
+| `src/dito/platform/windows/instance.py` | 32 linhas: mutex nomeado **escrito, nunca executado em Windows** |
+| `src/dito/platform/windows/cuda_dlls.py` | 33 linhas: **escrito, nunca executado em Windows** |
+| `src/dito/platform/linux_x11/` | 762 linhas — atalhos, `pactl`, `amixer`, socket de controle |
+| `src/dito/paths.py` | **100% XDG** — precisa de ramo por plataforma |
 | `stt/engine.py` | **já se protege**: o `malloc_trim(0)` do unload é pulado quando `sys.platform == "win32"` |
 | `pyproject.toml` | **já se protege**: `python-xlib` só é dependência fora do `win32` |
-| Trava de instância única | **não existe ainda** em nenhuma das duas plataformas |
 
-Ou seja: o núcleo (áudio, watchdog de nível, writer de WAV, chunker, motor Whisper, colagem) é
-portável e não tem nada de X11 dentro. O que falta é uma pasta `platform/windows/` com os mesmos
-contratos que `platform/linux_x11/` cumpre.
+O núcleo (áudio, watchdog de nível, writer de WAV, chunker, motor Whisper, colagem, interface) é
+portável e não tem X11 dentro. Faltam duas coisas: a **fachada** que escolhe o backend, e os
+módulos de Windows que cumpram os mesmos contratos de `platform/linux_x11/`.
+
+## Primeiro: a fachada
+
+Hoje o código importa `linux_x11` direto, em oito lugares — `app.py:34-37`, `cli.py:23,264,265,379,390`
+e `core/session.py:22`. Enquanto isso existir, `import dito.app` quebra no Windows antes de chegar
+a qualquer funcionalidade. `platform/__init__.py` escolhe por `sys.platform` e reexporta; os oito
+pontos passam a importar de `..platform`. Sem mudança de comportamento no Linux: a suíte tem que
+seguir verde depois desse passo sozinho.
 
 ## O que precisa ser escrito
 
 | Módulo | Contrato a cumprir | Como no Windows |
 |---|---|---|
 | `hotkeys.py` | `HotkeyManager(on_start, on_stop, grab)` com `HOLD` e `TOGGLE` | `pynput` com `suppress_event` — que **existe** aqui (no X11 não, daí o `XGrabKey`) |
-| `audio_system.py` | mute/volume da entrada padrão | não há `pactl`. Ou `pycaw`, ou aceitar que não dá e reportar "não sei" |
+| `instance.py` | falta o `ControlServer` e o `send()` — é o que faz `dito status` responder | named pipe, ou socket TCP em `127.0.0.1` com a porta num arquivo |
+| `audio_system.py` | mute/volume da entrada padrão, `health()` | não há `pactl`. Ou `pycaw`, ou aceitar que não dá e reportar "não sei" |
 | `alsa_mixer.py` | ganho de hardware | não existe equivalente. O watchdog de nível passa a ser o **único** detector |
-| trava de instância | um app por vez | mutex nomeado — leia a armadilha abaixo antes de escolher o nome |
+| `notify.py` | `notify(title, body, urgent)` e `alarm_sound()` | notificação nativa; som pelo `winsound` |
+| `focus.py` | devolver o foco depois do cartão de revisão | `SetForegroundWindow` via `ctypes` |
+
+Dois vazamentos de X11 fora de `platform/`, que o porte precisa fechar: `bootstrap.py:188` decide
+modo headless por `DISPLAY` (que no Windows nunca existe, então cairia sempre em headless), e
+`output/paste.py:40,60` acusa o `xclip` no texto do erro.
 
 O `doctor` e a interface precisam degradar bem quando esses diagnósticos não existem: dizer "não
 sei" é correto, inventar não é.
@@ -70,9 +88,12 @@ exatamente o bug que a trava existe para impedir.
 
 Parece lixo de código legado. Não é. Ver `docs/armadilhas.md` 5.1.
 
-> Nota honesta: a versão antiga tinha um teste que quebrava se alguém "limpasse" esse nome. **Esse
-> teste ainda não foi migrado para este repositório**, e a trava também não. Quem implementar a
-> trava traz o teste junto — sem ele, a próxima pessoa a "arrumar" o nome não vai encontrar
+E a trava precisa **segurar a referência** do handle: no código antigo o retorno do `claim()` era
+descartado, o objeto era coletado e a trava nunca funcionou — não é boilerplate. Ver 5.1b.
+
+> Nota honesta: a versão antiga tinha um teste que quebrava se alguém "limpasse" esse nome. Esse
+> teste **ainda não foi migrado** para este repositório. Quem executar o `claim()` do Windows pela
+> primeira vez traz o teste junto — sem ele, a próxima pessoa a "arrumar" o nome não vai encontrar
 > resistência nenhuma.
 
 ### 2. As DLLs de cuBLAS: `add_dll_directory` não basta, tem que prefixar o `PATH`

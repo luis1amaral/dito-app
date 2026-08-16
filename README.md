@@ -55,17 +55,64 @@ dito selftest --source zeros   # prova o alarme sem precisar de microfone
 
 ## Instalar
 
+Numa máquina onde o repositório já está configurado, é uma linha:
+
 ```bash
-sudo apt install dito          # repositório apt.defaltm.com, já configurado nesta máquina
+sudo apt install dito
 ```
 
-O `.deb` tem 111 KB. Ele **não** carrega Python nem Qt: declara como dependência o que o Debian
-já empacota, e na primeira execução monta uma venv de usuário com os ~50 MB que faltam, numa tela
-com barra de progresso e botão de tentar de novo. O modelo (464 MB) baixa no primeiro uso.
+### Máquina nova — os três comandos
 
-Por que assim, e não um pacote auto-contido: o repositório apt roda em Cloudflare Pages, que
-**não serve arquivo acima de 25 MiB**. E `pip install` dentro do `postinst`, como root, escreve
-fora do controle do dpkg e trava o apt quando falha — sem nenhuma janela para explicar.
+Copie e cole. O primeiro traz a chave que assina o repositório, o segundo aponta o apt para ele,
+o terceiro instala:
+
+```bash
+curl -fsSL https://apt.defaltm.com/defaltm-archive-keyring.gpg \
+  | sudo tee /usr/share/keyrings/defaltm-archive-keyring.gpg > /dev/null
+
+echo "deb [signed-by=/usr/share/keyrings/defaltm-archive-keyring.gpg] https://apt.defaltm.com stable main" \
+  | sudo tee /etc/apt/sources.list.d/defaltm.list > /dev/null
+
+sudo apt update && sudo apt install -y dito
+```
+
+Depois: procure **Dito** no menu e abra uma vez. A primeira execução mostra uma tela de preparação
+— ela monta a venv e baixa o modelo. Terminado isso, segure **F9** e fale.
+
+Conferir que deu certo:
+
+```bash
+dito --version     # dito 0.2.1
+dito doctor        # microfone, atalhos, modelo, colagem
+```
+
+### O que esperar
+
+| | |
+|---|---|
+| Download do `.deb` | **121 KB** |
+| Primeira execução: venv | **193 MB** (o que só existe no PyPI) |
+| Primeira execução: modelo `small` | **464 MB**, uma vez só |
+| Depois disso | roda offline, sem conta e sem servidor |
+
+### Requisitos e limites, sem letra miúda
+
+- **Debian 13 (trixie)** é onde isto foi construído e testado. Em Ubuntu e derivados os nomes de
+  pacote das dependências podem divergir — `python3-onnxruntime` em especial pode não existir.
+- **Sessão X11.** O atalho global **não funciona no Wayland** (`docs/armadilhas.md` 5.6). No
+  GNOME, escolha "Xorg" na tela de login.
+- **Nada abre no login** além do ícone da bandeja — o daemon sobe calado. Se a preparação ainda
+  não foi feita, ele espera você abrir o app uma vez em vez de baixar centenas de MB sem janela.
+
+### Por que o pacote é fino
+
+O `.deb` **não** carrega Python nem Qt: declara como dependência o que o Debian já empacota, e na
+primeira execução monta a venv de usuário com o que falta, numa tela com barra de progresso e
+botão de tentar de novo.
+
+O repositório apt roda em Cloudflare Pages, que **não serve arquivo acima de 25 MiB** — um pacote
+auto-contido simplesmente não subiria. E `pip install` dentro do `postinst`, como root, escreve
+fora do controle do dpkg e trava o apt quando falha, sem nenhuma janela para explicar.
 
 ## Usar em desenvolvimento
 
