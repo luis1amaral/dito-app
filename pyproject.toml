@@ -28,7 +28,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+# PyInstaller entra aqui e não "na mão": instalado fora do pyproject ele some com a venv, e o
+# build passa a falhar dizendo só «pyinstaller.exe não encontrado». Já aconteceu.
+dev = ["pytest>=8", "ruff>=0.6", "pyinstaller>=6.10"]
 
 [project.scripts]
 dito = "dito.cli:main"

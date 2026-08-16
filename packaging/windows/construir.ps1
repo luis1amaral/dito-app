@@ -15,6 +15,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Sem este trap o script morre no meio e AINDA sai com código 0: quem chamou acha que deu certo e
+# publica o instalador da versão anterior. Já aconteceu — ver o CHANGELOG da 0.4.0.
+trap {
+    Write-Host "`nFALHOU: $_" -ForegroundColor Red
+    exit 1
+}
+
 $Raiz      = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $Py        = Join-Path $Raiz '.venv\Scripts\python.exe'
 $Saida     = Join-Path $Raiz 'build\windows'
