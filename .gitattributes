@@ -1,0 +1,13 @@
+# O repositório passou a ser editado do Linux E do Windows. Sem isto, um `.sh` commitado com CRLF
+# mata o Linux com `bad interpreter: /bin/bash^M` — o repo irmão `dev` já pagou por essa lição.
+* text=auto eol=lf
+
+*.sh  text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+# Catálogo compilado: uma única quebra de linha "corrigida" e o gettext não carrega mais.
+*.mo  binary
+*.png binary
+*.wav binary
+*.ico binary
