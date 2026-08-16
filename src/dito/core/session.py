@@ -212,6 +212,8 @@ class Session:
 
     # See docs/armadilhas.md 1.11: the old 1 s timeout left a vanished microphone unreported.
     _POLL_S = 0.05
+    # Two block intervals: the poll timing out once is normal jitter, twice is the stream stopping.
+    _STARVED_S = 0.10
 
     def _consume(self) -> None:
         capture = self._capture
@@ -220,19 +222,24 @@ class Session:
             return
 
         last_level = 0.0
+        last_block = time.monotonic()
         while True:
             try:
                 block = capture.blocks.get(timeout=self._POLL_S)
             except queue.Empty:
                 if self._stop.is_set():
                     break
-                # See docs/armadilhas.md 1.11: nothing arriving must alarm like silence arriving.
-                self._stalled = True
-                self._tick_watchdog(0.0, time.monotonic())
+                # See docs/armadilhas.md 1.11 and 1.13: nothing arriving must alarm like silence
+                # arriving, but one missed poll is jitter and reporting it as silence is a lie.
+                now = time.monotonic()
+                if now - last_block >= self._STARVED_S:
+                    self._stalled = True
+                    self._tick_watchdog(0.0, now)
                 continue
             if block is None:
                 break
             self._stalled = False
+            last_block = time.monotonic()
 
             # Disk first — and docs/armadilhas.md 9.1: this except stays broad on purpose.
             try:

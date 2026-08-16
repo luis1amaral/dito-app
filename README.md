@@ -35,9 +35,12 @@ Daí as duas garantias do Dito:
 | Janela | pelo menu ou pela bandeja: transcrições de um lado, configuração do outro |
 
 As teclas são trocadas na tela, sem reiniciar. **As duas terminam igual:** o cartão de revisão
-abre com o texto, você edita, `⏎` envia e `Tab` descarta. Uma gravação de F10 aprovada também vira
-nota no cofre do Obsidian, com o **título tirado do que foi dito** — não há mais caixa perguntando
-o assunto.
+abre com o texto, você edita, `⏎` envia e `Tab` descarta.
+
+No cartão há uma chave **«Guardar no Obsidian»**, desligada em toda gravação. Ligou, aquele texto
+vira nota no cofre com o **título tirado do que foi dito** — sem caixa perguntando o assunto. É
+opt-in de propósito: o cofre é para o que vale guardar, e uma chave que lembra do "ligado" enche
+ele de tudo.
 
 A diferença entre as teclas é só por dentro: o F10 transcreve **em pedaços enquanto você fala**, que
 é o que permite gravar uma hora sem esperar a transcrição no fim.
@@ -56,6 +59,11 @@ colidem.
 o app morrer no meio — e é apagado assim que a transcrição está gravada e conferida. Só sobrevive
 quando a transcrição falha ou quando nada foi captado, que é justamente quando há o que recuperar.
 Uma sessão terminada ocupa **238 bytes**.
+
+**E elas não se acumulam para sempre.** Ao abrir, o Dito varre a biblioteca e apaga o que passou de
+**30 dias** (`library.keep_days`; `0` guarda tudo). A varredura é barata porque a data está no
+caminho: decidir um dia inteiro custa um `strptime`, sem abrir nenhum arquivo. E ela só remove o
+que o próprio app escreve — um `.md` seu na mesma pasta fica onde está.
 
 ## Comandos
 
@@ -97,7 +105,7 @@ Depois: procure **Dito** no menu e abra uma vez. A primeira execução mostra um
 Conferir que deu certo:
 
 ```bash
-dito --version     # dito 0.3.0
+dito --version     # dito 0.3.1
 dito doctor        # microfone, atalhos, modelo, colagem
 ```
 

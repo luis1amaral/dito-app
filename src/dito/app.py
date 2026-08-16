@@ -26,7 +26,7 @@ from . import config as cfgmod
 from . import paths
 from .audio.level import State as AudioState
 from .core import events as ev
-from .core import publish
+from .core import library, publish
 from .core.session import Mode, Session
 from .i18n import _
 from .i18n import setup as setup_language
@@ -86,6 +86,7 @@ class DitoApp:
             return 1
 
         paths.ensure_dirs()
+        self._sweep_old_sessions()
 
         self.qt = QApplication.instance() or QApplication([])
         self.qt.setApplicationName("Dito")
@@ -161,6 +162,25 @@ class DitoApp:
         finally:
             self._shutdown()
 
+    def _sweep_old_sessions(self) -> None:
+        """Off the startup path: a slow or sleeping disk must not delay the tray icon."""
+        days = self.cfg.library.keep_days
+
+        def work() -> None:
+            try:
+                swept = library.sweep_older_than(self.cfg.library_dir(), days)
+            except Exception as exc:
+                self._log_error(f"while sweeping old sessions: {type(exc).__name__}: {exc}")
+                return
+            if swept.sessions:
+                print(
+                    f"[library] {swept.sessions} session(s) past {days} days removed, "
+                    f"{swept.bytes_freed / 1e6:.1f} MB freed",
+                    flush=True,
+                )
+
+        threading.Thread(target=work, daemon=True, name="dito-sweep").start()
+
     def _shutdown(self) -> None:
         """Quitting must not throw away a recording in progress.
 
@@ -176,15 +196,9 @@ class DitoApp:
         for session in live:
             try:
                 print("[exiting] finishing the recording in progress…", flush=True)
-                result = session.stop()
-                if isinstance(result, ev.Finished) and result.mode == MEETING and result.text:
-                    started = datetime.now() - timedelta(seconds=result.seconds)
-                    # Nobody is here to approve it, so the text goes as transcribed — but the name
-                    # still comes from the content, not from a timestamp nobody recognises later.
-                    publish.publish_meeting(
-                        Path(result.folder), result.text, result.seconds, started,
-                        self.cfg, notes.subject_from(result.text) or f"{started:%H%M}",
-                    )
+                # No note here: sending to the vault is a choice made in the review card, and
+                # there is nobody to make it. The session JSON holds the text either way.
+                session.stop()
             except Exception as exc:
                 self._log_error(f"while finishing the recording: {type(exc).__name__}: {exc}")
 
@@ -352,10 +366,9 @@ class DitoApp:
             self.tray.set_last_text(event.text)
             self.overlay.dismiss()
             if self.cfg.output.confirm:
-                # Both keys end the same way: you read the text before anything happens to it.
+                # Both keys end the same way: you read the text, and decide there whether it goes
+                # to the vault. Without the card there is nowhere to decide, so nothing is sent.
                 self.review.present(event.text)
-            elif event.mode == MEETING:
-                self._publish_meeting(event, event.text)
         elif not event.ever_heard_audio:
             # The exact failure this project exists for. Never a silent no-op.
             self.overlay.show_dead(
@@ -426,11 +439,12 @@ class DitoApp:
 
     # ---- review card -----------------------------------------------------------------
 
-    def _review_sent(self, text: str) -> None:
+    def _review_sent(self, text: str, to_vault: bool = False) -> None:
         pending, self._pending = self._pending, None
         self._last_text = text
         self.tray.set_last_text(text)
-        if pending is not None and pending.mode == MEETING:
+        # Opt in, per recording: the vault is for what is worth keeping, not for everything said.
+        if to_vault and pending is not None:
             self._publish_meeting(pending, text)
         if not self.cfg.output.paste:
             return
@@ -521,7 +535,7 @@ class DitoApp:
         if command == instance.STATUS:
             state = _("paused") if self._paused else _("listening")
             return _(
-                "{state} · {dictation_key} dictates, {meeting_key} meeting · "
+                "{state} · {dictation_key} hold to dictate, {meeting_key} press to dictate · "
                 "model {model} ({backend})"
             ).format(
                 state=state,

@@ -1,5 +1,76 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o áudio voltou a se apagar, o Obsidian virou escolha, e a biblioteca se limpa
+
+### O quê
+1. **O WAV é apagado de novo quando a transcrição dá certo.** Estava ficando **sempre**.
+2. **Chave «Guardar no Obsidian» no cartão de revisão**, desligada em toda gravação, nas duas
+   teclas. Só o que você marca vira nota no cofre.
+3. **Limpeza automática:** ao abrir, o Dito remove sessões com mais de **30 dias**
+   (`library.keep_days`; `0` guarda tudo).
+4. **As notificações somem sozinhas** — 15 s no alarme, 6 s no resto.
+5. A linha de status parou de chamar o F10 de "reunião": agora é *"segure F9 para ditar, aperte
+   F10 para ditar"*.
+
+### Por quê — o vazamento de áudio
+Uma ditada de 34 s deixava 1,1 MB no disco para sempre, com a transcrição saindo perfeita. É a
+regressão dos 115 MB/hora que o refactor inteiro existiu para matar.
+
+A causa levou quatro hipóteses erradas antes de aparecer. O consumidor alimenta o watchdog em dois
+lugares: quando o bloco chega, e quando o `get(timeout=_POLL_S)` expira — este último com **zero**,
+para que um microfone que sumiu alarme igual a um mudo (1.11). Só que `_POLL_S` é **exatamente** o
+intervalo entre blocos (800 amostras a 16 kHz = 50 ms). Numa gravação **saudável** o poll expira o
+tempo todo, e cada expiração injeta silêncio falso, que zera o contador de som sustentado. Logo
+`ever_heard` termina falso, e o `_discard_scratch` — que exige `ever_heard` antes de apagar — deixa
+o áudio.
+
+Medido na gravação real do dono: pico 0,106, **407 de 678 blocos** acima do limiar. Áudio ótimo,
+`ever_heard=False`.
+
+O que escondeu isso da suíte: os testes entregavam blocos a cada **5 ms**, então o poll nunca
+expirava. O defeito só existe no ritmo real. Agora existe `deliver_paced`, e um teste que usa.
+
+### Por quê — o Obsidian como escolha
+Toda gravação virava nota, e o cofre ia encher de lixo. Pedido do dono: uma chave no cartão,
+desligada por padrão, para marcar o que vale — assim o cofre vira contexto de projeto de verdade.
+Ela reseta a cada gravação: chave que lembra do "ligado" enche o cofre de tudo, que é o problema
+de origem.
+
+Junto: fechar o app no meio de uma gravação não escreve mais nota. Não há ninguém para escolher, e
+o JSON da sessão guarda o texto de qualquer forma.
+
+### Por quê — a limpeza
+Ditado se acumula e o disco enche sem ninguém perceber. A varredura é barata porque a data está no
+**caminho**: decidir um dia inteiro custa um `strptime`, sem abrir arquivo nenhum. Roda em thread
+própria na abertura — disco lento não pode atrasar o ícone da bandeja.
+
+Duas barreiras, porque a biblioteca é a pasta do **dono**: só apaga sufixo que o app escreve
+(`.json`, `.wav`, `.jsonl`), e só desce em pasta com forma exata de data. Um `.md` seu na mesma
+pasta fica; `projeto-importante/` na raiz não é tocado.
+
+### Por quê — as notificações
+`--urgency critical` **não expira**, por especificação do freedesktop, e o daemon do Cinnamon ignora
+`--expire-time` quando a urgência é crítica. Perde-se o realce e ganha-se a única coisa que importa:
+ela sai. A notificação é o **quarto** canal do alarme — a pílula já grita por forma, cor, movimento
+e som. Uma que não fecha treina a pessoa a ignorar todas.
+
+### A regra que não foi enfraquecida
+O áudio continua sobrevivendo quando **não há texto** para substituí-lo: transcrição que levantou,
+nada captado, texto vazio. Sem texto não existe substituição, e aí o `.wav` é a única prova. A
+detecção de microfone morto atrasa 50 ms no pior caso e segue dentro de `grace + dead_ms`.
+
+### Como foi verificado
+271 testes verdes, `ruff` limpo, catálogo com 0 sem tradução e 0 duvidosa. O vazamento foi
+reproduzido com o **motor Whisper de verdade** e o áudio real do dono — `_write_meta('done') ->
+True`, `ever_heard = True`, `WAV apagado = True`. Quatro testes novos na varredura (apaga o vencido,
+poupa arquivo de terceiro, `0` não apaga nada, ignora pasta que não é data) e um na chave do cofre
+(começa desligada e não lembra do ligado anterior).
+
+### Documentação
+`docs/armadilhas.md` **1.13**, **8.3** e **9.6**.
+
+---
+
 ## 2026-08-16 — o F10 vira "F9 sem segurar", e a nota se nomeia sozinha
 
 ### O quê

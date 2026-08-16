@@ -8,6 +8,10 @@ from pathlib import Path
 
 APP_NAME = "Dito"
 
+# Long enough to be read from another workspace, short enough to never need dismissing by hand.
+ALARM_MS = 15_000
+NORMAL_MS = 6_000
+
 # In every freedesktop theme, and chosen to be unambiguous, not pleasant: speech is being lost.
 _ALARM_SOUNDS = (
     "/usr/share/sounds/freedesktop/stereo/dialog-warning.oga",
@@ -30,12 +34,11 @@ def _run(args: list[str]) -> bool:
 
 
 def notify(title: str, body: str = "", urgent: bool = False, icon: str | None = None) -> bool:
+    """See docs/armadilhas.md 9.6: `critical` never expires, so each one carries its own life."""
     if not shutil.which("notify-send"):
         return False
-    args = ["notify-send", "--app-name", APP_NAME]
-    if urgent:
-        # Sticks until dismissed: reserved for lost audio, or the user learns to ignore it.
-        args += ["--urgency", "critical"]
+    args = ["notify-send", "--app-name", APP_NAME, "--urgency", "normal"]
+    args += ["--expire-time", str(ALARM_MS if urgent else NORMAL_MS)]
     if icon:
         args += ["--icon", icon]
     args += [title, body]

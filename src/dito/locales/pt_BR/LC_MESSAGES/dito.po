@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dito\n"
 "Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
-"POT-Creation-Date: 2026-08-16 07:46-0300\n"
+"POT-Creation-Date: 2026-08-16 08:08-0300\n"
 "PO-Revision-Date: 2026-08-15 23:06-0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -66,7 +66,7 @@ msgstr "Escolher…"
 msgid "Close"
 msgstr "Fechar"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:468
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:482
 msgid "Copied"
 msgstr "Copiado"
 
@@ -74,7 +74,7 @@ msgstr "Copiado"
 msgid "Copy the last text"
 msgstr "Copiar o último texto"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:312
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:326
 msgid "Could not paste"
 msgstr "Não deu para colar"
 
@@ -90,15 +90,15 @@ msgstr "Escuro"
 msgid "Dictate (hold)"
 msgstr "Ditar (segurar)"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:116
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:124
 msgid "Discard"
 msgstr "Descartar"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:452
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:466
 msgid "Discarded"
 msgstr "Descartado"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:343
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:357
 msgid "Dito — NO AUDIO"
 msgstr "Dito — SEM ÁUDIO"
 
@@ -111,16 +111,16 @@ msgstr "Dito — diagnóstico"
 msgid "Dito — hold {dictate} to dictate, {meeting} for a meeting"
 msgstr "Dito — segure {dictate} para ditar, {meeting} para reunião"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:416
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:423
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:429
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:436
 msgid "Dito — meeting saved"
 msgstr "Dito — reunião salva"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:365
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:378
 msgid "Dito — nothing was picked up"
 msgstr "Dito — nada foi captado"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:320
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:334
 msgid "Fix"
 msgstr "Corrigir"
 
@@ -136,6 +136,10 @@ msgstr "Liberar a memória depois de"
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:263
 msgid "Input"
 msgstr "Entrada"
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:123
+msgid "Keep in Obsidian"
+msgstr "Guardar no Obsidian"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:305
 msgid "Language"
@@ -154,11 +158,11 @@ msgstr "Reunião"
 msgid "Meeting (toggle)"
 msgstr "Reunião (alternar)"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:422
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:435
 msgid "Meeting saved"
 msgstr "Reunião salva"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:415
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:428
 msgid "Meeting saved, with a caveat"
 msgstr "Reunião salva, com ressalva"
 
@@ -184,7 +188,7 @@ msgstr "SEM ÁUDIO — o microfone não está captando"
 msgid "NO AUDIO — {reason}"
 msgstr "SEM ÁUDIO — {reason}"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:372
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:385
 msgid "Nothing recognized"
 msgstr "Nada reconhecido"
 
@@ -240,7 +244,7 @@ msgstr "Dar Enter depois de colar"
 msgid "Quit"
 msgstr "Sair"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:114
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:121
 msgid "Ready — edit it or send it"
 msgstr "Pronto — edite ou envie"
 
@@ -252,7 +256,7 @@ msgstr "Gravando"
 msgid "Refresh"
 msgstr "Atualizar"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:117
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:125
 msgid "Send"
 msgstr "Enviar"
 
@@ -306,7 +310,7 @@ msgstr "Transcrições"
 msgid "Transcripts folder"
 msgstr "Pasta das transcrições"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:463
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:477
 msgid "Tried to unmute"
 msgstr "Tentei desmutar"
 
@@ -339,7 +343,7 @@ msgstr "áudio voltou"
 msgid "audio server"
 msgstr "servidor de áudio"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:324
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:338
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:296
 msgid "audio too low"
 msgstr "áudio muito baixo"
@@ -418,12 +422,12 @@ msgstr "não consegui colar nem copiar — o texto está salvo na pasta da sess�
 msgid "could not paste — the text is on the clipboard"
 msgstr "não consegui colar — o texto está na área de transferência"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:404
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:417
 #, python-brace-format
 msgid "could not save the meeting: {error}"
 msgstr "não consegui salvar a reunião: {error}"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:229
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:243
 #, python-brace-format
 msgid "could not start recording: {error}"
 msgstr "não consegui começar a gravar: {error}"
@@ -552,7 +556,7 @@ msgstr "large-v3 — o melhor, pesado"
 msgid "library"
 msgstr "biblioteca"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:522
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:536
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:385
 msgid "listening"
 msgstr "ouvindo"
@@ -578,7 +582,7 @@ msgstr "reunião salva"
 msgid "microphone"
 msgstr "microfone"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:546
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:560
 msgid "microphone unavailable"
 msgstr "microfone indisponível"
 
@@ -624,11 +628,11 @@ msgstr "não instalado — sem detecção de mute"
 msgid "not loaded"
 msgstr "não carregado"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:419
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:432
 msgid "note in the vault"
 msgstr "nota no cofre"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:420
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:433
 msgid "note next to the recording"
 msgstr "nota junto da gravação"
 
@@ -640,7 +644,7 @@ msgstr "nada reconhecido"
 msgid "nothing recognized — and the microphone picked nothing up"
 msgstr "nada reconhecido — e o microfone não captou nada"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:362
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:375
 msgid "nothing was picked up — the audio is saved, you can try again"
 msgstr "nada foi captado — o áudio está guardado, dá para tentar de novo"
 
@@ -665,7 +669,7 @@ msgid "pastes without pressing Enter"
 msgstr "cola sem dar Enter"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/tray.py:85
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:522
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:536
 msgid "paused"
 msgstr "pausado"
 
@@ -713,7 +717,7 @@ msgstr "grava alguns segundos e prova o alarme de áudio"
 msgid "result"
 msgstr "resultado"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:378
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:391
 msgid "saving the recording…"
 msgstr "salvando a gravação…"
 
@@ -742,7 +746,7 @@ msgstr "silencioso"
 msgid "small — the balance (default)"
 msgstr "small — equilíbrio (padrão)"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:463
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:477
 msgid "speak again to check"
 msgstr "fale de novo para conferir"
 
@@ -775,7 +779,7 @@ msgstr "essa tecla já é a de reunião"
 msgid "the audio is in {folder}"
 msgstr "o áudio está em {folder}"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:296
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:303
 msgid "the audio is too low"
 msgstr "o áudio está muito baixo"
 
@@ -797,7 +801,7 @@ msgstr "o ganho de captura do hardware está em 0%"
 msgid "the input volume is at {pct}%"
 msgstr "o volume de entrada está em {pct}%"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:366
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:379
 #, python-brace-format
 msgid "the microphone delivered no audio. The recording is in {folder}"
 msgstr "o microfone não entregou áudio. A gravação está em {folder}"
@@ -806,23 +810,23 @@ msgstr "o microfone não entregou áudio. A gravação está em {folder}"
 msgid "the microphone is muted in the system"
 msgstr "o microfone está mudo no sistema"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:294
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:301
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/overlay.py:215
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/overlay.py:267
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:344
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:358
 msgid "the microphone is not picking anything up"
 msgstr "o microfone não está captando nada"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:321
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:335
 msgid "the microphone is not picking up"
 msgstr "o microfone não está captando"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:257
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:264
 #, python-brace-format
 msgid "the microphone reported an error: {error}"
 msgstr "o microfone reportou um erro: {error}"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:293
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:300
 msgid "the microphone stopped responding — the device may have dropped"
 msgstr "o microfone parou de responder — o dispositivo pode ter caído"
 
@@ -893,7 +897,7 @@ msgstr "volume"
 msgid "warning"
 msgstr "aviso"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:283
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:290
 #, python-brace-format
 msgid "writing to disk failed: {error}"
 msgstr "falha ao gravar em disco: {error}"
@@ -933,12 +937,12 @@ msgstr "{device} — não grava a 16 kHz"
 msgid "{key} starts and stops the meeting (no time limit)"
 msgstr "{key} liga e desliga a reunião (sem limite de tempo)"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:302
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:316
 #, python-brace-format
 msgid "{minutes} min transcribed"
 msgstr "{minutes} min transcritos"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:411
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:424
 #, python-brace-format
 msgid "{minutes} min · {words} words"
 msgstr "{minutes} min · {words} palavras"
@@ -948,10 +952,10 @@ msgstr "{minutes} min · {words} palavras"
 msgid "{path} (does not exist yet)"
 msgstr "{path} (ainda não existe)"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:524
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:538
 #, python-brace-format
-msgid "{state} · {dictation_key} dictates, {meeting_key} meeting · model {model} ({backend})"
-msgstr "{state} · {dictation_key} dita, {meeting_key} reunião · modelo {model} ({backend})"
+msgid "{state} · {dictation_key} hold to dictate, {meeting_key} press to dictate · model {model} ({backend})"
+msgstr "{state} · segure {dictation_key} para ditar, aperte {meeting_key} para ditar · modelo {model} ({backend})"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:412
 msgid "«zeros» simulates a muted microphone with no microphone needed"
@@ -966,7 +970,7 @@ msgstr "«{device}» não está conectado"
 msgid "— no text —"
 msgstr "— sem texto —"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:115
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/review.py:122
 msgid "⏎ sends · Tab discards"
 msgstr "⏎ envia · Tab descarta"
 

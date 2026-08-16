@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..i18n import _
-from .components import Button, ControlSize, HudLabel, Variant
+from .components import Button, ControlSize, HudLabel, Switch, Variant
 from .surface import paint_floating_surface, shadow_margin
 from .theme import Alpha, Palette, Radius, Size, Space, hud_stylesheet
 
@@ -45,7 +45,7 @@ class Editor(QPlainTextEdit):
 
 
 class ReviewCard(QWidget):
-    send = Signal(str)
+    send = Signal(str, bool)
     discard = Signal()
 
     def __init__(self, palette: Palette, focus_broker=None) -> None:
@@ -92,6 +92,13 @@ class ReviewCard(QWidget):
 
         row = QHBoxLayout()
         row.setSpacing(Space.SM)
+
+        # Off for every recording, on purpose: the vault is for the ones worth keeping, and a
+        # switch that remembers "on" fills it with everything.
+        self._vault = Switch(False, palette=p)
+        row.addWidget(self._vault)
+        self._vault_label = HudLabel(role="hud-hint")
+        row.addWidget(self._vault_label)
         row.addStretch(1)
 
         # Primary rightmost, the order the platform's own dialogs use.
@@ -113,6 +120,7 @@ class ReviewCard(QWidget):
     def retranslate(self) -> None:
         self._title.setText(_("Ready — edit it or send it"))
         self._hint.setText(_("⏎ sends · Tab discards"))
+        self._vault_label.setText(_("Keep in Obsidian"))
         self._discard_btn.set_text(_("Discard"))
         self._send_btn.set_text(_("Send"))
 
@@ -186,6 +194,7 @@ class ReviewCard(QWidget):
         self.move(x, y)
 
     def present(self, text: str) -> None:
+        self._vault.setChecked(False)
         self.editor.setPlainText(text)
         cursor = self.editor.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
@@ -220,9 +229,10 @@ class ReviewCard(QWidget):
 
     def _do_send(self) -> None:
         text = self.editor.toPlainText().strip()
+        to_vault = self._vault.isChecked()
         self._finish()
         if text:
-            self.send.emit(text)
+            self.send.emit(text, to_vault)
         else:
             self.discard.emit()
 

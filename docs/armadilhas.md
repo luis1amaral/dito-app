@@ -168,6 +168,37 @@ recusa vinha depois, do `Capture.start()`, com o texto cru do PortAudio.
 3. O `preflight` sonda **só quando há aparelho fixado** — o caminho padrão custa 30 ms e não pode
    pagar mais 18 por tecla. A recusa passa a ter motivo e conserto, não `errno` de biblioteca.
 
+### 1.13 O poll expirando entre blocos saudáveis injetava silêncio falso
+
+**Sintoma:** o WAV **nunca era apagado**, mesmo com a transcrição saindo perfeita. Uma ditada de
+34 s deixava 1,1 MB no disco para sempre — a regressão dos 115 MB/hora que o refactor inteiro
+existiu para matar. E o evento `Finished` saía com `ever_heard_audio=False` num microfone perfeito.
+
+**Causa:** o consumidor tem duas alimentações do watchdog. A do bloco que chega, e a do timeout:
+
+```python
+block = capture.blocks.get(timeout=self._POLL_S)   # _POLL_S = 0,05
+except queue.Empty:
+    self._tick_watchdog(0.0, time.monotonic())     # ← injeta SILÊNCIO
+```
+
+O `_POLL_S` é **exatamente** o intervalo entre blocos: 800 amostras a 16 kHz são 50 ms. Então numa
+gravação **saudável** o poll expira o tempo todo, e cada expiração entrega um zero ao watchdog.
+Cada zero faz `_sound_since = None`, e o "som sustentado por 200 ms" (1.9) nunca completa. Logo
+`ever_heard` termina falso, e `_discard_scratch` — que exige `ever_heard` antes de apagar — deixa
+o áudio.
+
+Medido na gravação real do dono: pico 0,106, **407 de 678 blocos** acima do limiar, sequência
+contínua de 0,90 s. Áudio ótimo, `ever_heard=False`.
+
+O que escondeu isso: a suíte entregava blocos a cada **5 ms**, então o poll nunca expirava e o
+defeito não existia nos testes. Ele só aparece no ritmo real.
+
+**Correção:** o silêncio sintético só entra quando o fluxo está **de fato** faminto —
+`_STARVED_S = 0,10`, dois intervalos de bloco. Um poll perdido é jitter; dois é o fluxo parando.
+A detecção de microfone morto (1.11) atrasa 50 ms no pior caso, e o alarme continua dentro de
+`grace + dead_ms`. O teste novo entrega blocos **espaçados**, que é o que a suíte não fazia.
+
 ---
 
 ## 2. Teclado no X11
@@ -876,6 +907,24 @@ Medido: uma sessão de ditado ocupa **238 bytes** no fim, contra 160 kB de WAV d
 
 ---
 
+### 8.3 Retenção: a data está no CAMINHO, então varrer não abre um único JSON
+
+Ditado se acumula. Sem teto, o disco enche e ninguém percebe até acabar. A varredura roda na
+abertura do app, numa thread própria — disco lento ou dormindo não pode atrasar o ícone da bandeja.
+
+O que a torna barata é o layout: a sessão mora em `<biblioteca>/2026/08/16/07-42-13.json`, então
+decidir se um dia inteiro venceu custa **um `strptime` por pasta de dia**. Nenhum JSON é lido,
+nenhum `stat` por arquivo é feito antes da decisão.
+
+Duas barreiras, porque a biblioteca é a pasta do **dono**, não do app:
+
+- Só apaga arquivo cujo sufixo o app escreve (`.json`, `.wav`, `.jsonl`). Um `anotacoes.md` que
+  alguém deixou ali fica — apagar arquivo de terceiro numa pasta de Documentos é imperdoável.
+- Só desce em pasta com forma exata de data (quatro/dois/dois dígitos). `projeto-importante/` na
+  raiz da biblioteca não é sessão e não é varrido.
+
+`keep_days = 0` nunca apaga nada, e é a saída de emergência.
+
 ## 9. Não morrer calado
 
 Este projeto nasceu de 99 segundos de fala perdidos sem uma linha de log (1.1). A consequência
@@ -1071,3 +1120,19 @@ Três decisões dentro disso:
 
 O `_shutdown()` também usa isso: fechando o app no meio de uma gravação não há ninguém para
 aprovar, mas o nome ainda sai do conteúdo em vez de um horário que ninguém reconhece depois.
+
+### 9.6 Notificação `critical` não expira — e a que não sai ensina a ignorar notificação
+
+**Sintoma:** as notificações do Dito ficavam na tela e não saíam. Clicar para fechar não resolvia.
+
+**Causa:** o alarme mandava `notify-send --urgency critical`. Pela especificação do freedesktop,
+notificação crítica **não expira sozinha** — é o comportamento pedido, não um defeito do daemon. E
+somar `--expire-time` não resolve: o daemon é livre para ignorar o tempo quando a urgência é
+crítica, e o do Cinnamon ignora.
+
+**Correção:** urgência `normal` e um tempo de vida explícito em toda notificação — 15 s no alarme,
+6 s no resto. Perde-se o realce visual do "crítico" e ganha-se a única coisa que importa: ela sai.
+
+A troca é honesta porque a notificação é o **quarto** canal do alarme, não o primeiro. A pílula já
+grita por forma, cor, movimento e som (9.4); a notificação existe para quem está em outra área de
+trabalho. Uma que não fecha não é mais urgente — ela treina a pessoa a ignorar todas.

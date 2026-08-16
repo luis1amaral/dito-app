@@ -315,3 +315,61 @@ def test_folder_size_survives_an_unreadable_directory(tmp_path: Path):
         assert library.list_sessions(tmp_path)[0].size_bytes > 0
     finally:
         os.chmod(locked, 0o755)
+
+
+# ---- retenção: o disco não pode encher sozinho -------------------------------------------------
+
+
+def _day(root, y, m, d, stems=("07-42-13",), text="oi"):
+    folder = root / f"{y:04d}" / f"{m:02d}" / f"{d:02d}"
+    folder.mkdir(parents=True, exist_ok=True)
+    for stem in stems:
+        (folder / f"{stem}.json").write_text(
+            json.dumps({"id": stem, "mode": "dictation", "state": "done", "text": text}),
+            encoding="utf-8",
+        )
+        (folder / f"{stem}.wav").write_bytes(b"\0" * 1000)
+    return folder
+
+
+def test_sessions_past_the_horizon_are_swept(tmp_path):
+    """Dictation adds up; without this the disk fills and nobody notices until it is full."""
+    velha = _day(tmp_path, 2026, 6, 1)
+    nova = _day(tmp_path, 2026, 8, 16)
+
+    swept = library.sweep_older_than(tmp_path, 30, now=datetime(2026, 8, 16, 12, 0))
+
+    assert swept.sessions == 1
+    assert swept.bytes_freed >= 1000
+    assert not velha.exists(), "a pasta do dia vazio ficou para trás"
+    assert nova.is_dir() and list(nova.iterdir())
+
+
+def test_the_sweep_only_removes_what_this_app_writes(tmp_path):
+    """A folder in the library is the user's. Deleting a stranger's file there is not our call."""
+    velha = _day(tmp_path, 2026, 6, 1)
+    intruso = velha / "anotacoes-do-usuario.md"
+    intruso.write_text("nao me apague", encoding="utf-8")
+
+    library.sweep_older_than(tmp_path, 30, now=datetime(2026, 8, 16, 12, 0))
+
+    assert intruso.is_file(), "apagou arquivo que não é nosso"
+    assert not (velha / "07-42-13.json").exists()
+
+
+def test_zero_days_keeps_everything(tmp_path):
+    """`0` is the escape hatch, and it has to be the one that never deletes."""
+    velha = _day(tmp_path, 2020, 1, 1)
+
+    assert library.sweep_older_than(tmp_path, 0).sessions == 0
+    assert (velha / "07-42-13.json").is_file()
+
+
+def test_the_sweep_ignores_folders_that_are_not_dates(tmp_path):
+    outra = tmp_path / "projeto-importante"
+    outra.mkdir()
+    (outra / "07-42-13.json").write_text("{}", encoding="utf-8")
+
+    library.sweep_older_than(tmp_path, 1, now=datetime(2030, 1, 1))
+
+    assert (outra / "07-42-13.json").is_file()

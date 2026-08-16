@@ -63,27 +63,27 @@ def press(widget, key: Qt.Key, modifiers=Qt.KeyboardModifier.NoModifier) -> None
 
 def test_enter_sends_what_is_on_screen(card, app):
     widget, _ = card
-    sent: list[str] = []
-    widget.send.connect(sent.append)
+    sent: list[tuple[str, bool]] = []
+    widget.send.connect(lambda text, vault: sent.append((text, vault)))
 
     widget.present(FRASE)
     press(widget, Qt.Key.Key_Return)
 
-    assert sent == [FRASE]
+    assert sent == [(FRASE, False)]
     assert not widget.isVisible()
 
 
 def test_edits_are_what_gets_sent(card, app):
     """The whole point of the card: the text can be wrong and you fix it."""
     widget, _ = card
-    sent: list[str] = []
-    widget.send.connect(sent.append)
+    sent: list[tuple[str, bool]] = []
+    widget.send.connect(lambda text, vault: sent.append((text, vault)))
 
     widget.present("testando um dois tres")
     widget.editor.setPlainText("testando 1 2 3")
     press(widget, Qt.Key.Key_Return)
 
-    assert sent == ["testando 1 2 3"]
+    assert sent == [("testando 1 2 3", False)]
 
 
 def test_tab_discards_and_sends_nothing(card, app):
@@ -208,20 +208,20 @@ def test_enter_does_not_leave_a_newline_behind(card, app):
     """The reported bug: Enter added a line instead of sending, because the text box handles
     Return itself and the card's handler never ran."""
     widget, _ = card
-    sent: list[str] = []
-    widget.send.connect(sent.append)
+    sent: list[tuple[str, bool]] = []
+    widget.send.connect(lambda text, vault: sent.append((text, vault)))
 
     widget.present(FRASE)
     press(widget, Qt.Key.Key_Return)
 
-    assert sent == [FRASE], "Enter tem que enviar, não quebrar linha"
+    assert sent == [(FRASE, False)], "Enter tem que enviar, não quebrar linha"
     assert "\n" not in (sent[0] if sent else "")
 
 
 def test_shift_enter_really_inserts_a_line(card, app):
     widget, _ = card
-    sent: list[str] = []
-    widget.send.connect(sent.append)
+    sent: list[tuple[str, bool]] = []
+    widget.send.connect(lambda text, vault: sent.append((text, vault)))
 
     widget.present("primeira")
     press(widget, Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier)
@@ -255,3 +255,21 @@ def test_growth_stops_at_the_screen_not_at_a_magic_number(card, app):
     screen = app.primaryScreen().availableGeometry().height()
     assert widget.height() <= screen, "o cartão passou da tela"
     assert widget._line_ceiling() >= MIN_LINES
+
+
+def test_the_vault_switch_starts_off_on_every_recording(card, app):
+    """Off by default and reset each time: a switch that remembers "on" fills the vault with
+    everything said, which is the opposite of what it is for."""
+    widget, _ = card
+    sent: list[tuple[str, bool]] = []
+    widget.send.connect(lambda text, vault: sent.append((text, vault)))
+
+    widget.present(FRASE)
+    widget._vault.setChecked(True)
+    press(widget, Qt.Key.Key_Return)
+    assert sent == [(FRASE, True)]
+
+    widget.present(FRASE)
+    assert not widget._vault.isChecked(), "a chave lembrou do ligado da vez anterior"
+    press(widget, Qt.Key.Key_Return)
+    assert sent[-1] == (FRASE, False)

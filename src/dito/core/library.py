@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -106,6 +106,72 @@ def open_folder(path: Path | str) -> bool:
     except OSError:
         return False
     return True
+
+
+@dataclass(frozen=True)
+class Swept:
+    sessions: int
+    bytes_freed: int
+
+
+def sweep_older_than(root: Path, days: int, now: datetime | None = None) -> Swept:
+    """Drops sessions past the horizon. See docs/armadilhas.md 8.3: the date is in the PATH, so
+    deciding costs one `strptime` per day folder and opens no JSON at all."""
+    if days <= 0:
+        return Swept(0, 0)
+
+    cutoff = (now or datetime.now()) - timedelta(days=days)
+    sessions = freed = 0
+    for day in sorted(_day_folders(root)):
+        when = _from_path(day, "00-00-00")
+        if when is None or when >= cutoff:
+            continue
+        stems = set()
+        for item in _entries(day):
+            # Only what this app writes. Something else living in there is not ours to delete.
+            if item.is_file() and item.suffix in SESSION_SUFFIXES:
+                size = _size(item)
+                try:
+                    item.unlink()
+                except OSError:
+                    continue
+                freed += size
+                if item.suffix == paths.SESSION_SUFFIX:
+                    stems.add(item.stem)
+        sessions += len(stems)
+        _prune_empty(day, root)
+    return Swept(sessions, freed)
+
+
+def _day_folders(root: Path) -> list[Path]:
+    """`<root>/2026/08/16` only: a folder that is not four/two/two digits is not ours."""
+    found: list[Path] = []
+    for year in _entries(root):
+        if not (year.is_dir() and len(year.name) == 4 and year.name.isdigit()):
+            continue
+        for month in _entries(year):
+            if not (month.is_dir() and len(month.name) == 2 and month.name.isdigit()):
+                continue
+            found += [d for d in _entries(month) if d.is_dir() and len(d.name) == 2
+                      and d.name.isdigit()]
+    return found
+
+
+def _entries(folder: Path) -> list[Path]:
+    try:
+        return sorted(folder.iterdir())
+    except OSError:
+        return []
+
+
+def _prune_empty(folder: Path, stop_at: Path) -> None:
+    """Walks back up while the folders are empty; an empty 2026/ left behind is just litter."""
+    while folder != stop_at and folder.is_dir():
+        try:
+            folder.rmdir()
+        except OSError:
+            return
+        folder = folder.parent
 
 
 def total_size(*roots: Path) -> int:

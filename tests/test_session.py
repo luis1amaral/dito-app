@@ -63,6 +63,16 @@ class FakeCapture:
             )
             time.sleep(0.005)
 
+    def deliver_paced(self, peak: float, count: int = 1, gap_s: float = 0.055) -> None:
+        """One block per real block interval, so the consumer's poll times out in between —
+        which is what a live microphone does, and what `deliver` never reproduced."""
+        for _ in range(count):
+            audio = np.full(BLOCK, peak, dtype="float32")
+            self.blocks.put(
+                Block(audio=audio, reading=Reading(peak, peak), monotonic=time.monotonic())
+            )
+            time.sleep(gap_s)
+
 
 class FakeEngine:
     def __init__(self, text: str = "texto transcrito") -> None:
@@ -503,3 +513,24 @@ def test_consumer_thread_ends_when_the_session_stops(cfg):
     session.stop()
     assert wait_for(lambda: not session._consumer.is_alive(), timeout=3.0)
     assert threading.active_count() < 40
+
+
+def test_audio_delivered_at_real_pace_still_counts_as_heard(cfg):
+    """The defect: blocks arrive every 50 ms and the consumer polls with a 50 ms timeout, so the
+    poll expired BETWEEN healthy blocks and fed the watchdog a zero. Each zero reset the sustained
+    sound tracker, `ever_heard` never latched, and the WAV was kept forever — 115 MB/h back.
+
+    Measured on a real 34 s recording: peak 0.106, 407 of 678 blocks above the quiet threshold,
+    and `ever_heard` still False. See docs/armadilhas.md 1.13."""
+    session, _ = make(cfg)
+    assert session.start().ok
+    capture = session._capture
+
+    capture.deliver_paced(0.2, count=12)
+
+    result = session.stop()
+
+    assert session._watchdog.ever_heard, "gravação audível não contou como ouvida"
+    assert isinstance(result, ev.Finished) and result.ever_heard_audio
+    assert not session.wav_path.exists(), "o WAV sobreviveu a uma transcrição bem-sucedida"
+    assert session.meta_path.is_file()
