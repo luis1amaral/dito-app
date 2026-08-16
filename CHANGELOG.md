@@ -23,15 +23,30 @@ procura. Detalhe em `docs/armadilhas.md` 3.8.
 O `except` do `engine.py:108` capturava tudo isso e caía para CPU em silêncio. Funcionava — só que
 lento, para sempre, sem sintoma. É a falha silenciosa que originou este projeto, em outro recurso.
 
+### A oferta, para quem já tinha o Dito instalado
+Instalar as bibliotecas dentro do `install()` só resolvia **instalação nova**: uma venv que passa no
+`ready()` faz o `main()` retornar antes, então a máquina que já rodava o Dito continuaria em CPU
+para sempre depois do `apt upgrade`, com a placa parada e nada na tela dizendo isso.
+
+Agora `main()` chama `_offer_gpu()` nesse caminho. A oferta obedece às duas regras da casa: **não
+aparece no login** (o autostart exporta `DITO_BOOTSTRAP=never` e retorna antes) e **não baixa nada
+sem uma janela** — pergunta primeiro, com "Ativar" e "Agora não". O "não" fica gravado em
+`~/.local/share/dito/gpu-declined`, senão a oferta viraria uma janela a cada abertura. Sessão sem
+tela (`--headless` ou sem `DISPLAY`) nunca oferece: 1,5 GB pede uma resposta e ali não há quem dê.
+
 ### A regra que não foi enfraquecida
-**Aceleração é bônus e falha sozinha.** O download de ~1,5 GB acontece *depois* do `ready()`, em
-`_install_gpu_extras`, e um erro ali só emite "GPU acceleration unavailable — Dito will use the CPU":
-quem não tem placa, não tem rede ou não tem disco continua com uma instalação de CPU que funciona.
-Por isso os pacotes CUDA **não** entram no `requirements.lock`, que é obrigatório para todos.
+**Aceleração é bônus e falha sozinha.** O download de ~1,5 GB acontece *depois* do `ready()` e um
+erro ali só emite "Aceleração por GPU indisponível — o Dito vai usar a CPU": quem não tem placa,
+rede ou disco continua com uma instalação de CPU que funciona. Por isso os pacotes CUDA **não**
+entram no `requirements.lock`, que vale para todo mundo. `_offer_gpu()` devolve `0` mesmo quando
+levanta exceção — uma oferta que quebra não pode ser o que impede o Dito de abrir, e há teste para
+isso (`test_a_failing_offer_still_lets_the_app_open`).
 
 ### Como foi verificado
-`ruff check` limpo nos arquivos tocados e `pytest -m "not x11"` com **245 passando**. Prova de ponta
-a ponta com o venv real do Dito: `register()` carregou **17 bibliotecas**, e o
+`ruff check` limpo no projeto inteiro e `pytest -m "not x11"` com **252 passando** — 7 deles novos,
+em `tests/test_bootstrap.py`, cobrindo cada guarda da oferta (sem placa, libs já instaladas, "não"
+lembrado, headless, e oferta que explode sem derrubar o app). Prova de ponta a ponta com o venv real
+do Dito: `register()` carregou **17 bibliotecas**, e o
 `WhisperModel('small', device='cuda', compute_type='float16')` subiu e transcreveu — o mesmo encode
 forçado que antes levantava `RuntimeError`.
 

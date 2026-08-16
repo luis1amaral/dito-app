@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dito\n"
 "Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
-"POT-Creation-Date: 2026-08-16 09:56-0300\n"
+"POT-Creation-Date: 2026-08-16 10:07-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -30,7 +30,7 @@ msgstr ""
 msgid "0 keeps the model loaded. During a meeting it is never freed"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:154
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:285
 msgid ""
 "A few components are missing that Debian does not package.\n"
 "About 50 MB, once."
@@ -44,7 +44,7 @@ msgstr ""
 msgid "AUDIO TOO LOW"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:195
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:212
 msgid "All set. Opening Dito…"
 msgstr ""
 
@@ -60,11 +60,12 @@ msgstr ""
 msgid "Choose…"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:172
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:190
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:218
 msgid "Close"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:488
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:487
 msgid "Copied"
 msgstr ""
 
@@ -72,7 +73,7 @@ msgstr ""
 msgid "Copy the last text"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:327
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:326
 msgid "Could not paste"
 msgstr ""
 
@@ -92,11 +93,17 @@ msgstr ""
 msgid "Discard"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:472
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:471
 msgid "Discarded"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:358
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:252
+msgid ""
+"Dito found an NVIDIA card. Moving transcription onto it needs about 1.5 GB of\n"
+"libraries, downloaded once. Without them Dito keeps working on the CPU."
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:357
 msgid "Dito — NO AUDIO"
 msgstr ""
 
@@ -109,16 +116,20 @@ msgstr ""
 msgid "Dito — hold {dictate} to dictate, {meeting} for a meeting"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:384
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:383
 msgid "Dito — nothing was picked up"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:435
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:442
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:434
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:441
 msgid "Dito — saved in Obsidian"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:335
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:189
+msgid "Enable"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:334
 msgid "Fix"
 msgstr ""
 
@@ -131,8 +142,8 @@ msgstr ""
 msgid "Free the memory after"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:116
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:120
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:136
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:139
 msgid "GPU acceleration unavailable — Dito will use the CPU."
 msgstr ""
 
@@ -183,7 +194,11 @@ msgstr ""
 msgid "NO AUDIO — {reason}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:391
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:190
+msgid "Not now"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:390
 msgid "Nothing recognized"
 msgstr ""
 
@@ -249,11 +264,11 @@ msgstr ""
 msgid "Refresh"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:441
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:440
 msgid "Saved in Obsidian"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:434
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:433
 msgid "Saved in Obsidian, with a caveat"
 msgstr ""
 
@@ -261,8 +276,7 @@ msgstr ""
 msgid "Send"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:143
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:149
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:284
 msgid "Setting up Dito"
 msgstr ""
 
@@ -311,12 +325,17 @@ msgstr ""
 msgid "Transcripts folder"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:483
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:482
 msgid "Tried to unmute"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:170
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:189
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:217
 msgid "Try again"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:251
+msgid "Use your graphics card?"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:296
@@ -344,7 +363,7 @@ msgstr ""
 msgid "audio server"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:339
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:338
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:296
 msgid "audio too low"
 msgstr ""
@@ -401,7 +420,7 @@ msgstr ""
 msgid "could not be checked"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:91
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:92
 msgid "could not create the environment"
 msgstr ""
 
@@ -410,7 +429,7 @@ msgstr ""
 msgid "could not create {folder}: {error}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:88
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:89
 msgid "could not download the components."
 msgstr ""
 
@@ -422,12 +441,12 @@ msgstr ""
 msgid "could not paste — the text is on the clipboard"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:423
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:422
 #, python-brace-format
 msgid "could not save the meeting: {error}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:244
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:243
 #, python-brace-format
 msgid "could not start recording: {error}"
 msgstr ""
@@ -442,7 +461,7 @@ msgstr ""
 msgid "could not write the note: {error}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:71
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:72
 msgid "creating the environment…"
 msgstr ""
 
@@ -458,7 +477,7 @@ msgstr ""
 msgid "dictation is already running — two instances would paste everything twice"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:86
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:85
 msgid "dictation is already running."
 msgstr ""
 
@@ -470,11 +489,11 @@ msgstr ""
 msgid "did not fire"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:79
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:80
 msgid "downloading the components…"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:107
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:127
 msgid "enabling GPU acceleration…"
 msgstr ""
 
@@ -560,7 +579,7 @@ msgstr ""
 msgid "library"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:542
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:541
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:385
 msgid "listening"
 msgstr ""
@@ -582,7 +601,7 @@ msgstr ""
 msgid "microphone"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:566
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:565
 msgid "microphone unavailable"
 msgstr ""
 
@@ -628,11 +647,11 @@ msgstr ""
 msgid "not loaded"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:438
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:437
 msgid "note in the vault"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:439
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:438
 msgid "note next to the recording"
 msgstr ""
 
@@ -665,11 +684,11 @@ msgid "pastes without pressing Enter"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/tray.py:85
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:542
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:541
 msgid "paused"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:87
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:88
 msgid "pip failed without saying why"
 msgstr ""
 
@@ -681,7 +700,8 @@ msgstr ""
 msgid "press to start, press again to stop"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:99
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:103
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:140
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/tray.py:80
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/window.py:34
 msgid "ready"
@@ -717,7 +737,7 @@ msgstr ""
 msgid "result"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:397
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:396
 msgid "saving the recording…"
 msgstr ""
 
@@ -746,7 +766,7 @@ msgstr ""
 msgid "small — the balance (default)"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:483
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:482
 msgid "speak again to check"
 msgstr ""
 
@@ -788,7 +808,7 @@ msgstr ""
 msgid "the audio was kept in {folder}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:96
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:97
 msgid "the environment was created but the components do not load"
 msgstr ""
 
@@ -801,7 +821,7 @@ msgstr ""
 msgid "the input volume is at {pct}%"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:385
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:384
 #, python-brace-format
 msgid "the microphone delivered no audio. The recording is in {folder}"
 msgstr ""
@@ -813,11 +833,11 @@ msgstr ""
 #: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:310
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/overlay.py:215
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/overlay.py:267
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:359
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:358
 msgid "the microphone is not picking anything up"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:336
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:335
 msgid "the microphone is not picking up"
 msgstr ""
 
@@ -893,7 +913,8 @@ msgstr ""
 msgid "volume"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:233
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:259
+#: /home/luis/Desktop/Projetos/dito/src/dito/bootstrap.py:290
 msgid "warning"
 msgstr ""
 
@@ -937,12 +958,12 @@ msgstr ""
 msgid "{key} starts and stops the meeting (no time limit)"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:317
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:316
 #, python-brace-format
 msgid "{minutes} min transcribed"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:430
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:429
 #, python-brace-format
 msgid "{minutes} min · {words} words"
 msgstr ""
@@ -952,7 +973,7 @@ msgstr ""
 msgid "{path} (does not exist yet)"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:544
+#: /home/luis/Desktop/Projetos/dito/src/dito/app.py:543
 #, python-brace-format
 msgid "{state} · {dictation_key} hold to dictate, {meeting_key} press to dictate · model {model} ({backend})"
 msgstr ""

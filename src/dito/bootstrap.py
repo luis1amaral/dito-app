@@ -16,6 +16,7 @@ VENV_DIR = Path(
     os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
 ) / "dito" / "venv"
 LOCK = APP_DIR / "requirements.lock"
+DECLINED = VENV_DIR.parent / "gpu-declined"
 
 # ctranslate2 loads these at runtime; the driver alone is not enough — see docs/armadilhas.md 3.8.
 CUDA_PACKAGES = ("nvidia-cublas-cu12", "nvidia-cudnn-cu12")
@@ -95,15 +96,34 @@ def install(progress=None) -> tuple[bool, str]:
     if not ready():
         return False, _("the environment was created but the components do not load")
 
-    _install_gpu_extras(say)
+    if has_nvidia_gpu():
+        ok, message = install_gpu_extras(say)
+        if not ok:
+            say(message)
     return True, _("ready")
 
 
-def _install_gpu_extras(say) -> None:
-    """Acceleration is a bonus: losing it must never cost the user a working CPU install."""
-    if not has_nvidia_gpu():
-        return
+def gpu_extras_ready() -> bool:
+    """True when cuBLAS is already in the venv, which is what the GPU path fails without."""
+    return any(VENV_DIR.glob("lib/python*/site-packages/nvidia/cublas/lib/libcublas.so*"))
 
+
+def gpu_offer_pending() -> bool:
+    """A ready venv never reaches install(), so an existing install needs its own offer."""
+    return has_nvidia_gpu() and not gpu_extras_ready() and not DECLINED.exists()
+
+
+def decline_gpu() -> None:
+    """Remembering the "no" is what keeps the offer from becoming a window on every launch."""
+    try:
+        DECLINED.parent.mkdir(parents=True, exist_ok=True)
+        DECLINED.touch()
+    except OSError:
+        pass
+
+
+def install_gpu_extras(say) -> tuple[bool, str]:
+    """Acceleration is a bonus: losing it must never cost the user a working CPU install."""
     say(_("enabling GPU acceleration…"))
     try:
         done = subprocess.run(
@@ -113,14 +133,16 @@ def _install_gpu_extras(say) -> None:
             timeout=3600,
         )
     except (subprocess.SubprocessError, OSError):
-        say(_("GPU acceleration unavailable — Dito will use the CPU."))
-        return
+        return False, _("GPU acceleration unavailable — Dito will use the CPU.")
 
     if done.returncode != 0:
-        say(_("GPU acceleration unavailable — Dito will use the CPU."))
+        return False, _("GPU acceleration unavailable — Dito will use the CPU.")
+    return True, _("ready")
 
 
-def _run_with_window() -> int:
+def _run_with_window(
+    title: str, text: str, action, ask_first: bool = False, on_decline=None
+) -> int:
     from PySide6.QtCore import QObject, Qt, QTimer, Signal
     from PySide6.QtWidgets import (
         QApplication,
@@ -140,20 +162,17 @@ def _run_with_window() -> int:
     signals = Signals()
 
     window = QWidget()
-    window.setWindowTitle(_("Setting up Dito"))
+    window.setWindowTitle(title)
     window.resize(460, 0)
     layout = QVBoxLayout(window)
     layout.setContentsMargins(28, 24, 28, 24)
     layout.setSpacing(12)
 
-    heading = QLabel(_("Setting up Dito"))
+    heading = QLabel(title)
     heading.setStyleSheet("font-size: 20px; font-weight: 600;")
     layout.addWidget(heading)
 
-    body = QLabel(
-        _("A few components are missing that Debian does not package.\n"
-          "About 50 MB, once.")
-    )
+    body = QLabel(text)
     body.setWordWrap(True)
     layout.addWidget(body)
 
@@ -167,23 +186,21 @@ def _run_with_window() -> int:
 
     buttons = QHBoxLayout()
     buttons.addStretch(1)
-    retry = QPushButton(_("Try again"))
-    retry.hide()
-    close = QPushButton(_("Close"))
-    close.hide()
-    buttons.addWidget(retry)
-    buttons.addWidget(close)
+    go = QPushButton(_("Enable") if ask_first else _("Try again"))
+    dismiss = QPushButton(_("Not now") if ask_first else _("Close"))
+    buttons.addWidget(go)
+    buttons.addWidget(dismiss)
     layout.addLayout(buttons)
 
     state = {"code": 1}
 
     def work() -> None:
-        ok, message = install(progress=signals.step.emit)
+        ok, message = action(signals.step.emit)
         signals.done.emit(ok, message)
 
     def start() -> None:
-        retry.hide()
-        close.hide()
+        go.hide()
+        dismiss.hide()
         bar.show()
         status.setText("")
         threading.Thread(target=work, daemon=True).start()
@@ -197,18 +214,50 @@ def _run_with_window() -> int:
             return
         status.setText(message)
         status.setStyleSheet("color: #c62a30;")
-        retry.show()
-        close.show()
+        go.setText(_("Try again"))
+        dismiss.setText(_("Close"))
+        go.show()
+        dismiss.show()
+
+    def leave() -> None:
+        if on_decline is not None:
+            on_decline()
+        app.quit()
 
     signals.step.connect(status.setText, Qt.ConnectionType.QueuedConnection)
     signals.done.connect(finished, Qt.ConnectionType.QueuedConnection)
-    retry.clicked.connect(start)
-    close.clicked.connect(app.quit)
+    go.clicked.connect(start)
+    dismiss.clicked.connect(leave)
 
     window.show()
-    start()
+    if ask_first:
+        bar.hide()
+        state["code"] = 0       # turning the offer down is an answer, not a failure
+    else:
+        go.hide()
+        dismiss.hide()
+        start()
     app.exec()
     return state["code"]
+
+
+def _offer_gpu(headless: bool) -> int:
+    """Always returns 0: an offer that fails must never be what keeps Dito from opening."""
+    if headless or not gpu_offer_pending():
+        return 0
+
+    try:
+        _run_with_window(
+            _("Use your graphics card?"),
+            _("Dito found an NVIDIA card. Moving transcription onto it needs about 1.5 GB of\n"
+              "libraries, downloaded once. Without them Dito keeps working on the CPU."),
+            install_gpu_extras,
+            ask_first=True,
+            on_decline=decline_gpu,
+        )
+    except Exception as exc:      # noqa: BLE001 - the app opens either way
+        print(f"[{_('warning')}] {type(exc).__name__}", flush=True)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -219,16 +268,24 @@ def main(argv: list[str] | None = None) -> int:
     if os.environ.get("DITO_BOOTSTRAP") == "never":
         return 0
 
-    if ready():
-        return 0
+    headless = "--headless" in argv or not os.environ.get("DISPLAY")
 
-    if "--headless" in argv or not os.environ.get("DISPLAY"):
+    # A ready venv skips install(), so this is the only place an existing install hears the offer.
+    if ready():
+        return _offer_gpu(headless)
+
+    if headless:
         ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
         print(message)
         return 0 if ok else 1
 
     try:
-        return _run_with_window()
+        return _run_with_window(
+            _("Setting up Dito"),
+            _("A few components are missing that Debian does not package.\n"
+              "About 50 MB, once."),
+            lambda say: install(progress=say),
+        )
     except Exception as exc:      # noqa: BLE001 - last resort, the install still has to happen
         print(f"[{_('warning')}] {type(exc).__name__}", flush=True)
         ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
