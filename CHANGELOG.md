@@ -41,6 +41,16 @@ janela com barra de progresso) em toda máquina, não só nas Ubuntu-based. Docu
 **Não instalei de verdade** (precisa de sudo interativo, que não tenho aqui) nem testei o `pip
 install PySide6` de verdade na venv — só a simulação do apt e a geração do lock estão provadas.
 
+### Fechado na outra máquina (a do dono, com GPU)
+1. **O `__version__` tinha ficado para trás.** `pyproject.toml` foi para `0.3.10` e
+   `src/dito/__init__.py` continuou em `0.3.9` — o `.deb` sairia como 0.3.10 e o `dito --version`
+   responderia 0.3.9. `tests/test_version.py` pegou, que é exatamente por que ele existe. Corrigido.
+2. **O `pip install PySide6` está provado.** Venv novo com `--system-site-packages`, instalando o
+   `requirements.lock` extraído do `.deb` gerado: `PySide6 6.8.2.1`, e os imports que o app
+   realmente faz — `QtWidgets`, **`QtSvg`**, `faster_whisper`, `sounddevice` — todos OK. O `QtSvg`
+   funcionando pelo pip é a confirmação de que a armadilha 6.5 morreu na raiz, e não foi remendada.
+3. Suíte completa nesta máquina, **296 passando** (os 32 de x11 inclusos, com sessão gráfica real).
+
 ## 2026-08-16 — 86% da CPU gasta na transcrição não era cálculo, era espera ocupada
 
 Com a GPU já funcionando, transcrever 12 s de fala ainda custava **2,471 s de CPU** (115% de um
