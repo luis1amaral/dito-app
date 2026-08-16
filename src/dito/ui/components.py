@@ -344,8 +344,11 @@ class Select(QComboBox):
         self.clear()
         for value, label in options:
             self.addItem(label, value)
-        self.blockSignals(blocked)
         self.set_value(chosen)
+        self.blockSignals(blocked)
+        # See docs/armadilhas.md 7.13: restoring outside the block made retranslating write config.
+        if self.value() != chosen:
+            self.currentIndexChanged.emit(self.currentIndex())
 
     def value(self) -> str:
         data = self.currentData()

@@ -123,6 +123,7 @@ class Overlay(QWidget):
         self._action.hide()
         row.addWidget(self._action, 0, Qt.AlignmentFlag.AlignVCenter)
 
+        self._row = row
         outer.addLayout(row)
 
         self._detail = HudLabel(role="hud-hint")
@@ -130,7 +131,7 @@ class Overlay(QWidget):
         self._detail.hide()
         outer.addWidget(self._detail)
 
-        self.setFixedWidth(Size.HUD_W + 2 * shadow_margin())
+        self._fit()
 
     # ---- painting --------------------------------------------------------------------
 
@@ -309,9 +310,16 @@ class Overlay(QWidget):
 
     # ---- internals -------------------------------------------------------------------
 
-    def _appear(self) -> None:
+    def _fit(self) -> None:
+        """See docs/armadilhas.md 7.14: HUD_W is the floor, not the width — «Fix» is «Corrigir»."""
+        margins = self.layout().contentsMargins()
+        # The row only: `_detail` wraps, so its width hint is the whole unwrapped sentence.
+        needed = self._row.sizeHint().width() + margins.left() + margins.right()
+        self.setFixedWidth(max(Size.HUD_W + 2 * shadow_margin(), needed))
         self.adjustSize()
-        self.setFixedWidth(Size.HUD_W + 2 * shadow_margin())
+
+    def _appear(self) -> None:
+        self._fit()
         self._reposition()
         self.show()
         self.raise_()
@@ -325,8 +333,7 @@ class Overlay(QWidget):
             self._started_at = time.monotonic()
             self._offset.jump_to(ENTER_OFFSET)
             self._appear()
-        self.adjustSize()
-        self.setFixedWidth(Size.HUD_W + 2 * shadow_margin())
+        self._fit()
         self._offset.retarget(0.0)
         self._driver.start()
         self.update()

@@ -74,6 +74,33 @@ def test_the_wheel_passes_through_so_the_page_scrolls(app):
     assert not event.isAccepted()
 
 
+def test_relabelling_a_select_does_not_announce_a_change(app):
+    """Retranslating the settings screen was writing config.toml: set_value ran outside the signal
+    block, so every relabel fired on_change into _persist(). armadilhas 7.13."""
+    seen = []
+    select = Select([("a", "A"), ("b", "B")], on_change=seen.append)
+    select.set_value("b")
+    seen.clear()
+
+    select.set_options([("a", "A traduzido"), ("b", "B traduzido")])
+
+    assert select.value() == "b"
+    assert seen == []
+
+
+def test_an_option_that_disappeared_is_still_announced(app):
+    """The other half: silence is right for a relabel and wrong for a value that is really gone."""
+    seen = []
+    select = Select([("a", "A"), ("b", "B")], on_change=seen.append)
+    select.set_value("b")
+    seen.clear()
+
+    select.set_options([("a", "A"), ("c", "C")])
+
+    assert select.value() == "a"
+    assert seen == ["a"]
+
+
 def test_a_spin_steps_only_when_it_has_the_focus(app):
     """The stepper keeps the wheel — focus there is deliberate, and stepping is the interaction."""
     spin = Spin(minimum=0.0, maximum=10.0)

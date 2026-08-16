@@ -781,6 +781,57 @@ próxima rolagem por cima dele reescreveria a escolha recém-feita. O valor muda
 setas. O `Spin` aceita a roda **apenas com foco**, porque nele o passo é a interação esperada e o
 foco é sempre deliberado.
 
+### 7.13 Retraduzir a tela gravava a configuração — e a exceção matava a retradução no meio
+
+**Sintoma:** trocar o idioma deixava **parte** do texto no idioma antigo, e a janela parecia
+travar: só reabrindo. Reprodutível no teste `test_switching_the_language_changes_the_text_without_reopening`.
+
+**Causa:** `Select.set_options()` bloqueava os sinais para `clear()` e `addItem()`, **desbloqueava**,
+e só então chamava `set_value(chosen)` para restaurar a escolha. O `setCurrentIndex` de dentro do
+`set_value` dispara `currentIndexChanged` — já desbloqueado. Ou seja, cada troca de rótulo chamava
+`on_change` → `_set()` → `_persist()` → `config.save()`. Medido: trocar `[('a','A'),('b','B')]`
+por `[('a','A traduzido'),('b','B traduzido')]` mantém o valor em `b` e **mesmo assim** dispara o
+`on_change`. A docstring prometia o contrário ("relabelling never changes the setting"); o código
+não cumpria.
+
+Escrever arquivo dentro de um `slot` do Qt tem um segundo custo: o `config.save()` chega em
+`Path.home()`, que faz `import ntpath` na primeira vez, e esse import cai no gancho de importação
+do `shibokensupport` do PySide6 já com a pilha funda por causa da emissão do sinal —
+`RecursionError`. A exceção sobe do meio do laço de retradução e **as telas seguintes nunca são
+retraduzidas**. Daí o texto pela metade e a sensação de travamento.
+
+**Correção:** o `set_value` entrou para dentro do bloqueio. E o caso legítimo continua sendo
+anunciado: se o valor escolhido **não existe mais** na lista nova, o índice cai para 0 e o sinal é
+emitido à mão — silêncio é o certo para um rótulo trocado e errado para um valor que sumiu de
+verdade.
+
+**A lição maior:** a suíte estava gravando no `~/.config/dito/config.toml` **do dono** a cada
+execução. Nenhum teste pediu isso; era efeito colateral deste defeito. Sinal de Qt que escreve
+disco é sempre suspeito.
+
+### 7.14 Largura fixa numa pílula traduzida come a primeira letra do botão
+
+**Sintoma:** no alarme vermelho, o botão saía escrito **"orrigir"** — o "C" cortado. Só em
+português; em inglês nunca aconteceu.
+
+**Causa:** `Size.HUD_W = 340` era aplicado como `setFixedWidth`, e a linha do topo tem cinco itens
+sem esticamento nenhum: ponto (14, fixo), título, onda (75, `setFixedSize`), relógio e botão.
+Medido em português: 14 + 71 + 75 + 40 + 82, mais 48 de espaçamento = **330** para 308 disponíveis.
+Faltando 22 px e sem ninguém elástico, o Qt encolhe **todos** — inclusive o botão, cuja política é
+`Fixed`: 82 px de `sizeHint` viravam 69 na tela, e a diferença sai comendo a primeira letra.
+
+`_("Fix")` tem 3 letras; `Corrigir` tem 8. A largura tinha sido escolhida olhando a palavra inglesa.
+
+O mais revelador: o `_nudge()` já dizia na própria docstring *"re-measure and re-target instead of
+restarting: the pill grows from where it is"* — e a linha seguinte jogava a medição fora com
+`setFixedWidth(HUD_W)`. O `adjustSize()` logo acima era trabalho morto.
+
+**Correção:** `HUD_W` virou **piso**, não largura — `max(HUD_W, o que a linha precisa)`. A medida
+sai do **layout da linha**, não do widget inteiro: o `_detail` tem `setWordWrap(True)` e o
+`sizeHint` de um `QLabel` que quebra linha é a frase **inteira sem quebrar**, o que esticaria a
+pílula até a largura da tela. Medido depois: `Fix` → 378 px, `Corrigir` → 400 px, nenhum dos dois
+cortando.
+
 ---
 
 ## 8. Biblioteca e retenção

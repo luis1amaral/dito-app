@@ -1,5 +1,53 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — trocar o idioma deixava a tela pela metade
+
+### O quê
+`Select.set_options()` restaura a escolha **dentro** do bloqueio de sinais. Se o valor escolhido
+não existe mais na lista nova, o sinal é emitido à mão.
+
+### Por quê
+Trocar o idioma deixava parte do texto no idioma antigo e a janela parecia travar, só reabrindo.
+O `set_value(chosen)` rodava **depois** do `blockSignals(blocked)`, então cada troca de rótulo
+disparava `currentIndexChanged` → `on_change` → `_persist()` → `config.save()`. A docstring
+prometia "relabelling never changes the setting"; o código não cumpria.
+
+Escrever arquivo dentro de um slot do Qt cobrou o resto: o `save()` chega em `Path.home()`, que faz
+`import ntpath` na primeira vez, e esse import cai no gancho do `shibokensupport` com a pilha funda
+por causa da emissão — `RecursionError`. A exceção subia do meio do laço de retradução e as telas
+seguintes nunca eram retraduzidas.
+
+Efeito colateral que ninguém tinha notado: **a suíte gravava no `~/.config/dito/config.toml` do
+dono** a cada execução. Sinal de Qt que escreve disco é sempre suspeito.
+
+### Como foi verificado
+258 testes verdes, `ruff` limpo. O teste que reprovava
+(`test_switching_the_language_changes_the_text_without_reopening`) passa. Dois testes novos
+prendem os dois lados: rótulo trocado **não** anuncia, valor que sumiu **anuncia**. Conferido
+também que, com o laço completo, sobram **0** textos em inglês depois de trocar para pt-BR. A
+suíte caiu de 35 s para 20 s — era o custo da gravação em disco a cada retradução.
+
+### E mais: o botão do alarme saía escrito "orrigir"
+
+`Size.HUD_W` era aplicado como `setFixedWidth`, e a linha do topo da pílula tem cinco itens sem
+esticamento. Medido em português: os itens pedem 330 px e há 308 — faltando 22 e sem ninguém
+elástico, o Qt encolhe **todos**, inclusive o botão, cuja política é `Fixed`. Os 82 px de
+`sizeHint` viravam 69 na tela, e a diferença come a primeira letra. `Fix` tem 3 letras,
+`Corrigir` tem 8: a largura foi escolhida olhando a palavra inglesa.
+
+O `_nudge()` já prometia na docstring *"the pill grows from where it is"*, e a linha seguinte
+jogava a medição fora. Agora `HUD_W` é **piso**: `max(HUD_W, o que a linha precisa)`. A medida sai
+do layout da linha e não do widget inteiro, porque o `_detail` quebra linha e o `sizeHint` de um
+`QLabel` que quebra é a frase inteira **sem** quebrar — esticaria a pílula até a tela.
+
+Medido depois: `Fix` → 378 px, `Corrigir` → 400 px, nenhum cortando. Ver `docs/armadilhas.md`
+**7.14**.
+
+### Documentação
+`docs/armadilhas.md` **7.13** e **7.14**.
+
+---
+
 ## 2026-08-16 — o pacote instalava sem ícone na bandeja
 
 ### O quê
