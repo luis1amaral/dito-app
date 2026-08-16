@@ -40,13 +40,15 @@ def register_cuda_dlls(log=None) -> None:
         register()
         return
 
-    from ..platform.linux_x11.cuda_libs import register
+    from ..platform.linux_x11.cuda_libs import prefer_blocking_sync, register
 
     loaded, failed = register()
+    blocking = prefer_blocking_sync()
     if log is not None:
         # Zero loaded is the silent-CPU case: without this line nobody can tell why.
         log(f"[cuda] {len(loaded)} biblioteca(s) carregada(s)"
-            + (f", {len(failed)} falhou/falharam: {', '.join(failed)}" if failed else ""))
+            + (f", {len(failed)} falhou/falharam: {', '.join(failed)}" if failed else "")
+            + (", espera sem spin" if blocking else ""))
 
 
 class WhisperEngine:

@@ -14,6 +14,8 @@ _MODE = getattr(ctypes, "RTLD_GLOBAL", 0)
 # An allowlist, not *.so*: libnvblas exports sgemm_ and friends and exists to hijack BLAS.
 WANTED = ("libcublas*.so*", "libcudnn*.so*", "libnvrtc*.so*")
 
+CU_CTX_SCHED_BLOCKING_SYNC = 0x04
+
 
 def _roots() -> list[str]:
     roots = [sysconfig.get_paths()["purelib"], *site.getsitepackages()]
@@ -23,6 +25,20 @@ def _roots() -> list[str]:
     else:
         roots.extend(user_site)
     return list(dict.fromkeys(r for r in roots if r))
+
+
+def prefer_blocking_sync() -> bool:
+    """Wait on an interrupt, not a spin: 70% of the CPU burned while transcribing was busy-wait."""
+    try:
+        cuda = ctypes.CDLL("libcuda.so.1")
+    except OSError:
+        return False
+
+    # Must land before CTranslate2 creates the context — after that the call is refused.
+    device = ctypes.c_int(0)
+    if cuda.cuInit(0) != 0 or cuda.cuDeviceGet(ctypes.byref(device), 0) != 0:
+        return False
+    return cuda.cuDevicePrimaryCtxSetFlags(device, CU_CTX_SCHED_BLOCKING_SYNC) == 0
 
 
 def register() -> tuple[list[str], list[str]]:

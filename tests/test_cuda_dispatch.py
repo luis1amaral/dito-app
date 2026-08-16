@@ -56,3 +56,29 @@ def test_register_reports_what_failed(monkeypatch, tmp_path):
 
     assert loaded == []
     assert failed == ["libcublas.so.12"]
+
+
+def test_blocking_sync_is_attempted_before_the_context_exists():
+    """CU_CTX_SCHED_BLOCKING_SYNC is refused once CTranslate2 has created the context."""
+    assert cuda_libs.CU_CTX_SCHED_BLOCKING_SYNC == 0x04
+
+
+def test_a_machine_without_libcuda_just_says_no(monkeypatch):
+    """No driver is not an error: the engine falls back to the CPU on its own."""
+    def boom(*_a, **_k):
+        raise OSError("libcuda.so.1: cannot open shared object file")
+
+    monkeypatch.setattr(cuda_libs.ctypes, "CDLL", boom)
+
+    assert cuda_libs.prefer_blocking_sync() is False
+
+
+def test_openblas_is_pinned_before_numpy_loads():
+    """The pool spins after a 3 ms matmul; OpenBLAS reads this once, at import time."""
+    import os
+
+    import dito
+
+    assert dito is not None
+    assert os.environ["OPENBLAS_NUM_THREADS"] == "1"
+    assert os.environ["OMP_NUM_THREADS"] == "1"

@@ -1,5 +1,40 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — 86% da CPU gasta na transcrição não era cálculo, era espera ocupada
+
+Com a GPU já funcionando, transcrever 12 s de fala ainda custava **2,471 s de CPU** (115% de um
+núcleo em média, picos de 250-300%). O dono perguntou se aquilo era normal — não era, e a resposta
+não estava onde eu procurei primeiro.
+
+### O que era
+Nada disso é cálculo. Duas esperas ocupadas, cada uma provada por experimento controlado:
+
+1. **Spin de sincronização do CUDA — 70%.** `model.encode` de uma janela de 30 s é trabalho 100% de
+   GPU, e mesmo assim queimava `cpu/parede = 1.00`. Com o primary context em
+   `CU_CTX_SCHED_BLOCKING_SYNC`: parede 919 → 922 ms, **CPU 919 → 3,7 ms**. Mesma parede, 250x menos
+   CPU. Era spin, não trabalho.
+2. **Spin do pool do OpenBLAS — 15%.** Um log-mel de 3 ms deixava as threads girando *durante um
+   `sleep(300 ms)` de processo parado*: 328 ms queimados à toa. Com uma thread o log-mel fica até
+   **mais rápido em parede** — é pequeno demais para valer paralelizar.
+
+### O que ficou
+`cuda_libs.prefer_blocking_sync()`, chamada de `register_cuda_dlls()` antes de o CTranslate2 criar o
+contexto (depois disso a chamada é recusada), e `OPENBLAS_NUM_THREADS`/`OMP_NUM_THREADS` em
+`dito/__init__.py` — o primeiro código do pacote a rodar, antes de qualquer import de numpy.
+
+**Medido no engine real, 3 execuções: CPU 2,471 → 0,357 s (−86%), parede inalterada
+(2,10-2,16 s contra 2,123 s de baseline), texto idêntico.** Detalhe em `docs/armadilhas.md` 3.9.
+
+### Duas hipóteses derrubadas, para ninguém "otimizar" o que está certo
+**O VAD não é o vilão — é o herói.** Custa 0,8% da CPU; desligá-lo faria o decoder rodar sobre
+silêncio, medido em **166x mais CPU**. E `cpu_threads` do CTranslate2 não muda **nada** com
+`device="cuda"` (0, 1, 2 e 6 medidos, diferença dentro do ruído): ele governa kernels de CPU, que
+nesse caminho não existem.
+
+### O que sobra é intrínseco
+~14% de launches do CT2, tokenizer e Python, mais 960 ms de encoder por janela de 30 s — a GTX 1650
+no limite, a 97% e 1965 MHz. Só cai trocando de modelo ou de placa.
+
 ## 2026-08-16 — o que a revisão adversarial achou depois de a GPU já estar funcionando
 
 Revisão de produção sobre os três commits anteriores. Devolveu `REQUEST CHANGES`, e os achados eram

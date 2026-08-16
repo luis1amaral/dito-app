@@ -423,6 +423,35 @@ o modelo em memória é o da CPU e ficaria lá até o descarregamento por ociosi
 ao usuário: autorizar algo que só melhora o app é atrito, e a resposta é sempre sim. Quem quer CPU
 diz isso em `stt.device`, que é respeitado.
 
+### 3.9 Com a GPU trabalhando, 86% da CPU gasta é espera ocupada
+
+**Sintoma medido:** transcrever 12 s de fala na GPU custava **2,471 s de CPU** — média de 115% de um
+núcleo, picos de 250-300%. Com a GPU a 97% e a parede sendo GPU-bound, esse tempo de CPU não é
+cálculo: é espera.
+
+**Duas fontes, cada uma provada por experimento:**
+
+1. **Spin de sincronização do CUDA — 70%.** `model.encode` de uma janela de 30 s é trabalho 100% de
+   GPU e mesmo assim queimava `cpu/parede = 1.00`, numa thread que não é a do Python. Forçando o
+   primary context para `CU_CTX_SCHED_BLOCKING_SYNC`: parede 919 → 922 ms, **CPU 919 → 3,7 ms**.
+   Mesma parede, 250x menos CPU.
+2. **Spin do pool do OpenBLAS — 15%.** Um log-mel de 3 ms deixa as threads girando *durante um
+   `sleep(300 ms)` em que o processo não faz nada*: 328 ms de CPU queimados à toa. Com
+   `OPENBLAS_NUM_THREADS=1` o log-mel fica até **mais rápido em parede** (3,3 ms contra 13,7 ms) —
+   é pequeno demais para valer paralelizar.
+
+**Correção:** `cuda_libs.prefer_blocking_sync()` (antes de o CTranslate2 criar o contexto — depois
+disso a chamada é recusada) e `OPENBLAS_NUM_THREADS`/`OMP_NUM_THREADS` em `dito/__init__.py`, que é
+o primeiro código do pacote a rodar, antes de qualquer import de numpy. **Medido depois:
+CPU 2,471 → 0,357 s (−86%), parede inalterada, texto idêntico.**
+
+**O VAD não é o vilão — é o herói.** Custa 0,8% da CPU (19 ms). Desligá-lo faria o decoder rodar
+sobre silêncio: medido, **166x mais CPU**. `cpu_threads` do CTranslate2 também não muda nada com
+`device="cuda"`: ele governa kernels de CPU, que não existem nesse caminho.
+
+**O que sobra é intrínseco:** ~14% de launches do CT2, tokenizer e Python, mais 960 ms de encoder
+por janela de 30 s — a GTX 1650 (TU117, sem tensor cores) no limite dela, a 97% e 1965 MHz.
+
 ---
 
 ## 4. Colagem e clipboard
