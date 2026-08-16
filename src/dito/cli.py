@@ -227,6 +227,119 @@ def _tick(
     return state, first_alarm
 
 
+def cmd_listen(args: argparse.Namespace) -> int:
+    """Headless dictation: hotkeys + recording + transcription + paste, no window.
+
+    This exists so the whole chain can be exercised — and dogfooded — before the UI is written,
+    and so a UI bug can never be confused with an engine bug.
+    """
+    from .core import events as ev
+    from .core.session import Mode, Session
+    from .output import paste as paster
+    from .platform.linux_x11.hotkeys import HotkeyManager
+    from .platform.linux_x11.hotkeys import Mode as KeyMode
+    from .stt.engine import WhisperEngine
+
+    cfg = config.load()
+    paths.ensure_dirs()
+
+    ptt = (args.key or cfg.hotkeys.push_to_talk).lower()
+    meeting_key = (args.meeting_key or cfg.hotkeys.meeting_toggle).lower()
+
+    engine = WhisperEngine(
+        model=cfg.stt.model,
+        language=cfg.stt.language,
+        device=cfg.stt.device,
+        idle_unload_min=cfg.stt.idle_unload_min,
+        on_log=lambda m: print(f"  {_paint(m, DIM)}"),
+    )
+
+    current: dict[str, Session] = {}
+    lock = __import__("threading").Lock()
+
+    def show(event) -> None:
+        if isinstance(event, ev.Level):
+            return
+        if isinstance(event, ev.AudioAlarm):
+            if event.state.value == "dead":
+                print(f"  {_paint('SEM ÁUDIO — ' + (event.reason or ''), BAD)}")
+                if event.fix_hint:
+                    print(f"  {_paint('corrigir: ' + event.fix_hint, DIM)}")
+            elif event.state.value == "quiet":
+                print(f"  {_paint('áudio muito baixo', WARN)}")
+            else:
+                print(f"  {_paint('áudio voltou', OK)}")
+        elif isinstance(event, ev.Partial):
+            print(f"  {_paint(f'[{event.end_s:.0f}s]', DIM)} {event.text}")
+        elif isinstance(event, ev.Failed):
+            print(f"  {_paint(event.reason, BAD)}")
+            print(f"  {_paint('o áudio está em ' + (event.folder or '?'), DIM)}")
+
+    def begin(name: str) -> None:
+        mode = Mode.MEETING if name == "meeting" else Mode.DICTATION
+        with lock:
+            if name in current:
+                return
+            session = Session(cfg, mode, engine, emit=show, on_log=lambda m: print(f"  {m}"))
+            current[name] = session
+        print(f"\n● {'reunião' if mode is Mode.MEETING else 'gravando'}…")
+        if not session.start().ok:
+            with lock:
+                current.pop(name, None)
+
+    def end(name: str) -> None:
+        with lock:
+            session = current.pop(name, None)
+        if session is None:
+            return
+        print("  transcrevendo…")
+        result = session.stop()
+        if not isinstance(result, ev.Finished):
+            return
+        if not result.text:
+            aviso = ("nada reconhecido — e o microfone não captou nada"
+                     if not result.ever_heard_audio else "nada reconhecido")
+            print(f"  {_paint(aviso, BAD if not result.ever_heard_audio else WARN)}")
+            print(f"  {_paint('áudio guardado em ' + result.folder, DIM)}")
+            return
+        print(f"  → {result.text}")
+        if cfg.output.paste and not args.no_paste:
+            outcome = paster.paste(
+                result.text,
+                send_enter=cfg.output.enter and not args.no_enter,
+                restore_clipboard=cfg.output.restore_clipboard,
+            )
+            if outcome.message:
+                print(f"  {_paint(outcome.message, WARN)}")
+                print(f"  {_paint(result.folder, DIM)}")
+
+    manager = HotkeyManager(
+        on_start=begin, on_stop=end, grab=cfg.hotkeys.grab,
+        on_log=lambda m: print(f"  {_paint(m, DIM)}"),
+    )
+    manager.bind("dictation", ptt, KeyMode.HOLD)
+    manager.bind("meeting", meeting_key, KeyMode.TOGGLE)
+
+    print(f"\n Dito {__version__} — pronto.")
+    print(f"   segure {_paint(ptt.upper(), OK)} e fale; solte para transcrever")
+    print(f"   {_paint(meeting_key.upper(), OK)} liga e desliga a reunião (sem limite de tempo)")
+    print("   Ctrl+C encerra.\n")
+
+    manager.start()
+    try:
+        while True:
+            time.sleep(1.0)
+            engine.unload_if_idle()
+    except KeyboardInterrupt:
+        print("\n encerrado.")
+    finally:
+        manager.stop()
+        with lock:
+            for name in list(current):
+                current.pop(name)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="dito", description="Ditado por voz offline.")
     p.add_argument("--version", action="version", version=f"dito {__version__}")
@@ -241,6 +354,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="«zeros» simula o microfone mudo sem precisar de microfone")
     s.add_argument("--device", default=None)
     s.set_defaults(func=cmd_selftest)
+
+    listen = subs.add_parser("listen", help="ditado sem interface — atalho, gravação e colagem")
+    listen.add_argument("--key", default=None, help="sobrepõe a tecla de ditado (ex.: f7)")
+    listen.add_argument("--meeting-key", default=None, help="sobrepõe a tecla de reunião")
+    listen.add_argument("--no-paste", action="store_true", help="só imprime, não cola")
+    listen.add_argument("--no-enter", action="store_true", help="cola sem dar Enter")
+    listen.set_defaults(func=cmd_listen)
 
     return p
 

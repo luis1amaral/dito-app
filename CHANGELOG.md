@@ -1,5 +1,46 @@
 # CHANGELOG — Dito
 
+## 2026-08-15 — ditado de ponta a ponta sem interface, com atalho configurável
+
+### O quê
+
+1. **`platform/linux_x11/hotkeys.py`** — segurar-para-falar e alternar-para-reunião.
+2. **`core/session.py`** — uma gravação inteira: pré-checagem → captura → disco → alarme →
+   transcrição → texto. Ditado transcreve uma vez no fim (beam 5, precisão); reunião corta em
+   trechos e transcreve durante (beam 1, sem limite de tempo).
+3. **`core/events.py`** — eventos tipados no lugar de tuplas `("preview", str)`.
+4. **`output/paste.py`** — clipboard + Ctrl+V com os três tempos que importam.
+5. **`dito listen`** — ditado funcionando **sem interface nenhuma**.
+
+### Decisões de projeto que valem registro
+
+- **Disco antes de tudo.** No consumidor de áudio, a primeira coisa que acontece com cada bloco é
+  ser escrito. Só depois vêm nível, alarme e transcrição. É o que garante que modelo que não
+  carrega, colagem que falha ou processo morto não custem a fala.
+- **Contrapressão sem descartar áudio.** Se a transcrição atrasa, o trecho espera na fila e a
+  gravação continua. Descartar trecho para acompanhar perderia fala — a única coisa proibida.
+- **`transcript.jsonl` cresce durante a reunião.** Morrer no minuto 50 preserva 0–49 em ordem.
+- **A tecla de reunião não para no release.** Ela para na **próxima batida** — reunião não tem
+  limite de tempo, foi pedido explícito.
+- **Colar que falha devolve resultado, não exceção.** Antes, `paste()` estourando (falta de
+  `xclip`) perdia o texto e deixava uma linha num log que ninguém lê.
+
+### Como foi verificado
+
+- **Atalhos, contra um servidor X de verdade, com teclas injetadas por XTest:** segurar 1,5 s
+  dura 1,81 s (1,5 + 0,30 de carência); toque de 0,15 s dura 0,46 s; o toggle **ignora o release**;
+  gerente pausado fica mudo. 29 testes verdes.
+- **Cadeia completa headless:** `dito listen --key f7` + F7 sintético segurado por 2 s →
+  gravação, transcrição, `session.json` com `state: done` e `audio.wav` com 32000 frames / 2,00 s
+  legível por `wave.open()`.
+- **Motor:** carga do modelo em 1,07 s do cache, fallback GPU→CPU disparando como projetado,
+  **RTF 0,41 com beam=5** (áudio sintético, VAD desligado).
+
+### O que ainda NÃO foi provado
+
+Palavras de verdade saindo certas. A máquina não tem sintetizador de voz, então o último elo
+depende de uma voz humana. Tudo antes dele está provado; isso não.
+
 ## 2026-08-15 — projeto próprio, e o alarme de microfone mudo funcionando
 
 Primeiro corte do refactor. O ditado sai de um arquivo único de 1136 linhas dentro do repo `dev` e
