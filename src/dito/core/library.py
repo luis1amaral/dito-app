@@ -12,12 +12,15 @@ from typing import Any
 
 from .. import paths
 from ..audio.devices import SAMPLE_RATE
-from ..config import Config
 
+# A session is `<stamp>_<mode>.json` plus, while they exist, the two files that share its name.
+SESSION_SUFFIXES = (paths.SESSION_SUFFIX, paths.AUDIO_SUFFIX, paths.PARTIALS_SUFFIX)
+
+# The folder layout used until 2026-08. Never written again, always still listed.
 META_FILE = "session.json"
 TRANSCRIPT_FILE = "transcript.jsonl"
 
-# See docs/armadilhas.md 8.2: named, never globbed. Opus first — it is the surviving copy.
+# See docs/armadilhas.md 8.2: named, never globbed. Opus first — it was the surviving copy.
 AUDIO_FILES = ("audio.opus", "audio.wav")
 
 # States written by core/session.py::_write_meta. Anything else on disk reads as UNKNOWN.
@@ -42,7 +45,8 @@ class SessionInfo:
     size_bytes: int
     preview: str
     state: str
-    folder: Path
+    # The session's JSON file; for a pre-2026-08 session, the folder it still lives in.
+    path: Path
     has_audio: bool
 
     @property
@@ -51,15 +55,18 @@ class SessionInfo:
 
 
 def list_sessions(root: Path | None = None) -> list[SessionInfo]:
-    """Newest first. A folder that cannot be read is listed as `unknown`, never skipped."""
+    """Newest first, both layouts. What cannot be read is listed as `unknown`, never skipped."""
     root = root or paths.sessions_dir()
     try:
         with os.scandir(root) as entries:
-            folders = [Path(e.path) for e in entries if e.is_dir(follow_symlinks=False)]
+            found = [(Path(e.path), e.is_dir(follow_symlinks=False)) for e in entries]
     except OSError:
         return []
 
-    sessions = [_read(folder) for folder in folders]
+    stems = {p.stem for p, is_dir in found if not is_dir and p.suffix in SESSION_SUFFIXES}
+    sessions = [_read_files(root, stem) for stem in stems]
+    sessions += [_read_folder(p) for p, is_dir in found if is_dir and _is_legacy_session(p)]
+
     sessions.sort(key=lambda s: (s.started or datetime.min, s.id), reverse=True)
     return sessions
 
@@ -70,10 +77,13 @@ def recoverable(root: Path | None = None) -> list[SessionInfo]:
 
 
 def open_folder(path: Path | str) -> bool:
-    """Hand the folder to the file manager; a missing `xdg-open` is never worth a traceback."""
+    """Hand the folder to the file manager; a session file opens the folder holding it."""
+    target = Path(path)
+    if not target.is_dir():
+        target = target.parent
     try:
         subprocess.Popen(
-            ["xdg-open", str(path)],
+            ["xdg-open", str(target)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,          # outlives Dito, so closing the app keeps the window
@@ -83,49 +93,49 @@ def open_folder(path: Path | str) -> bool:
     return True
 
 
-def collect_garbage(
-    cfg: Config, root: Path | None = None, now: datetime | None = None
-) -> int:
-    """Apply the retention policy to recorded audio. Returns the bytes freed."""
-    now = now or datetime.now()
-    freed = 0
-
-    for session in list_sessions(root):
-        window = _retention_seconds(cfg, session.mode)
-        if window is None or not session.has_audio:
-            continue
-
-        # Never the audio of a session that failed: that is the one the user will want back.
-        if not session.done:
-            continue
-
-        # See docs/armadilhas.md 1.1: with no text, the WAV is the only evidence of what was said.
-        if not session.preview:
-            continue
-
-        if _age_seconds(session, now) < window:
-            continue
-
-        for name in AUDIO_FILES:
-            freed += _remove(session.folder / name)
-
-    return freed
-
-
 def total_size(root: Path | None = None) -> int:
     return sum(s.size_bytes for s in list_sessions(root))
 
 
-# ---- reading one folder ---------------------------------------------------------------------
+# ---- reading one session ----------------------------------------------------------------------
 
 
-def _read(folder: Path) -> SessionInfo:
-    meta = _load_meta(folder / META_FILE)
-    stamp, mode_from_name = _from_folder_name(folder.name)
+def _read_files(root: Path, stem: str) -> SessionInfo:
+    """The current layout: one JSON, and the audio only while there is no text to replace it."""
+    meta_path = root / f"{stem}{paths.SESSION_SUFFIX}"
+    audio = root / f"{stem}{paths.AUDIO_SUFFIX}"
+    partials = root / f"{stem}{paths.PARTIALS_SUFFIX}"
+
+    meta = _load_meta(meta_path)
+    stamp, mode_from_name = _from_name(stem)
 
     seconds = _as_float(meta.get("seconds"))
     if seconds <= 0:
-        seconds = _wav_seconds(folder)
+        seconds = _wav_seconds(audio)
+
+    text = _as_str(meta.get("text")) or _transcript_head(partials)
+
+    return SessionInfo(
+        id=_as_str(meta.get("id")) or stem,
+        mode=_as_str(meta.get("mode")) or mode_from_name,
+        started=_parse_started(meta.get("started")) or stamp,
+        seconds=seconds,
+        size_bytes=sum(_size(p) for p in (meta_path, audio, partials)),
+        preview=_preview(text),
+        state=_as_str(meta.get("state")) or UNKNOWN,
+        path=meta_path,
+        has_audio=audio.is_file(),
+    )
+
+
+def _read_folder(folder: Path) -> SessionInfo:
+    """A session recorded before one-file sessions: same fields, read out of the old folder."""
+    meta = _load_meta(folder / META_FILE)
+    stamp, mode_from_name = _from_name(folder.name)
+
+    seconds = _as_float(meta.get("seconds"))
+    if seconds <= 0:
+        seconds = _wav_seconds(folder / "audio.wav")
 
     text = _as_str(meta.get("text")) or _transcript_head(folder / TRANSCRIPT_FILE)
 
@@ -137,13 +147,20 @@ def _read(folder: Path) -> SessionInfo:
         size_bytes=_folder_size(folder),
         preview=_preview(text),
         state=_as_str(meta.get("state")) or UNKNOWN,
-        folder=folder,
+        path=folder,
         has_audio=any((folder / name).is_file() for name in AUDIO_FILES),
     )
 
 
+def _is_legacy_session(folder: Path) -> bool:
+    """Only what an old session left behind; another folder in here is not a recording."""
+    if _from_name(folder.name)[0] is not None:
+        return True
+    return any((folder / name).is_file() for name in (META_FILE, TRANSCRIPT_FILE, *AUDIO_FILES))
+
+
 def _load_meta(path: Path) -> dict[str, Any]:
-    """Anything unreadable reads as "no metadata"; the folder name still describes the session."""
+    """Anything unreadable reads as "no metadata"; the file name still describes the session."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -151,8 +168,8 @@ def _load_meta(path: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _from_folder_name(name: str) -> tuple[datetime | None, str]:
-    """`2026-08-15_143200_meeting` -> the metadata a corrupt `session.json` cannot take away."""
+def _from_name(name: str) -> tuple[datetime | None, str]:
+    """`2026-08-15_143200_meeting` -> the metadata a corrupt JSON cannot take away."""
     stamp, _, mode = name.rpartition("_")
     try:
         when = datetime.strptime(stamp, _STAMP_FORMAT)
@@ -172,13 +189,9 @@ def _parse_started(value: Any) -> datetime | None:
     return when.astimezone().replace(tzinfo=None) if when.tzinfo else when
 
 
-def _wav_seconds(folder: Path) -> float:
+def _wav_seconds(path: Path) -> float:
     """Physical size, not the declared one: armadilhas 1.4 — the RIFF header under-reports."""
-    path = folder / "audio.wav"
-    try:
-        size = path.stat().st_size
-    except OSError:
-        return 0.0
+    size = _size(path)
     if size <= _WAV_HEADER:
         return 0.0
     return (size - _WAV_HEADER) / (SAMPLE_RATE * 2)      # int16 mono, what writer.py records
@@ -209,6 +222,14 @@ def _preview(text: str) -> str:
     return f"{cut or flat[:PREVIEW_CHARS]}…"
 
 
+def _size(path: Path) -> int:
+    """Symlinks are measured as links — armadilhas 6.3: that disk is not ours to report."""
+    try:
+        return path.lstat().st_size
+    except OSError:
+        return 0
+
+
 def _folder_size(folder: Path) -> int:
     """Symlinks are neither followed nor counted — armadilhas 6.3: that disk is not ours to free."""
     total = 0
@@ -224,44 +245,6 @@ def _folder_size(folder: Path) -> int:
         except OSError:
             continue
     return total
-
-
-# ---- retention ------------------------------------------------------------------------------
-
-
-def _retention_seconds(cfg: Config, mode: str) -> float | None:
-    """`None` (and 0 in the config) = keep forever; an unknown mode is never collected."""
-    if mode == MODE_DICTATION:
-        hours = cfg.retention.dictation_audio_hours
-        return hours * 3600 if hours > 0 else None
-    if mode == MODE_MEETING:
-        days = cfg.retention.meeting_audio_days
-        return days * 86400 if days > 0 else None
-    return None
-
-
-def _age_seconds(session: SessionInfo, now: datetime) -> float:
-    if session.started is not None:
-        return (now - session.started).total_seconds()
-    return _mtime_age(session.folder, now)
-
-
-def _mtime_age(folder: Path, now: datetime) -> float:
-    """Last resort; returns 0 ("brand new") when even the stat fails, so the audio is kept."""
-    try:
-        modified = datetime.fromtimestamp(folder.stat().st_mtime)
-    except OSError:
-        return 0.0
-    return (now - modified).total_seconds()
-
-
-def _remove(path: Path) -> int:
-    try:
-        size = path.stat().st_size
-        path.unlink()
-    except OSError:
-        return 0
-    return size
 
 
 def _as_str(value: Any) -> str:

@@ -1,5 +1,36 @@
 # CHANGELOG — Dito
 
+## 2026-08-15 — sessão vira um JSON de 238 bytes, e o áudio não fica
+
+### O quê
+1. **Uma sessão = um arquivo JSON solto**, com data e modo no nome, sem pasta. Era uma pasta com
+   `audio.wav` + `session.json` + `transcript.jsonl`.
+2. **O áudio é apagado assim que a transcrição está gravada** — ditado e reunião. Medido: 160 kB
+   de WAV durante a fala, **238 bytes** no fim.
+3. `audio/encode.py` (Opus) e `library.collect_garbage` **removidos**: sem áudio guardado, não há
+   o que comprimir nem o que coletar.
+4. Configuração limpa do que não tinha leitor: `retention` inteiro, `meeting.max_hours`,
+   `meeting.low_disk_warn_gb`, `ui.overlay_position`, `hotkeys.cancel`.
+
+### Por quê
+115 MB/hora não se sustenta — decisão do dono. A rede de segurança continua intacta: o áudio vai
+para o disco desde o primeiro bloco, porque é o que sobra se o app morrer no meio.
+
+### A regra que não foi enfraquecida
+O WAV só some quando o JSON foi escrito, **relido do disco** e o texto conferido. E **nunca** some
+quando a transcrição levantou, quando nada foi captado ou quando o texto saiu vazio — sem texto
+não existe substituição, e o áudio é a única prova do que foi dito.
+
+### Compatibilidade
+Sessões antigas em formato de pasta continuam listadas, com o áudio delas. Nada as apaga
+automaticamente; o total aparece na janela e a decisão é do dono.
+
+### Como foi verificado
+188 testes verdes. Provam: áudio some no ditado e na reunião; **fica** quando a transcrição
+levanta, quando nada foi captado e quando o texto não conseguiu ser escrito; os parciais da
+reunião estão no disco durante a gravação e somem com o JSON final; sessão é arquivo e não cria
+pasta; pasta antiga ainda aparece; o JSON nunca é apagado.
+
 ## 2026-08-15 — interface, marca, reunião no Obsidian e pacote `.deb`
 
 ### O quê

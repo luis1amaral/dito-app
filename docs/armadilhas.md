@@ -119,27 +119,16 @@ pico mediano **0,00069** — piso de ruído puro.
 **Correção:** só conta som **sustentado**. São necessários `clear_ms = 200 ms` contínuos acima do
 limiar para ligar `ever_heard` e limpar o estado.
 
-### 1.10 int16 no disco e Opus na reunião — os números que decidem
+### 1.10 int16 no disco: 32 kB/s, e por que não float32
 
-**Gravação:** 16 kHz mono int16 = 32 kB/s = **115 MB/h** (345 MB numa reunião de 3 h). float32
-dobraria isso e nenhum player abre sem conversão; o Whisper é alimentado pelos blocos float32 que
-já estão em memória, então o disco não precisa deles.
+16 kHz mono int16 = 32 kB/s = **115 MB/h**. float32 dobraria e nenhum player abre sem conversão;
+o Whisper é alimentado pelos blocos float32 que já estão em memória, então o disco não precisa
+deles.
 
-**Compressão, medido em 3 min de áudio com forma de fala:**
+Esse número é o que motivou a decisão de 8.2: o áudio é rede de segurança, não arquivo.
+A compressão para Opus chegou a existir (23,1 kbps medidos, 31 MB por 3 h) e foi **removida** junto
+com a retenção — sem áudio guardado, não há o que comprimir. Está no histórico do git.
 
-- Opus a 24 kbps saiu a **23,1 kbps**: 31 MB pelas mesmas 3 h, **11x** menos que o WAV.
-- **VBR `constrained`, não o VBR padrão.** Em fala os dois empatam, mas o VBR simples estourou o
-  alvo em **43% (34,3 kbps)** num sinal tonal. O `constrained` mantém a promessa de tamanho.
-- **PyAV, nunca o binário `ffmpeg`.** Não existe ffmpeg nesta máquina e o `.deb` não instala; o
-  PyAV já entra pelo faster-whisper. Sair para o shell falharia no pior momento: logo depois de
-  uma reunião de três horas.
-- **O WAV só é apagado depois de o Opus ser decodificado inteiro** — todo pacote decodificado e a
-  contagem de amostras comparada com a origem. Custo: **0,2 s por 3 min**, ~12 s numa reunião de
-  3 h, sobre os ~97 s do próprio encode.
-- **Tolerância de duração de 0,5 s.** O Opus completa o último pacote num quadro de 20 ms e carrega
-  pre-skip: drift medido de **13 ms em 60 s**. Meio segundo é 30x isso e ainda pega encode
-  truncado.
-- O temporário é `.opus.part`, então o muxer vem de `format="ogg"` — a extensão não resolve.
 
 ### 1.11 Microfone que SOME não entrega nada — e o watchdog só era alimentado por bloco
 
@@ -721,21 +710,21 @@ Por isso cada campo tem uma segunda fonte, e nenhuma leitura levanta exceção:
 `list_sessions` também não segue symlink ao varrer (`is_dir(follow_symlinks=False)`), pelo motivo
 de 6.3.
 
-### 8.2 Apagar: por nome, nunca por glob, e com quatro travas antes
+### 8.2 O áudio não sobrevive à transcrição — e a exceção é o que importa
 
-**A lista de arquivos de áudio é fixa e nomeada** — `("audio.opus", "audio.wav")`, **Opus primeiro
-porque é a cópia sobrevivente** (1.10). Um `glob("*.wav")` ou `*.opus` na pasta da sessão apagaria
-qualquer coisa que o usuário tenha colocado ali, e a pasta é dele.
+Decisão do dono, por espaço: 115 MB/hora não se sustenta. Uma sessão é **um arquivo JSON solto**,
+com data e modo no nome, e o WAV ao lado só existe **durante** a gravação.
 
-A retenção só apaga quando **as quatro** condições valem:
+A rede de segurança continua: o áudio vai para o disco desde o primeiro bloco (1.1), porque é o
+que sobra se o app morrer no meio. O que mudou é que ele é apagado assim que existe substituição.
 
-1. Existe janela configurada para aquele modo. `0` na config e modo desconhecido significam
-   **guardar para sempre** — o padrão de um valor que ninguém entendeu é não destruir nada.
-2. A sessão chegou a `done`. Áudio de sessão que falhou é justamente o que a pessoa vai querer.
-3. **Existe texto.** Sem transcrição, o WAV é a única evidência do que foi dito (1.1).
-4. A idade passou da janela. Sem `started` legível, cai no `mtime`; e se **o próprio `stat`
-   falhar**, a idade devolvida é `0,0` — "recém-criado", ou seja, **não apaga**. Falha fechada:
-   toda dúvida na conta de idade preserva o arquivo.
+**E a substituição precisa ser lida antes.** O WAV só some quando o JSON foi escrito, **relido do
+disco** e o texto conferido — e nunca some quando a transcrição levantou, quando nada foi captado
+(`ever_heard_audio == False`) ou quando o texto saiu vazio. Sem texto não há substituição, e o
+áudio é a única prova do que foi dito.
+
+Medido: uma sessão de ditado ocupa **238 bytes** no fim, contra 160 kB de WAV durante a fala.
+
 
 ---
 

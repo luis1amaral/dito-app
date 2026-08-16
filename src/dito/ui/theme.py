@@ -54,6 +54,16 @@ class Palette:
     hud_alert: str
     hud_ok: str
 
+    # Controls drawn ON the pill: white at a fixed alpha, because the ground below them varies.
+    hud_wash: str
+    hud_wash_strong: str
+    hud_edge: str
+    hud_field: str
+    hud_solid_hover: str
+    hud_solid_active: str
+    hud_on_danger: str
+    hud_on_danger_muted: str
+
 
 LIGHT = Palette(
     mode=Mode.LIGHT,
@@ -83,6 +93,14 @@ LIGHT = Palette(
     hud_recording="#ff6b6f",
     hud_alert="#f0b95c",
     hud_ok="#4ecf8f",
+    hud_wash="rgba(255, 255, 255, 0.10)",
+    hud_wash_strong="rgba(255, 255, 255, 0.18)",
+    hud_edge="rgba(255, 255, 255, 0.35)",
+    hud_field="rgba(255, 255, 255, 0.06)",
+    hud_solid_hover="rgba(255, 255, 255, 0.86)",
+    hud_solid_active="rgba(255, 255, 255, 0.74)",
+    hud_on_danger="rgba(255, 255, 255, 0.88)",
+    hud_on_danger_muted="rgba(255, 255, 255, 0.75)",
 )
 
 DARK = Palette(
@@ -114,6 +132,14 @@ DARK = Palette(
     hud_recording="#ff6b6f",
     hud_alert="#f0b95c",
     hud_ok="#4ecf8f",
+    hud_wash="rgba(255, 255, 255, 0.10)",
+    hud_wash_strong="rgba(255, 255, 255, 0.18)",
+    hud_edge="rgba(255, 255, 255, 0.35)",
+    hud_field="rgba(255, 255, 255, 0.06)",
+    hud_solid_hover="rgba(255, 255, 255, 0.86)",
+    hud_solid_active="rgba(255, 255, 255, 0.74)",
+    hud_on_danger="rgba(255, 255, 255, 0.88)",
+    hud_on_danger_muted="rgba(255, 255, 255, 0.75)",
 )
 
 
@@ -217,6 +243,7 @@ class Motion:
 class Size:
     """Minimum, never fixed: a fixed height clips the text at a larger system font size."""
 
+    CONTROL_H_SM = 28
     CONTROL_H = 34
     CONTROL_H_LG = 40
     TOUCH_TARGET = 44
@@ -225,6 +252,14 @@ class Size:
     HUD_W = 340
     WINDOW_W = 880
     WINDOW_H = 600
+
+    # Painted controls: the geometry is the drawing, so it cannot come from a padding rule.
+    SWITCH_W = 44
+    SWITCH_H = 24
+    SWITCH_KNOB = 18
+    SPINNER = 16
+    FOCUS_RING = 2
+    HAIRLINE = 1
 
 
 # ---- Contrast: a requirement, and the threshold depends on the role --------------------

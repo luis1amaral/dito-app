@@ -134,8 +134,7 @@ def cmd_selftest(args: argparse.Namespace) -> int:
 
     sample_rate = devices.SAMPLE_RATE
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    folder = paths.sessions_dir() / f"{stamp}_selftest"
-    wav_path = folder / "audio.wav"
+    wav_path = paths.session_audio(f"{stamp}_selftest")
 
     alerts = cfg.audio.alerts
     watchdog = Watchdog(dead_ms=alerts.dead_ms, quiet_ms=alerts.quiet_ms)
@@ -320,7 +319,7 @@ def _listen_headless(args: argparse.Namespace) -> int:
             aviso = ("nada reconhecido — e o microfone não captou nada"
                      if not result.ever_heard_audio else "nada reconhecido")
             print(f"  {_paint(aviso, BAD if not result.ever_heard_audio else WARN)}")
-            print(f"  {_paint('áudio guardado em ' + result.folder, DIM)}")
+            print(f"  {_paint('o áudio ficou guardado em ' + result.folder, DIM)}")
             return
         print(f"  → {result.text}")
         if cfg.output.paste and not args.no_paste:
@@ -331,7 +330,8 @@ def _listen_headless(args: argparse.Namespace) -> int:
             )
             if outcome.message:
                 print(f"  {_paint(outcome.message, WARN)}")
-                print(f"  {_paint(result.folder, DIM)}")
+                # The audio is gone by now; what recovers the text is the session file.
+                print(f"  {_paint(str(paths.session_file(result.session_id)), DIM)}")
 
     manager = HotkeyManager(
         on_start=begin, on_stop=end, grab=cfg.hotkeys.grab,

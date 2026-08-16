@@ -1,5 +1,5 @@
-"""The listing has to survive folders that a crash left half-written, and garbage collection has
-to be the most conservative code in the project: it is the only thing here that deletes audio.
+"""The listing has to survive a session a crash left half-written, and it has to keep showing the
+sessions recorded in the OLD folder layout — the owner has months of those on this machine.
 
 Every test builds its sessions under `tmp_path` and passes that root explicitly. Nothing may read
 or write the real `~/.local/share/dito` — the owner records real meetings on this machine.
@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-from dito.config import Config
 from dito.core import library
 
 NOW = datetime(2026, 8, 15, 18, 0, 0)
@@ -28,9 +27,45 @@ def make_session(
     state: str = "done",
     text: str = "um ditado qualquer",
     seconds: float = 12.5,
+    audio_bytes: int = 0,
+    meta: bool = True,
+) -> Path:
+    """The current layout: one JSON file, and audio only while there is no text replacing it."""
+    root.mkdir(parents=True, exist_ok=True)
+    stem = f"{when:%Y-%m-%d_%H%M%S}_{mode}"
+
+    if audio_bytes:
+        (root / f"{stem}.wav").write_bytes(b"RIFF" + b"\0" * (audio_bytes - 4))
+    if meta:
+        (root / f"{stem}.json").write_text(
+            json.dumps(
+                {
+                    "id": stem,
+                    "mode": mode,
+                    "state": state,
+                    "started": when.isoformat(timespec="seconds"),
+                    "seconds": seconds,
+                    "text": text,
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+    return root / f"{stem}.json"
+
+
+def make_legacy_session(
+    root: Path,
+    *,
+    when: datetime = NOW,
+    mode: str = "dictation",
+    state: str = "done",
+    text: str = "gravado no formato antigo",
+    seconds: float = 12.5,
     audio_bytes: int = 5_000,
     meta: bool = True,
 ) -> Path:
+    """The folder layout used until 2026-08. Nothing writes it any more; everything reads it."""
     folder = root / f"{when:%Y-%m-%d_%H%M%S}_{mode}"
     folder.mkdir(parents=True)
 
@@ -54,14 +89,6 @@ def make_session(
     return folder
 
 
-def cfg_with(*, dictation_hours: float = 48.0, meeting_days: float | None = None) -> Config:
-    cfg = Config()
-    cfg.retention.dictation_audio_hours = dictation_hours
-    if meeting_days is not None:
-        cfg.retention.meeting_audio_days = meeting_days
-    return cfg
-
-
 # ---- listing ------------------------------------------------------------------------------------
 
 
@@ -72,27 +99,75 @@ def test_lists_what_is_on_disk(tmp_path: Path):
     sessions = library.list_sessions(tmp_path)
 
     assert [s.mode for s in sessions] == ["dictation", "meeting"], "não veio do mais novo primeiro"
-    assert all(s.has_audio for s in sessions)
-    assert all(s.size_bytes > 5_000 for s in sessions)
     assert sessions[0].preview == "um ditado qualquer"
     assert sessions[0].seconds == 12.5
 
 
-def test_a_corrupt_session_json_does_not_take_the_listing_down(tmp_path: Path):
-    """The folder with the broken metadata is the one the user came looking for. Raising on it
+def test_a_session_is_one_file_and_never_a_folder(tmp_path: Path):
+    """The whole point of the new layout: no subdirectory per recording."""
+    path = make_session(tmp_path, audio_bytes=4_000)
+
+    session = library.list_sessions(tmp_path)[0]
+
+    assert session.path == path
+    assert session.path.is_file()
+    assert [p for p in tmp_path.iterdir() if p.is_dir()] == []
+
+
+def test_an_old_folder_session_is_still_listed(tmp_path: Path):
+    """Sessions recorded before the change stay on disk. Dropping them from the list is a loss."""
+    make_session(tmp_path, when=NOW - timedelta(hours=1))
+    folder = make_legacy_session(tmp_path, when=NOW - timedelta(hours=2), mode="meeting")
+
+    sessions = library.list_sessions(tmp_path)
+
+    assert len(sessions) == 2
+    old = next(s for s in sessions if s.path == folder)
+    assert old.mode == "meeting"
+    assert old.preview == "gravado no formato antigo"
+    assert old.has_audio, "o áudio antigo continua lá — nada aqui apaga pasta velha"
+    assert old.size_bytes > 5_000
+
+
+def test_a_corrupt_session_file_does_not_take_the_listing_down(tmp_path: Path):
+    """The session with the broken metadata is the one the user came looking for. Raising on it
     would hide the other two as well."""
     make_session(tmp_path, when=NOW - timedelta(hours=1))
     broken = make_session(tmp_path, when=NOW - timedelta(hours=2), mode="meeting")
-    (broken / "session.json").write_text("{isto não é json", encoding="utf-8")
-    make_session(tmp_path, when=NOW - timedelta(hours=3), meta=False)
+    broken.write_text("{isto não é json", encoding="utf-8")
+    make_legacy_session(tmp_path, when=NOW - timedelta(hours=3), meta=False)
 
     sessions = library.list_sessions(tmp_path)
 
     assert len(sessions) == 3
     unknown = [s for s in sessions if s.state == library.UNKNOWN]
     assert len(unknown) == 2
-    assert {s.mode for s in unknown} == {"meeting", "dictation"}, "o nome da pasta dá o modo"
-    assert all(s.started is not None for s in sessions), "o nome da pasta dá a data"
+    assert {s.mode for s in unknown} == {"meeting", "dictation"}, "o nome do arquivo dá o modo"
+    assert all(s.started is not None for s in sessions), "o nome do arquivo dá a data"
+
+
+def test_audio_without_metadata_is_still_a_session(tmp_path: Path):
+    """A crash before the first write leaves only the WAV. Not listing it would hide the very
+    thing the WAV exists to rescue."""
+    make_session(tmp_path, meta=False, audio_bytes=9_000)
+
+    sessions = library.list_sessions(tmp_path)
+
+    assert len(sessions) == 1
+    assert sessions[0].has_audio
+    assert sessions[0].state == library.UNKNOWN
+    assert sessions[0] in library.recoverable(tmp_path)
+
+
+def test_a_folder_that_is_not_a_session_is_not_listed_as_one(tmp_path: Path):
+    """A meeting whose library folder failed lands here; it is a published meeting, not a
+    recording, and offering it for retry would be nonsense."""
+    make_session(tmp_path)
+    stray = tmp_path / "2026-08-15_1430-orcamento"
+    stray.mkdir()
+    (stray / "transcricao.md").write_text("# Reunião", encoding="utf-8")
+
+    assert [s.id for s in library.list_sessions(tmp_path)] == ["2026-08-15_180000_dictation"]
 
 
 def test_a_missing_root_is_an_empty_listing(tmp_path: Path):
@@ -102,16 +177,18 @@ def test_a_missing_root_is_an_empty_listing(tmp_path: Path):
 def test_duration_falls_back_to_the_size_of_the_wav(tmp_path: Path):
     """A session killed mid-recording has `seconds: 0` in its metadata. Showing 0:00 for forty
     minutes of audio would hide exactly what the user is trying to recover."""
-    folder = make_session(tmp_path, state="recording", seconds=0.0, audio_bytes=0, text="")
-    (folder / "audio.wav").write_bytes(b"RIFF" + b"\0" * (16_000 * 2 * 30 + 40))
+    make_session(tmp_path, state="recording", seconds=0.0, text="",
+                 audio_bytes=16_000 * 2 * 30 + 44)
 
     session = library.list_sessions(tmp_path)[0]
     assert session.seconds == pytest.approx(30.0, abs=0.01)
 
 
-def test_a_crashed_meeting_previews_from_the_transcript(tmp_path: Path):
-    folder = make_session(tmp_path, mode="meeting", state="recording", text="")
-    (folder / "transcript.jsonl").write_text(
+def test_a_crashed_meeting_previews_from_the_partials_beside_it(tmp_path: Path):
+    """Dying at minute 50 keeps 0-49: the jsonl is written chunk by chunk, and it is what the
+    listing reads when the final JSON never got its text."""
+    path = make_session(tmp_path, mode="meeting", state="recording", text="")
+    path.with_suffix(".jsonl").write_text(
         '{"index": 0, "start": 0.0, "end": 4.0, "text": "primeiro trecho"}\n'
         '{"index": 1, "start": 4.0, "end": 9.0, "text": "segundo trecho"}\n',
         encoding="utf-8",
@@ -128,6 +205,24 @@ def test_preview_is_short(tmp_path: Path):
     assert preview.endswith("…")
 
 
+# ---- audio --------------------------------------------------------------------------------------
+
+
+def test_a_finished_session_has_no_audio_to_report(tmp_path: Path):
+    """The audio goes the instant the transcription lands. `has_audio` is what the UI shows."""
+    make_session(tmp_path, audio_bytes=0)
+
+    assert library.list_sessions(tmp_path)[0].has_audio is False
+
+
+def test_audio_kept_beside_the_json_is_reported(tmp_path: Path):
+    make_session(tmp_path, state="transcribe_failed", text="", audio_bytes=7_000)
+
+    session = library.list_sessions(tmp_path)[0]
+    assert session.has_audio
+    assert not session.done
+
+
 # ---- recovery -----------------------------------------------------------------------------------
 
 
@@ -136,96 +231,10 @@ def test_recoverable_is_everything_that_did_not_finish(tmp_path: Path):
     make_session(tmp_path, when=NOW - timedelta(minutes=2), state="recording")
     make_session(tmp_path, when=NOW - timedelta(minutes=3), state="transcribe_failed")
     make_session(tmp_path, when=NOW - timedelta(minutes=4), state="failed")
-    make_session(tmp_path, when=NOW - timedelta(minutes=5), meta=False)
+    make_legacy_session(tmp_path, when=NOW - timedelta(minutes=5), meta=False)
 
     states = {s.state for s in library.recoverable(tmp_path)}
     assert states == {"recording", "transcribe_failed", "failed", library.UNKNOWN}
-
-
-# ---- garbage collection --------------------------------------------------------------------------
-
-
-def test_deletes_old_dictation_audio_and_reports_the_bytes(tmp_path: Path):
-    old = make_session(tmp_path, when=NOW - timedelta(hours=72), audio_bytes=9_000)
-
-    freed = library.collect_garbage(cfg_with(), tmp_path, now=NOW)
-
-    assert freed == 9_000
-    assert not (old / "audio.wav").exists()
-
-
-def test_keeps_dictation_audio_inside_the_window(tmp_path: Path):
-    recent = make_session(tmp_path, when=NOW - timedelta(hours=47))
-
-    assert library.collect_garbage(cfg_with(), tmp_path, now=NOW) == 0
-    assert (recent / "audio.wav").is_file()
-
-
-def test_never_deletes_the_audio_of_a_session_that_failed(tmp_path: Path):
-    """The failed session is precisely the one whose audio the user will want back."""
-    kept = [
-        make_session(tmp_path, when=NOW - timedelta(hours=72 + i), state=state)
-        for i, state in enumerate(("failed", "transcribe_failed", "recording"))
-    ]
-    unknown = make_session(tmp_path, when=NOW - timedelta(days=30), meta=False)
-
-    assert library.collect_garbage(cfg_with(), tmp_path, now=NOW) == 0
-    assert all((folder / "audio.wav").is_file() for folder in [*kept, unknown])
-
-
-def test_never_deletes_the_audio_of_a_session_that_recognized_nothing(tmp_path: Path):
-    """`done` with no text is armadilhas 1.1: the microphone delivered zeros and the WAV is the
-    only remaining evidence of what was said."""
-    silent = make_session(tmp_path, when=NOW - timedelta(days=10), text="")
-
-    assert library.collect_garbage(cfg_with(), tmp_path, now=NOW) == 0
-    assert (silent / "audio.wav").is_file()
-
-
-def test_meeting_audio_is_kept_forever_by_default(tmp_path: Path):
-    old = make_session(tmp_path, when=NOW - timedelta(days=365), mode="meeting")
-
-    assert Config().retention.meeting_audio_days == 0, "o padrão mudou — o teste abaixo mente"
-    assert library.collect_garbage(Config(), tmp_path, now=NOW) == 0
-    assert (old / "audio.wav").is_file()
-
-
-def test_meeting_audio_goes_when_the_window_is_turned_on(tmp_path: Path):
-    old = make_session(tmp_path, when=NOW - timedelta(days=40), mode="meeting")
-    young = make_session(tmp_path, when=NOW - timedelta(days=20), mode="meeting")
-
-    library.collect_garbage(cfg_with(meeting_days=30), tmp_path, now=NOW)
-
-    assert not (old / "audio.wav").exists()
-    assert (young / "audio.wav").is_file()
-
-
-def test_zero_hours_means_keep_forever_for_dictation_too(tmp_path: Path):
-    old = make_session(tmp_path, when=NOW - timedelta(days=365))
-
-    assert library.collect_garbage(cfg_with(dictation_hours=0), tmp_path, now=NOW) == 0
-    assert (old / "audio.wav").is_file()
-
-
-def test_garbage_collection_never_touches_the_text(tmp_path: Path):
-    """Audio is regenerable disk; the transcript is not. Only the audio may go."""
-    old = make_session(tmp_path, when=NOW - timedelta(days=10), mode="meeting")
-    (old / "transcript.jsonl").write_text('{"index": 0, "text": "o que foi dito"}\n', "utf-8")
-    meta_before = (old / "session.json").read_text(encoding="utf-8")
-
-    library.collect_garbage(cfg_with(meeting_days=1), tmp_path, now=NOW)
-
-    assert not (old / "audio.wav").exists()
-    assert (old / "session.json").read_text(encoding="utf-8") == meta_before
-    assert "o que foi dito" in (old / "transcript.jsonl").read_text(encoding="utf-8")
-
-
-def test_collects_the_compressed_audio_too(tmp_path: Path):
-    old = make_session(tmp_path, when=NOW - timedelta(days=10), audio_bytes=0)
-    (old / "audio.opus").write_bytes(b"\0" * 700)
-
-    assert library.collect_garbage(cfg_with(), tmp_path, now=NOW) == 700
-    assert not (old / "audio.opus").exists()
 
 
 # ---- disk ---------------------------------------------------------------------------------------
@@ -233,7 +242,7 @@ def test_collects_the_compressed_audio_too(tmp_path: Path):
 
 def test_total_size_sums_every_session(tmp_path: Path):
     make_session(tmp_path, when=NOW - timedelta(hours=1), audio_bytes=1_000)
-    make_session(tmp_path, when=NOW - timedelta(hours=2), audio_bytes=2_000)
+    make_legacy_session(tmp_path, when=NOW - timedelta(hours=2), audio_bytes=2_000)
 
     assert library.total_size(tmp_path) >= 3_000
     assert library.total_size(tmp_path) == sum(
@@ -241,10 +250,17 @@ def test_total_size_sums_every_session(tmp_path: Path):
     )
 
 
+def test_the_size_covers_the_files_that_share_the_name(tmp_path: Path):
+    path = make_session(tmp_path, audio_bytes=6_000)
+    path.with_suffix(".jsonl").write_text('{"index": 0, "text": "trecho"}\n', encoding="utf-8")
+
+    assert library.list_sessions(tmp_path)[0].size_bytes > 6_000
+
+
 def test_a_symlink_is_not_counted_twice(tmp_path: Path):
-    """A linked file lives somewhere else; counting it here reports disk that deleting the folder
+    """A linked file lives somewhere else; counting it here reports disk that deleting the session
     would not give back (armadilhas 6.3)."""
-    folder = make_session(tmp_path, audio_bytes=4_000)
+    folder = make_legacy_session(tmp_path, audio_bytes=4_000)
     (folder / "link.wav").symlink_to(folder / "audio.wav")
 
     only_real = library.list_sessions(tmp_path)[0].size_bytes
@@ -270,6 +286,16 @@ def test_open_folder_hands_the_path_to_xdg_open(tmp_path: Path, monkeypatch):
     assert seen == [["xdg-open", str(tmp_path)]]
 
 
+def test_opening_a_session_file_opens_the_folder_that_holds_it(tmp_path: Path, monkeypatch):
+    """`xdg-open` on a .json would launch a text editor, which is not what «Abrir pasta» means."""
+    seen: list[list[str]] = []
+    monkeypatch.setattr(library.subprocess, "Popen", lambda cmd, **_kw: seen.append(cmd))
+    path = make_session(tmp_path)
+
+    assert library.open_folder(path) is True
+    assert seen == [["xdg-open", str(tmp_path)]]
+
+
 def test_nothing_here_reads_the_real_sessions_dir(tmp_path: Path, monkeypatch):
     """The default root is the owner's own recordings. Every entry point must accept a root, and
     these tests must never fall back to it."""
@@ -278,11 +304,10 @@ def test_nothing_here_reads_the_real_sessions_dir(tmp_path: Path, monkeypatch):
     assert library.list_sessions() == []
     assert library.recoverable() == []
     assert library.total_size() == 0
-    assert library.collect_garbage(Config()) == 0
 
 
 def test_folder_size_survives_an_unreadable_directory(tmp_path: Path):
-    folder = make_session(tmp_path)
+    folder = make_legacy_session(tmp_path)
     locked = folder / "sem-permissao"
     locked.mkdir()
     os.chmod(locked, 0o000)

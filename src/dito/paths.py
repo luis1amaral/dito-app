@@ -7,6 +7,11 @@ from pathlib import Path
 
 APP = "dito"
 
+# One session is one JSON file; the audio and the meeting partials sit beside it, same name.
+SESSION_SUFFIX = ".json"
+AUDIO_SUFFIX = ".wav"
+PARTIALS_SUFFIX = ".jsonl"
+
 
 def _xdg(var: str, fallback: Path) -> Path:
     # See docs/armadilhas.md 5.4: XDG_* are defined AND empty here, so `get(var, default)` lies.
@@ -38,6 +43,21 @@ def config_file() -> Path:
 
 def sessions_dir() -> Path:
     return data_dir() / "sessions"
+
+
+def session_file(session_id: str) -> Path:
+    """`2026-08-15_223322_dictation.json` — the name carries date, time and mode, no subfolder."""
+    return sessions_dir() / f"{session_id}{SESSION_SUFFIX}"
+
+
+def session_audio(session_id: str) -> Path:
+    """The safety net while recording; it goes as soon as the transcription is on disk."""
+    return sessions_dir() / f"{session_id}{AUDIO_SUFFIX}"
+
+
+def session_partials(session_id: str) -> Path:
+    """A meeting's chunks as they land; deleted once the final JSON carries the whole text."""
+    return sessions_dir() / f"{session_id}{PARTIALS_SUFFIX}"
 
 
 def log_file() -> Path:

@@ -14,6 +14,7 @@ exactly where the holes were:
 
 from __future__ import annotations
 
+import json
 import queue
 import threading
 import time
@@ -110,6 +111,16 @@ def wait_for(predicate, timeout=4.0) -> bool:
         if predicate():
             return True
         time.sleep(0.02)
+    return False
+
+
+def talk_until_heard(session, timeout=4.0) -> bool:
+    """Sustained speech, because `ever_heard` needs 200 ms of it — see armadilhas 1.9."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        session._capture.deliver(0.06, count=10)
+        if session._watchdog.ever_heard:
+            return True
     return False
 
 
@@ -291,8 +302,6 @@ def test_the_wav_is_readable_while_the_session_is_still_running(cfg):
 
 
 def test_session_json_records_the_outcome(cfg):
-    import json
-
     session, _ = make(cfg)
     assert session.start().ok
     session._capture.deliver(0.06, count=20)   # > 0.3s: abaixo disso é ignorado de propósito
@@ -321,6 +330,114 @@ def test_a_start_that_fails_reports_instead_of_raising(cfg, monkeypatch):
     assert not result.ok
     assert "indisponível" in (result.reason or "")
     assert any(isinstance(e, ev.Failed) for e in events)
+
+
+# ---- one file per session, and the audio that goes with the text ------------------------
+
+
+def test_a_session_is_one_file_beside_its_audio(cfg, tmp_path):
+    """115 MB/h was the complaint; a folder per recording was the other half of the mess."""
+    session, _ = make(cfg)
+    assert session.start().ok
+    try:
+        root = tmp_path / "sessions"
+        assert session.meta_path == root / f"{session.session_id}.json"
+        assert session.wav_path == root / f"{session.session_id}.wav"
+        assert session.meta_path.is_file() and session.wav_path.is_file()
+        assert [p for p in root.iterdir() if p.is_dir()] == [], "criou pasta para a sessão"
+    finally:
+        session.stop()
+
+
+def test_the_audio_goes_the_moment_the_dictation_is_transcribed(cfg):
+    session, _ = make(cfg)
+    assert session.start().ok
+    assert talk_until_heard(session)
+
+    result = session.stop()
+
+    assert isinstance(result, ev.Finished) and result.text == "texto transcrito"
+    assert not session.wav_path.exists(), "o WAV sobreviveu à transcrição"
+    assert session.meta_path.is_file(), "o JSON da sessão nunca é apagado"
+
+
+def test_the_audio_and_the_partials_go_when_the_meeting_is_transcribed(cfg):
+    session, _ = make(cfg, mode=Mode.MEETING)
+    assert session.start().ok
+    assert talk_until_heard(session)
+    session._submit(SimpleNamespace(index=0, audio=np.zeros(RATE, dtype="float32"),
+                                    start_s=0.0, end_s=1.0))
+    assert wait_for(lambda: session.transcript_path.is_file())
+
+    result = session.stop()
+
+    assert isinstance(result, ev.Finished) and result.text
+    assert not session.wav_path.exists()
+    assert not session.transcript_path.exists(), "os parciais ficaram duplicando o JSON"
+    assert "texto transcrito" in json.loads(
+        session.meta_path.read_text(encoding="utf-8")
+    )["text"]
+
+
+def test_the_partials_reach_disk_while_the_meeting_is_still_running(cfg):
+    """Dying at minute 50 has to preserve 0-49. The jsonl is the only thing that guarantees it."""
+    session, _ = make(cfg, mode=Mode.MEETING)
+    assert session.start().ok
+    try:
+        session._submit(SimpleNamespace(index=0, audio=np.zeros(RATE, dtype="float32"),
+                                        start_s=0.0, end_s=1.0))
+        assert wait_for(lambda: session.transcript_path.is_file())
+        assert "texto transcrito" in session.transcript_path.read_text(encoding="utf-8")
+    finally:
+        session.stop()
+
+
+def test_the_audio_stays_when_the_transcription_fails(cfg):
+    """The failed session is precisely the one whose audio the user will want back."""
+    class Broken(FakeEngine):
+        def transcribe(self, audio, beam=5, language=None):
+            raise RuntimeError("o modelo não carregou")
+
+    session, _ = make(cfg, engine=Broken())
+    assert session.start().ok
+    assert talk_until_heard(session)
+
+    result = session.stop()
+
+    assert isinstance(result, ev.Failed)
+    assert session.wav_path.is_file(), "apagou o áudio da sessão que falhou"
+    meta = json.loads(session.meta_path.read_text(encoding="utf-8"))
+    assert meta["state"] == "transcribe_failed"
+
+
+def test_the_audio_stays_when_nothing_was_captured(cfg):
+    """armadilhas 1.1: the microphone delivered zeros and Whisper still produced a sentence. With
+    no sound ever heard there is nothing to trust in that text, and the WAV is all the evidence."""
+    session, _ = make(cfg)
+    assert session.start().ok
+    session._capture.deliver(0.0, count=30)
+    time.sleep(0.1)
+
+    result = session.stop()
+
+    assert isinstance(result, ev.Finished) and not result.ever_heard_audio
+    assert session.wav_path.is_file(), "apagou o áudio de uma gravação que não captou nada"
+
+
+def test_the_audio_stays_when_the_text_could_not_be_written(cfg, monkeypatch):
+    """CLAUDE.md, garantia 1: nothing deletes audio before reading back what replaces it."""
+    session, _ = make(cfg)
+    assert session.start().ok
+    assert talk_until_heard(session)
+
+    monkeypatch.setattr(
+        type(session.meta_path), "replace",
+        lambda _self, _target: (_ for _ in ()).throw(OSError("disco cheio")),
+    )
+    result = session.stop()
+
+    assert isinstance(result, ev.Finished) and result.text == "texto transcrito"
+    assert session.wav_path.is_file(), "o texto não chegou ao disco e o áudio foi apagado"
 
 
 def test_consumer_thread_ends_when_the_session_stops(cfg):

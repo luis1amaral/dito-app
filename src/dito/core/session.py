@@ -1,4 +1,4 @@
-"""One recording, from key-down to text: the audio reaches disk before anything else can fail."""
+"""One recording, key-down to text: audio hits disk first and only goes once text replaced it."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from pathlib import Path
 
 from .. import paths
 from ..audio import devices
@@ -69,10 +70,11 @@ class Session:
 
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         self.session_id = f"{stamp}_{mode.value}"
-        self.folder = paths.sessions_dir() / self.session_id
-        self.wav_path = self.folder / "audio.wav"
-        self.transcript_path = self.folder / "transcript.jsonl"
-        self.meta_path = self.folder / "session.json"
+        # One file per session: `folder` is only the directory those files share.
+        self.folder = paths.sessions_dir()
+        self.wav_path = paths.session_audio(self.session_id)
+        self.transcript_path = paths.session_partials(self.session_id)
+        self.meta_path = paths.session_file(self.session_id)
 
         self._capture: Capture | None = None
         self._writer: WavWriter | None = None
@@ -173,7 +175,8 @@ class Session:
                 pass
 
         seconds = self._writer.seconds if self._writer else 0.0
-        self._write_meta("done", text=text, seconds=seconds)
+        if self._write_meta("done", text=text, seconds=seconds):
+            self._discard_scratch(text)
         done = ev.Finished(
             session_id=self.session_id,
             mode=self.mode.value,
@@ -353,8 +356,8 @@ class Session:
 
     # ---- persistence -----------------------------------------------------------------
 
-    def _write_meta(self, state: str, text: str = "", seconds: float = 0.0) -> None:
-        """Any folder whose state is not `done` is offered for retry on the next start."""
+    def _write_meta(self, state: str, text: str = "", seconds: float = 0.0) -> bool:
+        """Any session whose state is not `done` is offered for retry on the next start."""
         data = {
             "id": self.session_id,
             "mode": self.mode.value,
@@ -371,4 +374,26 @@ class Session:
             tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp.replace(self.meta_path)
         except OSError as exc:
-            self._log(f"[aviso] não consegui gravar session.json: {exc}")
+            self._log(f"[aviso] não consegui gravar {self.meta_path.name}: {exc}")
+            return False
+        return self._reads_back(text)
+
+    def _reads_back(self, text: str) -> bool:
+        """CLAUDE.md, garantia 1: nothing deletes audio before its replacement is read from disk."""
+        try:
+            saved = json.loads(self.meta_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        return isinstance(saved, dict) and saved.get("text") == text
+
+    def _discard_scratch(self, text: str) -> None:
+        """Audio only goes when text replaced it; no text means armadilhas 1.1, and it stays."""
+        self._unlink(self.transcript_path)
+        if text.strip() and self._watchdog.ever_heard:
+            self._unlink(self.wav_path)
+
+    def _unlink(self, path: Path) -> None:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as exc:
+            self._log(f"[aviso] não consegui apagar {path.name}: {exc}")

@@ -23,7 +23,7 @@ Daí as duas garantias do Dito:
 1. **O alarme é ao vivo, não post-mortem.** Silêncio digital dispara em ~1 s, na tela, com som.
 2. **O áudio vai para o disco desde o primeiro bloco.** Se a transcrição falhar, se o modelo não
    carregar, se a colagem falhar — o `.wav` está lá, íntegro e tocável, inclusive depois de um
-   `kill -9`.
+   `kill -9`. Dando certo, ele é apagado: o texto é a substituição, e ela é relida antes.
 
 ## Como se usa
 
@@ -35,7 +35,12 @@ Daí as duas garantias do Dito:
 | Janela | pelo menu ou pela bandeja: transcrições de um lado, configuração do outro |
 
 As teclas são trocadas na tela, sem reiniciar. Ao parar uma reunião, ele pergunta o assunto e
-salva texto + áudio Opus em `~/Documentos/Dito`, mais uma nota no cofre do Obsidian.
+salva o texto em `~/Documentos/Dito`, mais uma nota no cofre do Obsidian.
+
+**O áudio não é guardado.** Ele vai para o disco enquanto você fala — é o que salva a gravação se
+o app morrer no meio — e é apagado assim que a transcrição está gravada e conferida. Só sobrevive
+quando a transcrição falha ou quando nada foi captado, que é justamente quando há o que recuperar.
+Uma sessão terminada ocupa **238 bytes**: um arquivo JSON solto, com a data no nome.
 
 ## Comandos
 
@@ -107,7 +112,7 @@ em vez de esperar ~25 minutos no fim de uma reunião de uma hora.
 - o chunker recebe **3 horas** de fala contínua sem nunca segurar mais que 45 s, e cada sample
   que entra sai exatamente uma vez;
 - os três ícones de bandeja se distinguem **só pela silhueta a 22 px** — cor não é acessível;
-- o compressor nunca apaga áudio que não conseguiu decodificar de volta;
+- o áudio só é apagado depois de o JSON ser relido do disco e o texto conferido;
 - contraste medido **por papel** nos dois temas, com o piso escrito ao lado do motivo.
 
 Os testes de atalho injetam teclas de verdade num servidor X de verdade, porque auto-repeat e

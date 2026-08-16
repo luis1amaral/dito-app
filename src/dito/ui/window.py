@@ -116,7 +116,7 @@ class SessionRow(QFrame):
         open_btn = QPushButton("Abrir pasta")
         open_btn.setProperty("variant", "ghost")
         open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        open_btn.clicked.connect(lambda: library.open_folder(info.folder))
+        open_btn.clicked.connect(lambda: library.open_folder(info.path))
         head.addWidget(open_btn)
 
         outer.addLayout(head)

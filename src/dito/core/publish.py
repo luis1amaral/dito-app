@@ -1,4 +1,4 @@
-"""A meeting after the stop: text, then audio, then note — see docs/armadilhas.md 7.1."""
+"""A meeting after the stop: text, then note — docs/armadilhas.md 10.1. Audio never gets here."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 
 from .. import config as cfgmod
-from ..audio import encode
 from ..output import notes
 
 
@@ -17,7 +16,6 @@ class Published:
     transcript: Path
     note: Path | None
     note_in_vault: bool
-    audio: Path | None
     warnings: tuple[str, ...] = ()
 
     @property
@@ -52,14 +50,13 @@ def publish_meeting(
     try:
         target.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        # The library is the user's folder and may be unwritable; the session folder keeps it.
+        # The library is the user's folder and may be unwritable; Dito's own space keeps it.
         warnings.append(f"não consegui criar {target}: {exc}")
-        target = session_folder
+        target = _unique(session_folder / name)
+        target.mkdir(parents=True, exist_ok=True)
 
     transcript = target / "transcricao.md"
     transcript.write_text(_render_transcript(text, seconds, started), encoding="utf-8")
-
-    audio = _move_audio(session_folder, target, cfg, warnings)
 
     note_path: Path | None = None
     in_vault = False
@@ -85,38 +82,8 @@ def publish_meeting(
         transcript=transcript,
         note=note_path,
         note_in_vault=in_vault,
-        audio=audio,
         warnings=tuple(warnings),
     )
-
-
-def _move_audio(
-    session_folder: Path, target: Path, cfg: cfgmod.Config, warnings: list[str]
-) -> Path | None:
-    if not cfg.meeting.save_audio:
-        return None
-    wav = session_folder / "audio.wav"
-    if not wav.exists():
-        return None
-
-    source = wav
-    if cfg.meeting.compress_audio:
-        result = encode.to_opus(wav)
-        if result.ok and result.path is not None:
-            source = result.path
-        elif result.reason:
-            # Not a failure worth shouting about: the WAV is intact and the meeting is saved.
-            warnings.append(f"não comprimi o áudio ({result.reason}) — o WAV foi mantido")
-
-    destination = target / source.name
-    if destination.resolve() == source.resolve():
-        return destination
-    try:
-        source.replace(destination)
-    except OSError as exc:
-        warnings.append(f"o áudio ficou em {source} ({exc})")
-        return source
-    return destination
 
 
 def _render_transcript(text: str, seconds: float, started: datetime) -> str:
