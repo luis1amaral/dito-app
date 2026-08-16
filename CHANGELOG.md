@@ -1,5 +1,49 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — v0.4.0 — a atualização automática passa a existir de verdade
+
+### O quê
+
+- **O updater deixou de falar direto com o GitHub e passou a falar com o `dito-api`**
+  (`dito-api.defaltm.com`), um Worker próprio que serve o manifesto da última release.
+- O repositório virou **`luis1amaral/dito-app`**, e agora divide a pasta com o
+  **`dito-api`** — o mesmo par `api`/`app` que `lions-force` e `system` já usam.
+
+### Por quê
+
+`dito-app` é **privado**. A API do GitHub responde **404** a uma chamada anônima, então o updater
+publicado na `v0.3.10` nunca acharia release nenhuma — ele checava, engolia o erro e ficava calado.
+Falha silenciosa, que é o defeito que este projeto existe para não ter.
+
+Token dentro do app não resolve: ele viajaria dentro do `.exe` distribuído, de onde qualquer
+usuário extrai. Por isso o token mora no Worker, que é exatamente o desenho que o `slime-animes`,
+o `system-task` e o `hidden` já usavam. O Dito era o único fora do padrão.
+
+O Worker devolve **o mesmo formato do GitHub** de propósito: só a URL base mudou no app, e o
+parsing que já tinha teste ficou intacto.
+
+### Linux não muda, e é de propósito
+
+No Linux o Dito é instalado por pacote: vive em `/usr/lib/dito`, pertence ao `root` e o `dpkg` o
+rastreia. Um updater que sobrescrevesse a instalação faria o `dpkg` mentir sobre o sistema, e o
+`apt upgrade` seguinte desfaria a troca por cima. **Quem atualiza no Linux é o apt**, pelo
+`apt.defaltm.com`. Não "consertar" isso depois.
+
+### Como foi verificado
+
+- Portão: `ruff check .` limpo, **330 testes** verdes.
+- Contra o Worker no ar: o manifesto devolve `v0.3.10` com os dois assets e seus digests, e baixar
+  o `SHA256SUMS.txt` **através do Worker** devolve bytes cujo `sha256` bate com o digest anunciado
+  (`e0b50cfe60f251cf1…`). O download do asset privado passa.
+- A URL de download sai no domínio próprio porque o Worker a deriva da requisição, não de constante
+  cravada — a primeira versão devolvia caminho relativo e teria quebrado o download.
+
+### O que esta versão conserta para quem já instalou
+
+Nada, e é importante dizer: **quem instalou a `v0.3.10` não recebe esta atualização sozinho**. O
+`.exe` daquela versão carrega o updater velho, que pergunta ao GitHub e leva 404. É preciso baixar
+a `v0.4.0` à mão, uma vez. A partir dela o ciclo roda sozinho.
+
 ## 2026-08-16 — o Dito roda no Windows
 
 ### O quê
