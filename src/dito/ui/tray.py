@@ -8,6 +8,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
+from .. import platform
 from ..i18n import _
 from . import live
 from .icons import TrayState, tray_icon
@@ -81,6 +82,12 @@ class Tray(QSystemTrayIcon):
         return True
 
     def _show_toast(self, title: str, body: str, urgent: bool, msecs: int) -> None:
+        # Dito has its own alarm sound, with its own switch; the desktop's ding is noise on top of
+        # it. On Linux that is `suppress-sound:true`; on Windows only the raw balloon can say it.
+        if hasattr(platform.notify, "balloon") and platform.notify.balloon(
+            title, body, urgent, msecs
+        ):
+            return
         icon = (
             QSystemTrayIcon.MessageIcon.Critical
             if urgent

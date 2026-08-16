@@ -32,7 +32,7 @@ from .i18n import _
 from .i18n import setup as setup_language
 from .output import notes
 from .output import paste as paster
-from .platform import FocusBroker, HotkeyManager, audio_system, instance, notify
+from .platform import APP_ID, FocusBroker, HotkeyManager, audio_system, desktop, instance, notify
 from .platform import KeyMode as KeyMode
 from .stt.engine import WhisperEngine
 from .ui import theme
@@ -88,9 +88,12 @@ class DitoApp:
         paths.ensure_dirs()
         self._sweep_old_sessions()
 
+        # Before the first window exists: the shell reads the id when it creates the taskbar entry.
+        desktop.set_app_id(APP_ID)
+
         self.qt = QApplication.instance() or QApplication([])
         self.qt.setApplicationName("Dito")
-        self.qt.setDesktopFileName("com.defalt.dito")
+        self.qt.setDesktopFileName(APP_ID)
         self.qt.setWindowIcon(app_icon())
         # Closing the window must not end the process: the daemon keeps listening. Quitting is an
         # explicit choice in the tray menu.

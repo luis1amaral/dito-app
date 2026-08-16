@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import struct
 import sys
 from pathlib import Path
 
@@ -60,6 +61,11 @@ JOBS: tuple[tuple[str, tuple[int, ...]], ...] = (
     ("logo", LOGO),
 )
 
+# Every size the Windows shell asks for: 16 in the title bar, 32 in the taskbar, 48 in the Start
+# Menu, 256 in the large view. A .ico missing one makes Windows scale a neighbour, and it shows.
+ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
+ICO = ASSETS / "dito.ico"
+
 
 def render(svg: Path, height: int) -> tuple[bytes, int, int]:
     """Render one SVG at a given height. Width comes from the viewBox, so a square icon and a
@@ -87,6 +93,19 @@ def render(svg: Path, height: int) -> tuple[bytes, int, int]:
     image.save(buffer, "PNG")
     buffer.close()
     return bytes(data.data()), width, height
+
+
+def build_ico(svg: Path) -> bytes:
+    """One .ico carrying every shell size. PNG entries, which Windows has read since Vista."""
+    images = [render(svg, size)[0] for size in ICO_SIZES]
+    directory = b""
+    offset = 6 + 16 * len(images)
+    for size, data in zip(ICO_SIZES, images, strict=True):
+        # 256 is written as 0: the field is one byte and the format says 0 means 256.
+        side = 0 if size >= 256 else size
+        directory += struct.pack("<BBBBHHII", side, side, 0, 0, 1, 32, len(data), offset)
+        offset += len(data)
+    return struct.pack("<HHH", 0, 1, len(images)) + directory + b"".join(images)
 
 
 def main() -> int:
@@ -134,6 +153,24 @@ def main() -> int:
                 estado = "gravado"
                 gravados += 1
             print(f"  {destino.name:<24} {width:>4}x{height:<4} {len(data):>7} bytes  {estado}")
+
+    # The Windows shell reads .ico and nothing else: a shortcut pointed at a .png silently keeps
+    # the launcher stub's own icon, which is how Dito wore the Python one.
+    ico = build_ico(ASSETS / "icon.svg")
+    atual = ICO.read_bytes() if ICO.exists() else None
+    total += len(ico)
+    if atual == ico:
+        estado = "inalterado"
+        iguais += 1
+    elif args.check:
+        estado = "DESATUALIZADO" if atual is not None else "FALTANDO"
+        desatualizados.append(ICO.name)
+    else:
+        ICO.write_bytes(ico)
+        estado = "gravado"
+        gravados += 1
+    print(f"  {ICO.name:<24} {'x'.join(str(s) for s in ICO_SIZES[:3])}... "
+          f"{len(ico):>7} bytes  {estado}")
 
     print()
     if args.check:

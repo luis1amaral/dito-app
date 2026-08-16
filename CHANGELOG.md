@@ -94,6 +94,19 @@ Windows 10 Pro 19045, Python 3.13.3, PySide6 6.11.1, GTX 1650.
     o ciclo se conserta sozinho. Vale nos dois sistemas — no Linux a estrutura é a mesma, só não
     tinha sido exercitada. Ver `docs/armadilhas.md` 3.10.
 
+12. **O app aparecia como Python.** Três causas distintas, todas reais:
+    - **sem `.ico`**: o projeto só tinha SVG e PNG, e o shell do Windows não lê nenhum dos dois num
+      atalho — ele caía para o ícone do stub de launcher do pip. `tools/gen_icons.py` agora também
+      escreve `ui/assets/dito.ico`, com as 7 medidas que o shell pede (16 a 256), pelo mesmo QtSvg
+      que já rasteriza os PNG, sem dependência nova. O instalador aponta o `IconLocation` para ele.
+    - **sem AppUserModelID**: sem `SetCurrentProcessExplicitAppUserModelID` o Windows agrupa o
+      processo sob o interpretador e usa o ícone e o NOME dele — daí a notificação dizer "Python".
+      É o gêmeo do `setDesktopFileName` que o Linux já usava; agora os dois saem do mesmo `APP_ID`.
+    - **a notificação tocava som**, contra o desenho do projeto: o Dito tem alarme próprio e um
+      interruptor para ele, e o ding do sistema é ruído por cima. No Linux isso é
+      `suppress-sound:true`; o `showMessage()` do Qt não tem equivalente, então o balão passou a
+      ser mandado direto ao shell com `NIIF_NOSOUND`, montado sobre o ícone que o Qt já criou.
+
 ### O que NÃO foi verificado
 
 A cadeia com **fala humana** de ponta a ponta (F9 → falar → texto colado): as peças foram provadas

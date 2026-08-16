@@ -38,13 +38,25 @@ function Parar-Dito {
     Get-Process -Name 'dito', 'ditow' -ErrorAction SilentlyContinue | Stop-Process -Force
 }
 
-function Novo-Atalho($caminho, $alvo, $argumentos, $descricao) {
+function Obter-Icone {
+    # Asked of the package, not built by hand: the .ico travels inside ui/assets with the code.
+    try {
+        $p = & (Join-Path $Scripts 'python.exe') -c `
+            "from dito.ui.icons import ASSETS; print(ASSETS / 'dito.ico')"
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $p)) { return $p }
+    } catch { }
+    return $null
+}
+
+function Novo-Atalho($caminho, $alvo, $argumentos, $descricao, $icone) {
     $shell = New-Object -ComObject WScript.Shell
     $lnk = $shell.CreateShortcut($caminho)
     $lnk.TargetPath = $alvo
     $lnk.Arguments = $argumentos
     $lnk.WorkingDirectory = Split-Path $alvo
     $lnk.Description = $descricao
+    # Without this the shortcut inherits the pip launcher stub's icon, which is not ours.
+    if ($icone) { $lnk.IconLocation = "$icone,0" }
     $lnk.Save()
 }
 
@@ -132,13 +144,15 @@ if ($userPath.Split(';') -notcontains $Bin) {
 }
 
 Passo 'Atalho no Menu Iniciar'
-Novo-Atalho $Atalho (Join-Path $Scripts 'ditow.exe') 'ui' 'Dito — ditado por voz offline'
-Ok 'Dito.lnk criado'
+$icone = Obter-Icone
+Novo-Atalho $Atalho (Join-Path $Scripts 'ditow.exe') 'ui' 'Dito — ditado por voz offline' $icone
+if ($icone) { Ok 'Dito.lnk criado com o ícone do Dito' }
+else { Aviso 'Dito.lnk criado sem ícone próprio — rode: python tools/gen_icons.py' }
 
 Passo 'Iniciar com o Windows'
 if ($ComWindows) {
     # `listen` and not `ui`: at login only the tray icon may appear, never a window.
-    Novo-Atalho $Startup (Join-Path $Scripts 'ditow.exe') 'listen' 'Dito — ditado por voz'
+    Novo-Atalho $Startup (Join-Path $Scripts 'ditow.exe') 'listen' 'Dito — ditado por voz' $icone
     Ok 'ligado — sobe calado, só o ícone da bandeja'
 } else {
     if (Test-Path $Startup) { Remove-Item $Startup -Force }
