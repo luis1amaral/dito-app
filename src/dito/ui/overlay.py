@@ -26,9 +26,8 @@ import time
 from enum import StrEnum
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QPainter, QPainterPath
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (
-    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -36,7 +35,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .dot import StatusDot
 from .spring import Spring, SpringDriver
+from .surface import paint_floating_surface, shadow_margin
 from .theme import Motion, Palette, Radius, Size, Space, Type
 from .waveform import Waveform
 
@@ -106,17 +107,18 @@ class Overlay(QWidget):
     # ---- construction ----------------------------------------------------------------
 
     def _build(self, p: Palette) -> None:
+        pad = shadow_margin()
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(Space.LG, Space.MD, Space.LG, Space.MD)
+        # The shadow is painted inside this window, so the layout has to leave room for it —
+        # otherwise it is clipped at the edge and reads as a hard line.
+        outer.setContentsMargins(Space.LG + pad, Space.MD + pad, Space.LG + pad, Space.MD + pad)
         outer.setSpacing(Space.XS)
 
         row = QHBoxLayout()
         row.setSpacing(Space.MD)
         row.setContentsMargins(0, 0, 0, 0)
 
-        self._dot = QLabel()
-        self._dot.setFixedSize(10, 10)
-        self._dot.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._dot = StatusDot(p.hud_recording)
         row.addWidget(self._dot, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self._title = QLabel("Gravando")
@@ -156,21 +158,11 @@ class Overlay(QWidget):
         self._detail.hide()
         outer.addWidget(self._detail)
 
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(28)
-        shadow.setOffset(0, 6)
-        shadow.setColor(QColor(0, 0, 0, 110))
-        self.setGraphicsEffect(shadow)
-
-        self.setFixedWidth(Size.HUD_W)
+        self.setFixedWidth(Size.HUD_W + 2 * shadow_margin())
 
     # ---- painting --------------------------------------------------------------------
 
     def paintEvent(self, _event) -> None:  # noqa: N802 - Qt override
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(Qt.PenStyle.NoPen)
-
         # hud_danger, not the theme's danger: the pill has its own surface in both themes, and the
         # dark theme's danger is a light red that white text fails against (measured 2.77).
         if self._state is HudState.DEAD:
@@ -182,13 +174,10 @@ class Overlay(QWidget):
         # surface plus a shadow is the honest version — a fake frosted look just reads as dirty.
         fill.setAlphaF(0.96)
 
-        path = QPainterPath()
-        path.addRoundedRect(self.rect().toRectF(), Radius.OVERLAY, Radius.OVERLAY)
-        painter.fillPath(path, fill)
-
-        if self._state is HudState.QUIET:
-            painter.setPen(QColor(self._palette.hud_alert))
-            painter.drawPath(path)
+        pad = shadow_margin()
+        card = self.rect().adjusted(pad, pad, -pad, -pad).toRectF()
+        border = QColor(self._palette.hud_alert) if self._state is HudState.QUIET else None
+        paint_floating_surface(QPainter(self), card, Radius.OVERLAY, fill, border)
 
     # ---- placement and motion --------------------------------------------------------
 
@@ -214,10 +203,10 @@ class Overlay(QWidget):
         if self._state in (HudState.RECORDING, HudState.QUIET, HudState.DEAD):
             self._clock_label.setText(_clock(time.monotonic() - self._started_at))
         self._wave.tick()
+        self._dot.tick()
         if time.monotonic() < self._shake_until:
             self._reposition()
-        if self._state is HudState.RECORDING:
-            self._apply_colors(pulsing=True)
+
 
     def _apply_colors(self, pulsing: bool = False) -> None:
         """Every colour in the pill is decided here, in one place, per state.
@@ -240,12 +229,7 @@ class Overlay(QWidget):
             HudState.TOAST: p.hud_ok,
         }.get(self._state, p.hud_muted)
 
-        size = 10
-        if pulsing:
-            phase = (time.monotonic() - self._pulse_t0) % 1.2 / 1.2
-            size = 8 + int(4 * (0.5 - 0.5 * math.cos(phase * 2 * math.pi)))
-        self._dot.setStyleSheet(f"background: {dot}; border-radius: {size // 2}px;")
-        self._dot.setFixedSize(size, size)
+        self._dot.configure(dot, pulsing)
 
         title_color = p.hud_text
         # On the red surface the muted grey drops below any usable contrast, so the secondary
@@ -354,7 +338,7 @@ class Overlay(QWidget):
 
     def _appear(self) -> None:
         self.adjustSize()
-        self.setFixedWidth(Size.HUD_W)
+        self.setFixedWidth(Size.HUD_W + 2 * shadow_margin())
         self._reposition()
         self.show()
         self.raise_()
@@ -370,7 +354,7 @@ class Overlay(QWidget):
             self._offset.jump_to(ENTER_OFFSET)
             self._appear()
         self.adjustSize()
-        self.setFixedWidth(Size.HUD_W)
+        self.setFixedWidth(Size.HUD_W + 2 * shadow_margin())
         self._offset.retarget(0.0)
         self._driver.start()
         self.update()

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dito.ui import theme  # noqa: E402
 from dito.ui.review import MAX_LINES, ReviewCard  # noqa: E402
+from dito.ui.surface import shadow_margin  # noqa: E402
 
 FRASE = "Testando, testando, e agora está me ouvindo, não é?"
 
@@ -164,7 +165,7 @@ def test_the_card_stops_growing_at_the_ceiling(card, app):
     widget.editor.setPlainText("uma frase bem comprida para forçar a quebra de linha. " * 200)
     app.processEvents()
     assert widget.height() <= tall + 4, "o cartão continuou crescendo além do teto"
-    assert widget.height() < 700
+    assert card_height(widget) < 640
 
 
 def test_the_card_opens_at_its_final_height(card, app):
@@ -179,7 +180,12 @@ def test_the_card_opens_at_its_final_height(card, app):
     settled = widget.height()
 
     assert opened == settled, f"abriu com {opened}px e assentou em {settled}px"
-    assert opened > 200, "uma frase longa tem que abrir com mais de uma linha"
+    assert card_height(widget) > 180, "uma frase longa tem que abrir com mais de uma linha"
+
+
+def card_height(widget) -> int:
+    """The visible card, without the padding the window reserves for the painted shadow."""
+    return widget.height() - 2 * shadow_margin()
 
 
 def test_a_short_phrase_gets_a_small_card(card, app):
@@ -187,7 +193,7 @@ def test_a_short_phrase_gets_a_small_card(card, app):
     widget, _ = card
     widget.present(FRASE)
     app.processEvents()
-    assert widget.height() < 200
+    assert card_height(widget) < 200
 
 
 def test_nothing_is_sent_on_a_timer(card, app):

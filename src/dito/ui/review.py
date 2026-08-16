@@ -17,9 +17,8 @@ a dictated message must never vanish on its own, and must never be sent on its o
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent, QPainter, QPainterPath
+from PySide6.QtGui import QColor, QKeyEvent, QPainter
 from PySide6.QtWidgets import (
-    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
@@ -28,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .surface import paint_floating_surface, shadow_margin
 from .theme import Palette, Radius, Size, Space, Type
 
 MARGIN = Space.XXXL
@@ -50,15 +50,18 @@ class ReviewCard(QWidget):
             | Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedWidth(WIDTH)
+        self.setFixedWidth(WIDTH + 2 * shadow_margin())
         self._build(palette)
         self.hide()
 
     # ---- construction ----------------------------------------------------------------
 
     def _build(self, p: Palette) -> None:
+        pad = shadow_margin()
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(Space.XL, Space.LG, Space.XL, Space.LG)
+        # Room for the hand-painted shadow (see ui/surface.py — the Qt effect turns a translucent
+        # window into an opaque rectangle).
+        outer.setContentsMargins(Space.XL + pad, Space.LG + pad, Space.XL + pad, Space.LG + pad)
         outer.setSpacing(Space.MD)
 
         head = QHBoxLayout()
@@ -106,11 +109,6 @@ class ReviewCard(QWidget):
         row.addWidget(self._send_btn)
         outer.addLayout(row)
 
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(34)
-        shadow.setOffset(0, 8)
-        shadow.setColor(QColor(0, 0, 0, 130))
-        self.setGraphicsEffect(shadow)
 
     def _chip(self, label: str, primary: bool) -> QPushButton:
         p = self._palette
@@ -146,14 +144,11 @@ class ReviewCard(QWidget):
     # ---- painting --------------------------------------------------------------------
 
     def paintEvent(self, _event) -> None:  # noqa: N802 - Qt override
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(Qt.PenStyle.NoPen)
         fill = QColor(self._palette.hud_surface)
         fill.setAlphaF(0.97)
-        path = QPainterPath()
-        path.addRoundedRect(self.rect().toRectF(), Radius.OVERLAY, Radius.OVERLAY)
-        painter.fillPath(path, fill)
+        pad = shadow_margin()
+        card = self.rect().adjusted(pad, pad, -pad, -pad).toRectF()
+        paint_floating_surface(QPainter(self), card, Radius.OVERLAY, fill)
 
     # ---- behaviour -------------------------------------------------------------------
 
@@ -183,7 +178,7 @@ class ReviewCard(QWidget):
         lines = max(1, -(-needed // metrics.lineSpacing()))
         self.editor.setFixedHeight(min(lines, MAX_LINES) * metrics.lineSpacing() + Space.XL)
         self.adjustSize()
-        self.setFixedWidth(WIDTH)
+        self.setFixedWidth(WIDTH + 2 * shadow_margin())
         self._place()
 
     def _place(self) -> None:
