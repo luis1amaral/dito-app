@@ -18,7 +18,7 @@ from .audio import devices
 from .audio.capture import BLOCKSIZE, Capture, CaptureError
 from .audio.level import Reading, State, Watchdog, measure
 from .audio.writer import WavWriter
-from .platform.linux_x11 import audio_system
+from .platform.linux_x11 import alsa_mixer, audio_system
 
 OK = "\033[32m"
 WARN = "\033[33m"
@@ -78,6 +78,19 @@ def cmd_doctor(args: argparse.Namespace) -> int:
               BAD if (vol is not None and vol < 5) else OK)
         if health.blocks_recording:
             problems += 1
+
+        # The blind spot: PipeWire can report 94% while the ALSA control underneath reads
+        # `Capture 0 [0%]`, and the mic delivers silence with every pactl reading looking fine.
+        gain = alsa_mixer.capture_gain(alsa_mixer.card_of_source(health.name))
+        if not gain.checked:
+            _line("ganho no hardware", "não foi possível checar", DIM)
+        elif gain.silent:
+            _line("ganho no hardware", gain.reason or "silencioso", BAD)
+            _line("", f"corrigir: {gain.fix_command}", DIM)
+            problems += 1
+        else:
+            atuais = ", ".join(f"{c.name} {c.pct}%" for c in gain.controls)
+            _line("ganho no hardware", f"card {gain.card} — {atuais}")
 
     print("\n modelo")
     cache = Path.home() / ".cache" / "huggingface" / "hub"

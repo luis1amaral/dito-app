@@ -27,13 +27,13 @@ makes the alarm testable without a microphone (see tests/test_watchdog.py).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 DEAD_THRESHOLD = 1e-4
 QUIET_THRESHOLD = 8e-3
 
 
-class State(str, Enum):
+class State(StrEnum):
     OK = "ok"
     QUIET = "quiet"
     DEAD = "dead"
