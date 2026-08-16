@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QVBoxLayout, QWidget
 
+from .. import __version__
 from .. import config as cfgmod
 from ..audio import devices
 from ..i18n import AUTO, DEFAULT, _
@@ -62,6 +64,8 @@ def _devices(current: str = "") -> list[tuple[str, str]]:
 
 class SettingsPage(QWidget):
     changed = Signal()
+    # (version, problem) — the network answer, carried back to the Qt thread.
+    _checked = Signal(str, str)
     notice = Signal(str)
 
     def __init__(
@@ -93,6 +97,7 @@ class SettingsPage(QWidget):
             self._meeting_section,
             self._library_section,
             self._appearance_section,
+            self._update_section,
         ):
             card = build()
             self._cards.append(card)
@@ -245,6 +250,46 @@ class SettingsPage(QWidget):
         card.add(Row(self._theme_row, self._language_row))
         return card
 
+    def _update_section(self) -> Card:
+        card = Card()
+        self._update_card = card
+
+        self._check = Button(_("Check for updates"), on_click=self._check_updates)
+        self._update_row = FormRow("", self._check)
+        card.add(self._update_row)
+        self._checked.connect(self._update_answered)
+        return card
+
+    def _check_updates(self) -> None:
+        """Off the Qt thread: the request reaches GitHub over the network and can hang for
+        seconds, and a settings window frozen mid-click reads as a crash."""
+        self._check.set_loading(True)
+        threading.Thread(target=self._ask_for_a_new_version, daemon=True).start()
+
+    def _ask_for_a_new_version(self) -> None:
+        from .. import update as updater
+
+        try:
+            release = updater.check()
+        except updater.UpdateError as exc:
+            self._checked.emit("", str(exc))
+            return
+        self._checked.emit(release.version if release else "", "")
+
+    def _update_answered(self, version: str, problem: str) -> None:
+        self._check.set_loading(False)
+        if problem:
+            self.notice.emit(problem)
+        elif version:
+            self.notice.emit(
+                _("version {version} is out — run «dito update» to install it")
+                .format(version=version)
+            )
+        else:
+            self.notice.emit(
+                _("Dito {version} is the newest there is.").format(version=__version__)
+            )
+
     # ---- text ----------------------------------------------------------------------
 
     def retranslate(self) -> None:
@@ -298,6 +343,13 @@ class SettingsPage(QWidget):
         )
         self._library_row.set_texts(_("Transcripts folder"))
         self._browse.set_text(_("Choose…"))
+
+        self._update_card.set_heading(
+            _("Updates"),
+            _("You have Dito {version}.").format(version=__version__),
+        )
+        self._update_row.set_texts("")
+        self._check.set_text(_("Check for updates"))
 
         self._appearance_card.set_heading(_("Appearance"))
         self._theme_row.set_texts(_("Theme"))

@@ -1154,6 +1154,28 @@ msgstr "baixa mesmo sem detectar placa NVIDIA"
 msgid "deletes the downloaded libraries and gives the 1.9 GB back"
 msgstr "apaga as bibliotecas baixadas e devolve os 1,9 GB"
 
+#, python-brace-format
+msgid "the «{model}» model is still downloading — try again in a moment"
+msgstr "o modelo «{model}» ainda está baixando — tente de novo daqui a pouco"
+
+#, python-brace-format
+msgid "the «{model}» model did not load. Pick another one in Settings, or delete it from the cache so it downloads again."
+msgstr "o modelo «{model}» não carregou. Escolha outro nas Configurações, ou apague-o do cache para ele baixar de novo."
+
+msgid "Check for updates"
+msgstr "Verificar atualização"
+
+#, python-brace-format
+msgid "version {version} is out — run «dito update» to install it"
+msgstr "a versão {version} saiu — rode «dito update» para instalar"
+
+msgid "Updates"
+msgstr "Atualizações"
+
+#, python-brace-format
+msgid "You have Dito {version}."
+msgstr "Você tem o Dito {version}."
+
 #~ msgid "could not download the components."
 #~ msgstr "não consegui baixar os componentes."
 

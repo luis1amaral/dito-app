@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 from ..audio.devices import SAMPLE_RATE
 from ..i18n import _
@@ -30,6 +31,24 @@ class Transcription:
     def rtf(self) -> float:
         """Real-time factor: below 1.0 means transcription keeps up with the recording."""
         return self.seconds_spent / self.seconds_of_audio if self.seconds_of_audio else 0.0
+
+
+MODEL_CACHE = Path.home() / ".cache" / "huggingface" / "hub"
+
+
+class ModelNotReady(RuntimeError):
+    """A model still downloading is not a crash — see docs/armadilhas.md 3.12."""
+
+
+def model_cached(name: str) -> bool:
+    """True when the model is on disk and whole. `doctor` and the engine must agree on this."""
+    if not MODEL_CACHE.exists():
+        return False
+    for folder in MODEL_CACHE.glob(f"models--*faster-whisper-{name}"):
+        # The weights live in blobs/; a snapshot with no big blob behind it is a half download.
+        if any(f.stat().st_size > 10_000_000 for f in (folder / "blobs").glob("*") if f.is_file()):
+            return True
+    return False
 
 
 def register_cuda_dlls(log=None) -> None:
@@ -127,7 +146,27 @@ class WhisperEngine:
                         raise
                     self._log(f"[modelo] GPU indisponível ({type(exc).__name__}), usando CPU")
 
-            self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
+            # Announced BEFORE the download starts: it is hundreds of MB, and a first use that
+            # looks frozen is what «Unable to open file model.bin» used to be — armadilhas 3.12.
+            if not model_cached(self.model_name):
+                self._log(f"[modelo] baixando {self.model_name}, uma vez só")
+
+            try:
+                self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
+            except Exception as exc:
+                # ctranslate2 says «Unable to open file model.bin», which names a file the user
+                # never chose and hides the only fact that matters: it is not downloaded yet.
+                if not model_cached(self.model_name):
+                    raise ModelNotReady(
+                        _("the «{model}» model is still downloading — try again in a moment")
+                        .format(model=self.model_name)
+                    ) from exc
+                raise ModelNotReady(
+                    _("the «{model}» model did not load. Pick another one in Settings, or "
+                      "delete it from the cache so it downloads again.")
+                    .format(model=self.model_name)
+                ) from exc
+
             self._backend = "cpu (int8)"
             self._log(f"[modelo] {self.model_name} na CPU (int8)")
             self._last_use = time.monotonic()

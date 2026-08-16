@@ -568,6 +568,32 @@ open(...)`, então o usuário via `PermissionError` em vez da mensagem, e o arqu
 no disco. O mesmo defeito estava no `update.py` desde sempre. A forma correta é levantar de
 **dentro** e apagar de **fora**, num `except BaseException`.
 
+### 3.12 Trocar de modelo dispara um download, e o erro que vaza é do ctranslate2
+
+**Sintoma, visto ao vivo em 16/08/2026:** logo depois de trocar o modelo nas Configurações, o ditado
+respondeu `Unable to open file model.bin`. Assustador, e ilegível: cita um arquivo que o usuário
+nunca escolheu, num caminho que ele não conhece, e não menciona a única coisa que importa.
+
+**Causa:** nada estava quebrado. O modelo novo simplesmente **não estava baixado**. O
+`faster_whisper` busca da HuggingFace no primeiro uso — o `base` são 145 MB, o `small` 486 MB — e uma
+transcrição disparada **durante** essa janela encontra um `model.bin` que ainda não existe. O
+ctranslate2, que é C++, reporta o open que falhou. Ninguém no caminho traduzia isso.
+
+Reconstrução, pelos carimbos de tempo do disco:
+
+| | |
+|---|---|
+| `config.toml` gravado com `model = "base"` | 19:37:28 |
+| blobs do `base` na cache da HuggingFace | 19:37 |
+| erro visto pelo usuário | entre os dois |
+
+**Correção:** `model_cached()` decide olhando o **blob**, não a pasta do snapshot — o snapshot existe
+desde o primeiro byte, então só o blob prova que o modelo veio inteiro. E o load passou a levantar
+`ModelNotReady` com texto de gente: *«o modelo "base" ainda está baixando — tente de novo daqui a
+pouco»*. O download em si já era anunciado no log, mas o log ninguém lê.
+
+Vale para qualquer troca de modelo, inclusive a primeira instalação numa máquina nova.
+
 ---
 
 ## 4. Colagem e clipboard

@@ -1150,3 +1150,25 @@ msgstr ""
 msgid "deletes the downloaded libraries and gives the 1.9 GB back"
 msgstr ""
 
+#, python-brace-format
+msgid "the «{model}» model is still downloading — try again in a moment"
+msgstr ""
+
+#, python-brace-format
+msgid "the «{model}» model did not load. Pick another one in Settings, or delete it from the cache so it downloads again."
+msgstr ""
+
+msgid "Check for updates"
+msgstr ""
+
+#, python-brace-format
+msgid "version {version} is out — run «dito update» to install it"
+msgstr ""
+
+msgid "Updates"
+msgstr ""
+
+#, python-brace-format
+msgid "You have Dito {version}."
+msgstr ""
+

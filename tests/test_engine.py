@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
+import types
+
+import pytest
 
 from dito.stt.engine import WhisperEngine
 
@@ -100,3 +104,43 @@ def test_unloading_twice_is_harmless():
     assert not engine.loaded
     # Source strings are English and the catalogue translates on read — see engine.backend.
     assert engine.backend == "not loaded"
+
+
+# ---- o modelo que ainda nao esta no disco --------------------------------------------
+
+
+def test_a_half_downloaded_model_is_not_cached(tmp_path, monkeypatch):
+    """O snapshot existe desde o primeiro byte; quem prova que o modelo veio inteiro e o blob.
+    Sem esta checagem o app declarava «em cache» e o ctranslate2 falhava logo depois."""
+    from dito.stt import engine as eng
+
+    monkeypatch.setattr(eng, "MODEL_CACHE", tmp_path)
+    folder = tmp_path / "models--Systran--faster-whisper-small"
+    (folder / "blobs").mkdir(parents=True)
+    (folder / "snapshots" / "abc").mkdir(parents=True)
+
+    assert eng.model_cached("small") is False
+
+    (folder / "blobs" / "deadbeef").write_bytes(b"x" * 11_000_000)
+    assert eng.model_cached("small") is True
+
+
+def test_a_model_still_downloading_says_so_instead_of_naming_a_file(monkeypatch):
+    """O defeito de 16/08/2026: trocar de modelo nas configuracoes disparava o download, e uma
+    transcricao nessa janela devolvia «Unable to open file model.bin» — uma mensagem do ctranslate2
+    que cita um arquivo que o usuario nunca escolheu. Ver docs/armadilhas.md 3.12."""
+    from dito.stt import engine as eng
+
+    monkeypatch.setattr(eng, "model_cached", lambda _n: False)
+
+    def boom(*_a, **_k):
+        raise RuntimeError("Unable to open file model.bin in model '/x/y'")
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=boom))
+
+    engine = eng.WhisperEngine(model="small", device="cpu")
+    with pytest.raises(eng.ModelNotReady) as erro:
+        engine.load()
+
+    assert "model.bin" not in str(erro.value), "o erro do ctranslate2 vazou para o usuario"
+    assert "small" in str(erro.value)

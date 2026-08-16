@@ -11,7 +11,6 @@ import argparse
 import os
 import sys
 import time
-from pathlib import Path
 
 from . import __version__, config, paths
 from .audio import devices
@@ -98,9 +97,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                   _("card {card} — {controls}").format(card=gain.card, controls=atuais))
 
     print("\n " + _("model"))
-    cache = Path.home() / ".cache" / "huggingface" / "hub"
+    from .stt.engine import MODEL_CACHE, model_cached
+
+    cache = MODEL_CACHE
+    # The decision comes from the engine so the two can never disagree; only the size is local.
     hits = list(cache.glob(f"models--*faster-whisper-{cfg.stt.model}")) if cache.exists() else []
-    if hits:
+    if model_cached(cfg.stt.model) and hits:
         # Skip symlinks: the HF cache stores each file once under blobs/ and links to it from
         # snapshots/, so following links counts every byte twice.
         size = sum(

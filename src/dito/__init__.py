@@ -2,7 +2,7 @@
 
 import os as _os
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 # Before anything imports numpy: OpenBLAS reads these once, when it initialises. Its pool keeps
 # spinning long after a 3 ms matmul ends — 15% of the CPU burned during transcription, and the

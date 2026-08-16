@@ -1,5 +1,38 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — v0.4.2 — trocar de modelo deixa de assustar, e a atualização tem botão
+
+### O quê
+
+1. **Trocar o modelo nas Configurações não devolve mais `Unable to open file model.bin`.** Agora
+   diz *«o modelo "base" ainda está baixando — tente de novo daqui a pouco»*.
+2. **Botão "Verificar atualização"** nas Configurações, num cartão que também mostra a versão
+   instalada. A checagem roda **fora da thread do Qt** — a janela não congela no clique.
+3. **`model_cached()` decide pelo blob, não pela pasta.** O `doctor` e o motor passam a usar a
+   mesma função, então não podem mais discordar sobre o que está baixado.
+
+### Por quê
+
+Aconteceu ao vivo hoje. O modelo foi trocado para `base`, que nunca tinha sido baixado; o
+`faster_whisper` foi buscar os 145 MB na HuggingFace, e uma transcrição **durante** esse download
+encontrou um `model.bin` que ainda não existia. Quem reporta esse erro é o ctranslate2, que é C++:
+a mensagem cita um arquivo que o usuário nunca escolheu e **não diz** a única coisa que importa —
+que falta terminar de baixar.
+
+O erro não indicava nada quebrado. Mas parecia, e é isso que esta versão corrige.
+
+A checagem antiga do `doctor` olhava se a **pasta** do modelo existia. Ela existe desde o primeiro
+byte: só o **blob** prova que o arquivo veio inteiro.
+
+### Como foi verificado
+
+- Portão: `ruff check .` limpo, **362 testes** verdes.
+- O defeito virou teste: um `WhisperModel` que levanta o erro literal do ctranslate2 tem que sair
+  como `ModelNotReady`, e o teste **reprova se a string `model.bin` vazar** para o usuário.
+- Na máquina real, com o download já concluído, o `base` carregou e transcreveu **na GPU em 9,2 s**
+  — confirmando que o pacote CUDA da v0.4.1 está íntegro e nunca foi a causa.
+
+
 ## 2026-08-16 — v0.4.1 — a GPU virou escolha na hora de instalar, e o assistente ganhou a marca
 
 ### O quê
