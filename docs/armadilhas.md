@@ -456,6 +456,32 @@ operações legais.
 no-op silencioso. Ver também 3.7, que é o problema espelhado: o que roda **dentro** do loop do Qt
 não pode bloquear.
 
+### 5.8 `/proc/PID/exe` resolve o link do venv — o instalador não matava o processo velho
+
+**Sintoma:** `tools/instalar.sh` imprimia "Parando o Dito que está rodando" e **nenhum**
+`parei o pid`. A instalação seguia, e o processo antigo continuava vivo segurando o socket de
+controle e a trava de instância única (5.1). Do lado de quem usa: o pacote novo instalado, o
+comportamento velho na tela.
+
+**Causa:** o passo escolhia os candidatos pelo executável e não pelo `cmdline` — de propósito, um
+`pkill -f "dito listen"` casa com o próprio shell que roda o script. Só que `/proc/PID/exe` aponta
+para o **binário final**, não para o caminho invocado. O `python3` de um venv é link para o
+interpretador do sistema, então medido nesta máquina:
+
+```
+cmdline = /home/luis/Desktop/Projetos/dito/.venv/bin/python3 .venv/bin/dito listen
+exe     = /usr/bin/python3.13
+```
+
+O padrão era `*dito*python*|/usr/bin/python3`. O caminho com "dito" está no `cmdline`, não no
+`exe`; e o Debian entrega `python3.13`, não `python3`. Nenhum dos dois casava.
+
+**Correção:** o guarda passa a ser "é um interpretador Python?" (`*/python*`) e a identificação
+continua no `cmdline`. O shell do script tem `exe=/usr/bin/bash` e continua de fora, que era o
+ponto do guarda. Junto entraram duas coisas que faltavam: `KILL` para quem ignora o `TERM`, e um
+aviso quando o socket continua ocupado no fim — falhar calado aqui é entregar uma instalação que
+parece boa e não é.
+
 ---
 
 ## 6. Empacotamento

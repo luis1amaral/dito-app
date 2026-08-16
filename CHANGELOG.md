@@ -1,5 +1,32 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o instalador não matava o processo antigo
+
+### O quê
+`tools/instalar.sh` passou a escolher os processos a parar por "é um interpretador Python?"
+(`*/python*`) em vez de `*dito*python*|/usr/bin/python3`. Ganhou `KILL` para quem ignora o `TERM`
+e um aviso quando o socket de controle continua ocupado no fim.
+
+### Por quê
+O passo imprimia "Parando o Dito que está rodando" e nenhum `parei o pid`: `/proc/PID/exe` aponta
+para o binário final, e o `python3` de um venv é link para o do sistema. Medido aqui — `cmdline`
+tem `/home/luis/Desktop/Projetos/dito/.venv/bin/python3 .venv/bin/dito listen`, mas `exe` é
+`/usr/bin/python3.13`. O caminho com "dito" está no `cmdline`; o Debian entrega `python3.13`, não
+`python3`. Nenhum dos dois padrões casava, então o processo velho sobrevivia à instalação segurando
+o socket e a trava de instância única — pacote novo instalado, comportamento velho na tela.
+
+O guarda por executável continua existindo pelo motivo original: `pkill -f "dito listen"` casaria
+com o próprio shell do script. Com `*/python*` o shell (`exe=/usr/bin/bash`) segue de fora.
+
+### Como foi verificado
+`bash -n` limpo; o novo padrão selecionou o processo real (pid 65200, `exe=/usr/bin/python3.13`) e
+ignorou o shell.
+
+### Documentação
+`docs/armadilhas.md` **5.8**.
+
+---
+
 ## 2026-08-16 — o microfone que a tela oferecia e nunca abria, a roda que editava sozinha
 
 ### O quê

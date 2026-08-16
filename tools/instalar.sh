@@ -31,17 +31,31 @@ if [ "${1:-}" = "--sem-sudo" ]; then
 fi
 
 passo "Parando o Dito que está rodando"
-# Pelo executável, não pelo texto da linha de comando: um `pkill -f` casa com o próprio shell.
+# See docs/armadilhas.md 5.8: /proc/PID/exe resolves the venv's python symlink to the real binary.
+parados=""
 for p in /proc/[0-9]*; do
   pid=${p#/proc/}
   [ "$pid" = "$$" ] && continue
   exe=$(readlink "$p/exe" 2>/dev/null) || continue
-  case "$exe" in *dito*python*|/usr/bin/python3) ;; *) continue;; esac
+  case "$exe" in */python*) ;; *) continue;; esac
   case "$(tr '\0' ' ' < "$p/cmdline" 2>/dev/null)" in
-    *"dito listen"*|*"dito ui"*) kill "$pid" 2>/dev/null && ok "parei o pid $pid";;
+    *"dito listen"*|*"dito ui"*)
+      if kill "$pid" 2>/dev/null; then parados="$parados $pid"; ok "parei o pid $pid"; fi
+      ;;
   esac
 done
 sleep 2
+
+# Um que ignora o TERM segura o socket, e a instalação segue como se estivesse tudo certo.
+for pid in $parados; do
+  [ -d "/proc/$pid" ] || continue
+  kill -9 "$pid" 2>/dev/null && aviso "o pid $pid ignorou o TERM; mandei KILL"
+  sleep 1
+done
+if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dito/dito.sock" ] \
+   && command -v ss >/dev/null && ss -xlp 2>/dev/null | grep -q 'dito/dito.sock'; then
+  aviso "alguém ainda segura o socket de controle — a instalação segue, mas confira 'dito status'"
+fi
 
 passo "Instalando"
 sudo apt install -y "$RAIZ/$DEB"
