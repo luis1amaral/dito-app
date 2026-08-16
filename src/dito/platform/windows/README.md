@@ -12,6 +12,9 @@ neste diretório será dado como funcionando antes de rodar numa.
 
 ## O que falta
 
+- **A fachada de plataforma, antes de tudo.** `src/dito/platform/__init__.py` está vazio: `app.py`,
+  `cli.py` e `core/session.py` importam `linux_x11` direto, em oito lugares, então `import
+  dito.app` quebra no Windows antes de chegar a qualquer funcionalidade. Ver `docs/porte-windows.md`.
 - `hotkeys.py` — no Windows o caminho é o `win32_event_filter` do pynput com `suppress_event()`,
   que **só existe lá**. É mais simples que no X11: não há auto-repeat entregando pares
   Release+Press, então o vigia de estado físico não é necessário. As constantes `VK_*` que a
