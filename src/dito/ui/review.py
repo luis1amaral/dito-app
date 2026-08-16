@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QPainter
 from PySide6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
@@ -18,7 +19,29 @@ from .theme import Palette, Radius, Size, Space, Type
 
 MARGIN = Space.XXXL
 WIDTH = 560
-MAX_LINES = 10
+MIN_LINES = 3
+# Header, buttons, paddings and shadow, before the widget has been laid out even once.
+_CHROME_GUESS = 200
+
+
+class Editor(QPlainTextEdit):
+    """Intercepts the keys before the text box eats them — armadilhas 7.11."""
+
+    submit = Signal()
+    cancel = Signal()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 - Qt override
+        key = event.key()
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                super().keyPressEvent(event)     # Shift+Enter is the newline
+            else:
+                self.submit.emit()
+            return
+        if key in (Qt.Key.Key_Tab, Qt.Key.Key_Escape):
+            self.cancel.emit()
+            return
+        super().keyPressEvent(event)
 
 
 class ReviewCard(QWidget):
@@ -62,7 +85,7 @@ class ReviewCard(QWidget):
         head.addWidget(hint)
         outer.addLayout(head)
 
-        self.editor = QPlainTextEdit()
+        self.editor = Editor()
         self.editor.setStyleSheet(
             f"QPlainTextEdit {{ background: rgba(255,255,255,0.06); color: {p.hud_text};"
             f" border: 1px solid rgba(255,255,255,0.14); border-radius: {Radius.CONTROL}px;"
@@ -76,8 +99,10 @@ class ReviewCard(QWidget):
             f"QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}"
             f"QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}"
         )
-        self.editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.editor.textChanged.connect(self._grow)
+        self.editor.submit.connect(self._do_send)
+        self.editor.cancel.connect(self._do_discard)
         outer.addWidget(self.editor)
 
         row = QHBoxLayout()
@@ -138,19 +163,46 @@ class ReviewCard(QWidget):
     _TEXT_WIDTH = WIDTH - 2 * Space.XL - 2 * Space.MD - 2
 
     def _grow(self) -> None:
-        """Grows with the text up to a ceiling, measured with font metrics — armadilhas 7.5."""
+        """Grows to fit the whole text; the only ceiling is the screen — armadilhas 7.5."""
         metrics = self.editor.fontMetrics()
         text = self.editor.toPlainText() or " "
+        # Font metrics, not the document: QPlainTextEdit lays out against its viewport and would
+        # report one line before the widget has ever been shown.
         needed = metrics.boundingRect(
             0, 0, self._TEXT_WIDTH, 1 << 20,
             int(Qt.TextFlag.TextWordWrap) | int(Qt.TextFlag.TextWrapAnywhere),
             text,
         ).height()
         lines = max(1, -(-needed // metrics.lineSpacing()))
-        self.editor.setFixedHeight(min(lines, MAX_LINES) * metrics.lineSpacing() + Space.XL)
+        ceiling = self._line_ceiling()
+        self._resize_to(min(lines, ceiling), metrics.lineSpacing())
+
+        # Self-correcting: the estimate and the widget's own layout can differ by a line, and a
+        # scrollbar is exactly what the owner asked never to see. Ask the realised widget.
+        for _ in range(3):
+            document = self.editor.document().size().height() * metrics.lineSpacing()
+            if document <= self.editor.viewport().height() or lines >= ceiling:
+                break
+            lines += 1
+            self._resize_to(min(lines, ceiling), metrics.lineSpacing())
+
+    def _resize_to(self, lines: int, spacing: int) -> None:
+        # Half a line of slack: QPlainTextEdit counts in blocks and clips the last one when the
+        # viewport height is not an exact multiple of the line spacing.
+        self.editor.setFixedHeight(lines * spacing + spacing // 2 + Space.XL)
         self.adjustSize()
         self.setFixedWidth(WIDTH + 2 * shadow_margin())
         self._place()
+
+    def _line_ceiling(self) -> int:
+        """How many lines still fit on screen once the card's own chrome is accounted for."""
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return 24
+        spacing = self.editor.fontMetrics().lineSpacing() or 1
+        chrome = max(0, self.height() - self.editor.height()) or _CHROME_GUESS
+        room = screen.availableGeometry().height() - 2 * MARGIN - chrome
+        return max(MIN_LINES, room // spacing)
 
     def _place(self) -> None:
         screen = self.screen() or self.window().screen()

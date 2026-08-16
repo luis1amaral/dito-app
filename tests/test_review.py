@@ -20,7 +20,7 @@ from PySide6.QtGui import QKeyEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dito.ui import theme  # noqa: E402
-from dito.ui.review import MAX_LINES, ReviewCard  # noqa: E402
+from dito.ui.review import MIN_LINES, ReviewCard  # noqa: E402
 from dito.ui.surface import shadow_margin  # noqa: E402
 
 FRASE = "Testando, testando, e agora está me ouvindo, não é?"
@@ -53,7 +53,12 @@ def card(app):
 
 
 def press(widget, key: Qt.Key, modifiers=Qt.KeyboardModifier.NoModifier) -> None:
-    widget.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, key, modifiers))
+    """Sends to the EDITOR, which is what has focus in real use.
+
+    The first version of this helper sent the event to the card, which proved the card's handler
+    worked and nothing else — the editor eats Return before it ever gets there, so Enter inserted
+    a newline instead of sending. The bug shipped and the user found it."""
+    widget.editor.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, key, modifiers))
 
 
 def test_enter_sends_what_is_on_screen(card, app):
@@ -155,19 +160,6 @@ def test_sending_an_emptied_box_discards_rather_than_sending_nothing(card, app):
     assert dropped == [True]
 
 
-def test_the_card_stops_growing_at_the_ceiling(card, app):
-    """A long dictation must not produce a card taller than the screen."""
-    widget, _ = card
-    widget.present("uma frase bem comprida para forçar a quebra de linha. " * 40)
-    app.processEvents()
-    tall = widget.height()
-
-    widget.editor.setPlainText("uma frase bem comprida para forçar a quebra de linha. " * 200)
-    app.processEvents()
-    assert widget.height() <= tall + 4, "o cartão continuou crescendo além do teto"
-    assert card_height(widget) < 640
-
-
 def test_the_card_opens_at_its_final_height(card, app):
     """It used to open one line tall and then jump, because the height was measured before the
     document had a width to wrap against — a glitch at exactly the moment you start reading."""
@@ -212,5 +204,54 @@ def test_nothing_is_sent_on_a_timer(card, app):
     assert sent == [] and dropped == []
 
 
-def test_max_lines_is_a_real_ceiling():
-    assert 3 <= MAX_LINES <= 20
+def test_enter_does_not_leave_a_newline_behind(card, app):
+    """The reported bug: Enter added a line instead of sending, because the text box handles
+    Return itself and the card's handler never ran."""
+    widget, _ = card
+    sent: list[str] = []
+    widget.send.connect(sent.append)
+
+    widget.present(FRASE)
+    press(widget, Qt.Key.Key_Return)
+
+    assert sent == [FRASE], "Enter tem que enviar, não quebrar linha"
+    assert "\n" not in (sent[0] if sent else "")
+
+
+def test_shift_enter_really_inserts_a_line(card, app):
+    widget, _ = card
+    sent: list[str] = []
+    widget.send.connect(sent.append)
+
+    widget.present("primeira")
+    press(widget, Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier)
+    app.processEvents()
+
+    assert sent == []
+    assert widget.editor.toPlainText().count("\n") == 1
+
+
+def test_the_card_never_needs_a_scrollbar_for_a_normal_dictation(card, app):
+    """The owner asked for no scrolling: the text stays visible and the card grows instead."""
+    widget, _ = card
+    widget.present("uma frase de ditado bem comprida, do tamanho que sai na prática. " * 6)
+    app.processEvents()
+
+    # What matters is that no text is hidden. The scrollbar is off anyway; a clipped last line
+    # would be the real failure.
+    metrics = widget.editor.fontMetrics()
+    document = widget.editor.document().size().height() * metrics.lineSpacing()
+    assert document <= widget.editor.viewport().height(), (
+        f"texto cortado: documento {document}px num viewport de "
+        f"{widget.editor.viewport().height()}px"
+    )
+
+
+def test_growth_stops_at_the_screen_not_at_a_magic_number(card, app):
+    widget, _ = card
+    widget.present("linha muito comprida para forçar quebra. " * 400)
+    app.processEvents()
+
+    screen = app.primaryScreen().availableGeometry().height()
+    assert widget.height() <= screen, "o cartão passou da tela"
+    assert widget._line_ceiling() >= MIN_LINES
