@@ -98,4 +98,5 @@ def test_unloading_twice_is_harmless():
     engine.unload()
     engine.unload()
     assert not engine.loaded
-    assert engine.backend == "não carregado"
+    # Source strings are English and the catalogue translates on read — see engine.backend.
+    assert engine.backend == "not loaded"

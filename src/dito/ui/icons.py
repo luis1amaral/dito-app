@@ -20,24 +20,51 @@ class TrayState(StrEnum):
     ALERT = "alert"
 
 
+TRAY_PNG_SIZES = (22, 44)
+
+
 def _svg(name: str) -> Path:
     return ASSETS / f"{name}.svg"
 
 
+def _png(name: str) -> Path:
+    return ASSETS / "png" / f"{name}.png"
+
+
+def _loaded(path: Path) -> QIcon | None:
+    """See docs/armadilhas.md 6.5: `exists()` is not `renders`; an SVG with no plugin loads null."""
+    if not path.exists():
+        return None
+    icon = QIcon(str(path))
+    return None if icon.isNull() else icon
+
+
+def _tray_png(state: TrayState) -> QIcon | None:
+    """Both sizes in one icon: the panel picks, instead of upscaling 22 into a blurry 44."""
+    icon = QIcon()
+    for size in TRAY_PNG_SIZES:
+        pixmap = QPixmap(str(_png(f"tray-{state.value}-{size}")))
+        if not pixmap.isNull():
+            icon.addPixmap(pixmap)
+    return None if icon.isNull() else icon
+
+
 @lru_cache(maxsize=16)
 def app_icon() -> QIcon:
-    path = _svg("icon")
-    if path.exists():
-        return QIcon(str(path))
-    return _drawn(TrayState.IDLE, LIGHT, 256)
+    return (
+        _loaded(_svg("icon"))
+        or _loaded(_png("icon-256"))
+        or _drawn(TrayState.IDLE, LIGHT, 256)
+    )
 
 
 @lru_cache(maxsize=16)
 def tray_icon(state: TrayState) -> QIcon:
-    path = _svg(f"tray-{state.value}")
-    if path.exists():
-        return QIcon(str(path))
-    return _drawn(state, LIGHT, Size.TRAY_ICON * 4)
+    return (
+        _loaded(_svg(f"tray-{state.value}"))
+        or _tray_png(state)
+        or _drawn(state, LIGHT, Size.TRAY_ICON * 4)
+    )
 
 
 def _drawn(state: TrayState, palette: Palette, size: int) -> QIcon:
@@ -85,5 +112,3 @@ def _drawn(state: TrayState, palette: Palette, size: int) -> QIcon:
     return icon
 
 
-def assets_present() -> bool:
-    return _svg("icon").exists()

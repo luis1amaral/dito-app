@@ -503,7 +503,8 @@ QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
 }}
 
 /* ---- tabs ---- */
-QTabWidget::pane {{ border: none; background: transparent; }}
+/* The pane has no border to separate it, so the gap has to be spacing or the content sits glued. */
+QTabWidget::pane {{ border: none; background: transparent; padding-top: {Space.LG}px; }}
 QTabBar::tab {{
     padding: {Space.SM}px {Space.LG}px;
     margin-right: {Space.XS}px;

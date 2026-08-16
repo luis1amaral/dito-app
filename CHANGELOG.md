@@ -1,5 +1,41 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o pacote instalava sem ícone na bandeja
+
+### O quê
+1. **`qt6-svg-plugins` entrou no `Depends`** do `.deb`.
+2. **O carregamento de ícone pergunta ao ícone, não ao sistema de arquivos.** `_loaded()` devolve
+   `None` quando o `QIcon` sai nulo, e a cadeia virou SVG → PNG → desenhado. Os PNGs de 22 e 44 px
+   dos três estados já iam dentro do pacote, sem uso.
+3. `assets_present()` removido — não tinha nenhum chamador.
+4. **Espaço abaixo das abas:** `QTabWidget::pane` ganhou `padding-top`. Sem borda e sem espaçamento,
+   o conteúdo ficava colado na aba.
+5. **`Engine.backend` traduz na leitura.** Guardava `"não carregado"` em português cravado, escrito
+   no construtor — errado duas vezes: fora do catálogo, e congelado no idioma do momento num app que
+   troca idioma sem reiniciar.
+
+### Por quê
+Instalação limpa, app no ar, `QSystemTrayIcon::setVisible: No Icon set` no log e **nenhum ícone na
+bandeja** — que é a única porta de entrada do app (garantia nº 4). O `Depends` trazia as ligações
+Python do QtSvg e a biblioteca, mas não o plugin de formato de imagem. Medido: o Qt do pacote lista
+13 formatos e **svg não está entre eles**; o Qt do venv do projeto lista svg. Foi por isso que
+passou em toda a suíte — ela roda onde o PySide6 vem do pip, que traz o plugin junto.
+
+O segundo erro é o que transformou uma dependência faltando em tela vazia: o código perguntava
+`path.exists()`. O arquivo existe, ele só não renderiza; o `if` era satisfeito e o fallback
+desenhado, que existe exatamente para esse caso, nunca era alcançado.
+
+### Como foi verificado
+256 testes verdes, `ruff` limpo, catálogo com 0 sem tradução e 0 duvidosa. Teste novo reproduz o
+defeito sem depender do plugin: um `.svg` corrompido ao lado dos PNGs válidos, e a asserção de que
+o ícone volta não-nulo **e com pixmap** — é o `availableSizes()` que prova que o ramo do PNG rodou.
+Outro teste tira todos os arquivos e exige que ainda assim venha ícone.
+
+### Documentação
+`docs/armadilhas.md` **6.5**.
+
+---
+
 ## 2026-08-16 — o instalador não matava o processo antigo
 
 ### O quê

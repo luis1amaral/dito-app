@@ -27,6 +27,7 @@ from PySide6.QtGui import QImage, QPainter  # noqa: E402
 from PySide6.QtSvg import QSvgRenderer  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from dito.ui import icons  # noqa: E402
 from dito.ui.icons import ASSETS, TrayState, tray_icon  # noqa: E402
 from dito.ui.theme import Size  # noqa: E402
 
@@ -83,3 +84,38 @@ def test_loading_never_returns_an_empty_icon(app):
     """A missing asset must degrade to the drawn fallback, never to a blank tray."""
     for state in TrayState:
         assert not tray_icon(state).isNull()
+
+
+def test_an_asset_that_exists_but_does_not_render_falls_back_to_the_png(app, tmp_path, monkeypatch):
+    """The defect this was written against: the .deb shipped the SVGs and Debian's Qt had no SVG
+    image plugin, so `QIcon(path)` came back NULL and the tray had no icon at all — and the tray
+    icon is the only way into the app. `exists()` was the wrong question. armadilhas 6.5."""
+    fake = tmp_path / "assets"
+    (fake / "png").mkdir(parents=True)
+    for state in STATES:
+        (fake / f"tray-{state}.svg").write_bytes(b"nao sou um svg")
+        for size in icons.TRAY_PNG_SIZES:
+            source = ASSETS / "png" / f"tray-{state}-{size}.png"
+            (fake / "png" / f"tray-{state}-{size}.png").write_bytes(source.read_bytes())
+
+    monkeypatch.setattr(icons, "ASSETS", fake)
+    icons.tray_icon.cache_clear()
+    try:
+        for state in TrayState:
+            icon = icons.tray_icon(state)
+            assert not icon.isNull()
+            # A real pixmap, not an empty shell: this is what proves the PNG branch ran.
+            assert icon.availableSizes()
+    finally:
+        icons.tray_icon.cache_clear()
+
+
+def test_with_no_assets_at_all_it_still_draws_one(app, tmp_path, monkeypatch):
+    """Last line: no file renders, so the shapes are painted. A blank tray is not an option."""
+    monkeypatch.setattr(icons, "ASSETS", tmp_path / "gone")
+    icons.tray_icon.cache_clear()
+    try:
+        for state in TrayState:
+            assert not icons.tray_icon(state).isNull()
+    finally:
+        icons.tray_icon.cache_clear()

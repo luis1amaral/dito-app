@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 
 from ..audio.devices import SAMPLE_RATE
+from ..i18n import _
 
 
 @dataclass(frozen=True)
@@ -54,7 +55,7 @@ class WhisperEngine:
         self._log = on_log or (lambda _msg: None)
 
         self._model = None
-        self._backend = "não carregado"
+        self._backend: str | None = None
         # faster-whisper is not safe to call concurrently — see docs/armadilhas.md 3.4.
         self._lock = threading.RLock()
         self._last_use = time.monotonic()
@@ -62,8 +63,9 @@ class WhisperEngine:
 
     @property
     def backend(self) -> str:
-        """"cuda (float16)" / "cpu (int8)" / "não carregado" — shown in doctor and settings."""
-        return self._backend
+        """"cuda (float16)", "cpu (int8)", or the translated "not loaded" — doctor and settings."""
+        # Stored as state, translated on read: the language changes without a restart.
+        return self._backend or _("not loaded")
 
     @property
     def loaded(self) -> bool:
@@ -119,7 +121,7 @@ class WhisperEngine:
             if self._model is None:
                 return
             self._model = None
-            self._backend = "não carregado"
+            self._backend = None
             gc.collect()
             # Freeing is not returning. Measured: without this the RSS grew 378 -> 606 MB.
             if sys.platform != "win32":

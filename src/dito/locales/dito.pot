@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dito\n"
 "Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
-"POT-Creation-Date: 2026-08-16 06:33-0300\n"
+"POT-Creation-Date: 2026-08-16 07:01-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -619,6 +619,10 @@ msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:73
 msgid "not installed — no mute detection"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/stt/engine.py:68
+msgid "not loaded"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:424

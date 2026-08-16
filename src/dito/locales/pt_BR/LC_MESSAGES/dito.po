@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dito\n"
 "Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
-"POT-Creation-Date: 2026-08-16 06:33-0300\n"
+"POT-Creation-Date: 2026-08-16 07:01-0300\n"
 "PO-Revision-Date: 2026-08-15 23:06-0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -625,6 +625,10 @@ msgstr "não baixado — baixa no primeiro uso"
 msgid "not installed — no mute detection"
 msgstr "não instalado — sem detecção de mute"
 
+#: /home/luis/Desktop/Projetos/dito/src/dito/stt/engine.py:68
+msgid "not loaded"
+msgstr "não carregado"
+
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:424
 msgid "note in the vault"
 msgstr "nota no cofre"
@@ -828,6 +832,7 @@ msgid "the microphone stopped responding — the device may have dropped"
 msgstr "o microfone parou de responder — o dispositivo pode ter caído"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:53
+#, python-brace-format
 msgid "the microphone «{device}» does not record at {rate} Hz"
 msgstr "o microfone «{device}» não grava a {rate} Hz"
 
@@ -958,6 +963,7 @@ msgid "«zeros» simulates a muted microphone with no microphone needed"
 msgstr "«zeros» simula o microfone mudo sem precisar de microfone"
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/audio/devices.py:92
+#, python-brace-format
 msgid "«{device}» is not connected"
 msgstr "«{device}» não está conectado"
 

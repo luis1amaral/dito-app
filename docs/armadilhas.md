@@ -520,6 +520,36 @@ Sem `DISPLAY`, ou com `--headless`, o bootstrap cai para o modo texto; se a jane
 qualquer motivo, ele **instala mesmo assim** pelo caminho de texto. A instalação é o objetivo, a
 janela é conforto.
 
+### 6.5 `exists()` não é `renderiza` — o `.deb` instalava sem ícone na bandeja
+
+**Sintoma:** instalação limpa, app rodando, `QSystemTrayIcon::setVisible: No Icon set` no log e
+**nenhum ícone na bandeja**. Como a bandeja é a única porta de entrada (garantia nº 4), o app fica
+inalcançável: não há janela, não há item de menu que resolva.
+
+**Causa:** dois erros que só se encontram no pacote.
+
+1. O `Depends` trazia `python3-pyside6.qtsvg` (as *ligações* Python) e `libqt6svg6` (a
+   *biblioteca*), mas **não** `qt6-svg-plugins`, que é quem instala o plugin de formato de imagem
+   `imageformats/libqsvg.so`. Sem ele o `QIcon` não sabe ler SVG. Medido nas duas pontas:
+
+   ```
+   Qt do pacote (Debian):   bmp cur gif ico jfif jpeg jpg pbm pgm png ppm xbm xpm   → svg: NÃO
+   Qt do venv do projeto (pip PySide6):                                             → svg: SIM
+   ```
+
+   Por isso passou em todo teste: a suíte roda no venv do projeto, onde o PySide6 do pip traz o
+   plugin junto. O defeito só existe onde ninguém testava.
+
+2. O código perguntava `path.exists()` antes de carregar. O arquivo **existe** — ele só não
+   renderiza. `QIcon(str(path))` devolvia um ícone nulo, o `if` já tinha sido satisfeito, e o
+   fallback desenhado (que existe exatamente para isso) nunca era alcançado.
+
+**Correção:** a pergunta passou a ser feita ao ícone carregado, não ao sistema de arquivos —
+`_loaded()` devolve `None` quando `isNull()`. A cadeia é SVG → PNG → desenhado, e os PNGs de 22 e
+44 px dos três estados **já iam dentro do pacote**, sem uso. E `qt6-svg-plugins` entrou no
+`Depends`. Duas camadas de propósito: a dependência conserta a causa, o fallback garante que
+nenhum ambiente futuro devolva bandeja vazia.
+
 ---
 
 ## 7. Interface
