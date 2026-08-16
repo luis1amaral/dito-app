@@ -1,0 +1,21 @@
+# venv — nunca versionada, e nunca movida de pasta: o pyvenv.cfg e todo shebang em bin/
+# gravam o caminho absoluto, entao uma venv relocada quebra em silencio. Recriar, sempre.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# artefatos de execucao
+*.log
+.dito.sock
+
+# pacote gerado
+packaging/deb/build/
+
+# editor / SO
+.vscode/
+.idea/
+.DS_Store

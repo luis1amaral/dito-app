@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dito"
+version = "0.1.0"
+description = "Ditado por voz offline: fale, e o texto aparece onde o cursor está"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Luis Amaral", email = "lluispaulop@gmail.com" }]
+
+# As versoes sao TETO-ABERTO de proposito. A venv e criada com --system-site-packages e a maioria
+# destes pacotes vem do apt do Debian (python3-numpy, python3-av, python3-onnxruntime,
+# python3-pynput, python3-pyperclip, python3-xlib, python3-pyside6.*); com o piso frouxo o pip
+# reconhece o que o apt ja instalou e NAO baixa de novo. Apertar um piso aqui faz o pip sombrear o
+# pacote do sistema com um wheel do PyPI, e ai o que roda em desenvolvimento deixa de ser o que
+# roda no .deb — que e exatamente o modo de falha que este arquivo existe para evitar.
+dependencies = [
+    "faster-whisper>=1.1",   # PyPI: nao existe no apt
+    "sounddevice>=0.5",      # PyPI: nao existe no apt
+    "tomli-w>=1.0",
+    "numpy>=2",
+    "PySide6>=6.8",
+    "pynput>=1.8",
+    "pyperclip>=1.8",
+    "python-xlib>=0.33; sys_platform != 'win32'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+dito = "dito.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dito = ["ui/assets/**/*"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
