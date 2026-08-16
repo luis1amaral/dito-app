@@ -47,8 +47,6 @@ from .ui.window import MainWindow
 DICTATION = "dictation"
 MEETING = "meeting"
 
-# Long enough to read from across the room, short enough to never need dismissing by hand.
-ALARM_LINGER_MS = 8_000
 
 
 class Bridge(QObject):
@@ -378,12 +376,10 @@ class DitoApp:
             # alarming here is a false positive by construction. See armadilhas 9.7.
             self.overlay.dismiss()
         elif not event.ever_heard_audio:
-            # The exact failure this project exists for. Never a silent no-op.
-            self.overlay.show_dead(
-                _("nothing was picked up — the audio is saved, you can try again"), None
-            )
-            # The recording is over: this reports the past, it is not a condition still going on.
-            self.overlay.dismiss_alarm_after(ALARM_LINGER_MS)
+            # The red pill means "you think you are recording and you are not". The recording is
+            # over, so the sentence has no subject left — it goes, and the notification carries
+            # the news instead. Never silent, never stuck. See docs/armadilhas.md 9.7.
+            self.overlay.dismiss()
             notify.notify(
                 _("Dito — nothing was picked up"),
                 _("the microphone delivered no audio. The recording is in {folder}").format(

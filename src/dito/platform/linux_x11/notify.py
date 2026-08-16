@@ -39,6 +39,8 @@ def notify(title: str, body: str = "", urgent: bool = False, icon: str | None = 
         return False
     args = ["notify-send", "--app-name", APP_NAME, "--urgency", "normal"]
     args += ["--expire-time", str(ALARM_MS if urgent else NORMAL_MS)]
+    # The desktop's own ding is redundant noise: Dito has its own alarm sound, with its own switch.
+    args += ["--hint", "boolean:suppress-sound:true"]
     if icon:
         args += ["--icon", icon]
     args += [title, body]

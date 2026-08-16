@@ -1219,11 +1219,42 @@ tela até o app reiniciar.
    pílula estava relatando um fato passado como se fosse condição em curso, e um alarme que não sai
    ensina a pessoa a ignorar alarme (9.6).
 
-**Correção:** `MIS_TAP_S = 0.6`. Abaixo disso **e** sem texto, a sessão é descartada inteira — JSON,
-WAV e parciais — e nenhum alarme aparece. Acima disso, o alarme dispara igual, e agora se dispensa
-sozinho depois de 8 s.
+**Correção, em duas partes.**
+
+`MIS_TAP_S = 0.6`: abaixo disso **e** sem texto, a sessão é descartada inteira — JSON, WAV e
+parciais — e nenhum alarme aparece.
+
+E a regra que faltava, dita pelo dono e melhor que a primeira tentativa (dispensar depois de 8 s):
+**a pílula vermelha pertence a uma gravação em curso.** Ela quer dizer *"você acha que está
+gravando e não está"* — no instante em que a gravação acaba, a frase fica sem sujeito. Então ela
+some **quando a gravação termina**, seja por soltar o F9, por apertar o F10 de novo ou por
+qualquer outro motivo. Quem leva a notícia de que nada foi captado é a **notificação**, que é
+transitória por natureza e agora não faz som (9.8).
+
+Resultado: `show_dead` passou a ter **um único** chamador — o alarme ao vivo, durante a gravação.
 
 **O que NÃO mudou, e é o ponto:** segurar a tecla e falar no vazio continua sendo a falha central do
 projeto. O limiar é sobre **quanto tempo a tecla ficou apertada**, não sobre quanto áudio chegou —
 então microfone morto com a tecla segurada por 10 s alarma exatamente como antes, e o áudio fica,
 porque sem texto não existe substituição para ele.
+
+### 9.8 O "som chato" não era o do Dito — era o do ambiente, e o app não o controlava
+
+**Sintoma:** o dono pediu "notificação sem som", e a configuração `alerts.sound = false` não
+resolvia o caso dele.
+
+**Causa:** existem **duas** fontes de som, e só uma tinha interruptor.
+
+1. O alarme do próprio Dito (`paplay` de `dialog-warning.oga`), ligado a `alerts.sound`.
+2. O som que o **ambiente gráfico** toca ao exibir qualquer notificação.
+
+Num toque acidental o alarme nem chega a disparar, então o som ouvido era sempre o **2** — e
+desligar a chave do Dito não tinha efeito nenhum sobre ele.
+
+**Correção:** toda notificação leva `--hint boolean:suppress-sound:true`, dica padrão da
+especificação de notificações do freedesktop. O ambiente exibe e cala.
+
+**Por que isso é o certo, e não só o pedido:** o Dito **já tem** um canal sonoro próprio, escolhido
+para ser inequívoco em vez de agradável, com interruptor na tela. O toque genérico do ambiente por
+cima é redundância que ninguém pediu — e ele tocava mesmo com o som do Dito desligado, o que
+transforma um interruptor da tela em mentira.

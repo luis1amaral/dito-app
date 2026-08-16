@@ -1,5 +1,49 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o alarme acaba junto com a gravação, e a notificação não faz mais som
+
+### O quê
+1. **A pílula vermelha some quando a gravação termina** — soltar o F9, apertar o F10 de novo,
+   qualquer motivo. Quem leva a notícia de que nada foi captado é a notificação.
+2. **Toda notificação sai muda** (`--hint boolean:suppress-sound:true`).
+3. O teste do `kill -9` deixou de falhar por carga da máquina.
+
+### Por quê
+Regra dita pelo dono, e melhor que a minha tentativa anterior de dispensar depois de 8 s: **a
+pílula vermelha pertence a uma gravação em curso.** Ela quer dizer *"você acha que está gravando e
+não está"* — no instante em que a gravação acaba, a frase fica sem sujeito. Mantê-la na tela depois
+disso é relatar passado como se fosse presente.
+
+Resultado da mudança: `show_dead` passou a ter **um único** chamador — o alarme ao vivo.
+
+**E o "som chato" não era o do Dito.** Existem duas fontes e só uma tinha interruptor: o alarme do
+próprio app (`alerts.sound`) e o som que o **ambiente gráfico** toca ao exibir qualquer notificação.
+Num toque acidental o alarme nem dispara, então o som ouvido era sempre o do ambiente — e desligar
+a chave da tela não tinha efeito nenhum sobre ele, o que transformava aquele interruptor em mentira.
+Agora toda notificação carrega a dica padrão do freedesktop que manda o ambiente exibir e calar.
+
+O Dito continua com canal sonoro próprio, escolhido para ser inequívoco em vez de agradável, e com
+o interruptor na tela funcionando de verdade.
+
+### A regra que não foi enfraquecida
+O alarme **durante** a gravação continua igual: forma, cor, movimento e som, em ~1 s. O que mudou é
+só o que acontece **depois** que a gravação termina.
+
+### Também
+`test_a_short_recording_survives_kill_nine` esperava 3 s o subprocesso escrever 40 blocos antes de
+matá-lo. Com a máquina carregada isso estourava e o teste falhava como se a garantia tivesse
+quebrado. A espera é preparo, não medição: subiu para 15 s, e a asserção do `kill -9` não mudou.
+
+### Como foi verificado
+277 testes verdes, `ruff` limpo. Três testes novos de notificação: nenhuma usa `critical`, o alarme
+dura mais que um aviso comum, e a dica de silêncio está presente. Notificação real disparada nesta
+máquina apareceu sem som.
+
+### Documentação
+`docs/armadilhas.md` **9.7** (revisto) e **9.8**.
+
+---
+
 ## 2026-08-16 — encostar no F9 sem querer não deixa mais rastro nem alarme preso
 
 ### O quê

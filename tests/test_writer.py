@@ -71,8 +71,11 @@ def test_a_short_recording_survives_kill_nine(tmp_path):
     """)
     proc = subprocess.Popen([sys.executable, "-c", script])
     try:
+        # Generous on purpose: the wait is setup, not the assertion. Under load — the model
+        # loading, another suite running — 3 s was not enough to write 40 blocks, and the test
+        # failed as if the guarantee had broken. What is measured is below, after the kill.
         deadline = 0.0
-        while deadline < 3.0 and (not path.exists() or path.stat().st_size < 44 + BLOCK * 2 * 40):
+        while deadline < 15.0 and (not path.exists() or path.stat().st_size < 44 + BLOCK * 2 * 40):
             import time as _t
 
             _t.sleep(0.05)
@@ -81,7 +84,7 @@ def test_a_short_recording_survives_kill_nine(tmp_path):
         proc.kill()
         proc.wait(timeout=5)
 
-    assert path.exists()
+    assert path.exists(), "o subprocesso não chegou a escrever — máquina sobrecarregada?"
     riff, data = read_header(path)
     assert data > 0, "cabeçalho declara zero bytes — nenhum player abre"
 
