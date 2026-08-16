@@ -78,8 +78,16 @@ done
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
 passo "Primeira execução (monta a venv de usuário, se faltar)"
-if dito --version >/dev/null 2>&1; then
-  DITO_BOOTSTRAP=ask python3 -m dito.bootstrap --headless || aviso "o bootstrap reclamou; abra o app para ver a tela"
+# PYTHONPATH porque o código do pacote mora em /usr/lib/dito e não no path do python do sistema;
+# é o mesmo export que o /usr/bin/dito faz antes de chamar o bootstrap.
+CODE=/usr/lib/dito
+VENV_PY="${XDG_DATA_HOME:-$HOME/.local/share}/dito/venv/bin/python"
+if [ -x "$VENV_PY" ]; then
+  ok "a venv de usuário já existe"
+elif DITO_BOOTSTRAP=ask PYTHONPATH="$CODE" python3 -m dito.bootstrap --headless; then
+  ok "venv montada"
+else
+  aviso "o bootstrap reclamou; abra o app para ver a tela"
 fi
 
 passo "Subindo"
