@@ -227,12 +227,32 @@ def _tick(
     return state, first_alarm
 
 
-def cmd_listen(args: argparse.Namespace) -> int:
-    """Headless dictation: hotkeys + recording + transcription + paste, no window.
+def cmd_ui(args: argparse.Namespace) -> int:
+    """Open the Dito window. Called by the application menu entry.
 
-    This exists so the whole chain can be exercised — and dogfooded — before the UI is written,
-    and so a UI bug can never be confused with an engine bug.
+    If a daemon is already listening, this does not start a second process — it asks the running
+    one to show its window, which is what the user meant by launching the app again.
     """
+    from .app import run
+
+    return run(show_window=True)
+
+
+def cmd_listen(args: argparse.Namespace) -> int:
+    """The daemon: tray, hotkeys, overlay — and no window.
+
+    This is what the autostart entry runs. Nothing appears at login except the tray icon; the
+    window exists only when asked for. `--headless` drops Qt entirely and prints to the terminal,
+    which is how the chain gets debugged without the UI in the picture.
+    """
+    if not args.headless:
+        from .app import run
+
+        return run(show_window=False)
+    return _listen_headless(args)
+
+
+def _listen_headless(args: argparse.Namespace) -> int:
     from .core import events as ev
     from .core.session import Mode, Session
     from .output import paste as paster
@@ -355,7 +375,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--device", default=None)
     s.set_defaults(func=cmd_selftest)
 
-    listen = subs.add_parser("listen", help="ditado sem interface — atalho, gravação e colagem")
+    ui = subs.add_parser("ui", help="abre a janela do Dito")
+    ui.set_defaults(func=cmd_ui)
+
+    listen = subs.add_parser("listen", help="sobe o ditado na bandeja, sem abrir janela")
+    listen.add_argument("--headless", action="store_true",
+                        help="sem Qt: só terminal, para depurar a cadeia sem a interface")
     listen.add_argument("--key", default=None, help="sobrepõe a tecla de ditado (ex.: f7)")
     listen.add_argument("--meeting-key", default=None, help="sobrepõe a tecla de reunião")
     listen.add_argument("--no-paste", action="store_true", help="só imprime, não cola")
@@ -369,8 +394,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "func", None):
-        parser.print_help()
-        return 0
+        # Bare `dito` opens the window. Someone who typed the app's name wants the app, not help.
+        return cmd_ui(args)
     try:
         return args.func(args)
     except KeyboardInterrupt:

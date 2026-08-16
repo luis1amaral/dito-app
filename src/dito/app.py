@@ -1,0 +1,368 @@
+"""Composition root: the only place that knows about every part at once.
+
+Threading is the thing to get right here. Audio arrives on PortAudio's realtime thread, hotkeys
+on pynput's listener thread, transcription on a worker, and Qt owns the main thread and refuses
+to be touched from any other. Every event therefore crosses one bridge — a Qt signal — and every
+widget update happens on the far side of it. The previous version learned this the hard way:
+touching a widget from the listener thread is what made the UI die with no traceback.
+
+The other rule: **stopping a recording must not run on the thread that detected the key.** The
+hotkey watcher polls the physical keymap; blocking it for the length of a transcription means the
+next key press is missed entirely.
+"""
+
+from __future__ import annotations
+
+import threading
+import time
+from collections.abc import Callable
+
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+
+from . import config as cfgmod
+from . import paths
+from .audio.level import State as AudioState
+from .core import events as ev
+from .core.session import Mode, Session
+from .output import paste as paster
+from .platform.linux_x11 import audio_system, instance, notify
+from .platform.linux_x11.hotkeys import HotkeyManager
+from .platform.linux_x11.hotkeys import Mode as KeyMode
+from .stt.engine import WhisperEngine
+from .ui import theme
+from .ui.icons import app_icon
+from .ui.overlay import Overlay
+from .ui.tray import Tray
+from .ui.window import MainWindow
+
+DICTATION = "dictation"
+MEETING = "meeting"
+
+
+class Bridge(QObject):
+    """The single crossing point from worker threads into Qt."""
+
+    event = Signal(object)
+    log = Signal(str)
+
+
+class DitoApp:
+    def __init__(self, cfg: cfgmod.Config | None = None, show_window: bool = False) -> None:
+        self.cfg = cfg or cfgmod.load()
+        self._show_window = show_window
+        self._lock: object | None = None
+        self._window: MainWindow | None = None
+        self._sessions: dict[str, Session] = {}
+        self._sessions_lock = threading.Lock()
+        self._last_text: str | None = None
+        self._paused = False
+        self._alarm_ringing = False
+        self._last_alarm_sound = 0.0
+
+    # ---- lifecycle -------------------------------------------------------------------
+
+    def run(self) -> int:
+        try:
+            self._lock = instance.claim()
+        except instance.AlreadyRunning:
+            # Not an error: the user launched Dito while it was already listening. Ask the running
+            # one to show its window, which is what they actually wanted.
+            if instance.send(instance.SHOW):
+                return 0
+            print("já existe um ditado rodando.")
+            return 1
+
+        paths.ensure_dirs()
+
+        self.qt = QApplication.instance() or QApplication([])
+        self.qt.setApplicationName("Dito")
+        self.qt.setDesktopFileName("com.defalt.dito")
+        self.qt.setWindowIcon(app_icon())
+        # Closing the window must not end the process: the daemon keeps listening. Quitting is an
+        # explicit choice in the tray menu.
+        self.qt.setQuitOnLastWindowClosed(False)
+
+        self.palette = theme.palette(theme.resolve_mode(self.cfg.ui.theme))
+        self.qt.setStyleSheet(theme.stylesheet(self.palette))
+
+        self.bridge = Bridge()
+        self.bridge.event.connect(self._on_event, Qt.ConnectionType.QueuedConnection)
+
+        self.overlay = Overlay(self.palette)
+        self.overlay.fix_requested.connect(self._fix_audio)
+
+        self.engine = WhisperEngine(
+            model=self.cfg.stt.model,
+            language=self.cfg.stt.language,
+            device=self.cfg.stt.device,
+            idle_unload_min=self.cfg.stt.idle_unload_min,
+            on_log=lambda m: print(m, flush=True),
+        )
+
+        self.hotkeys = HotkeyManager(
+            on_start=self._begin,
+            on_stop=self._end,
+            grab=self.cfg.hotkeys.grab,
+            on_log=lambda m: print(m, flush=True),
+        )
+        self._bind_hotkeys()
+
+        self.tray = Tray(
+            on_open=self.open_window,
+            on_quit=self._quit,
+            on_copy_last=self._copy_last,
+            on_toggle_pause=self._set_paused,
+        )
+        if self.cfg.ui.tray and QSystemTrayIcon.isSystemTrayAvailable():
+            self.tray.show()
+        self.tray.set_ready(self.cfg.hotkeys.push_to_talk, self.cfg.hotkeys.meeting_toggle)
+
+        self.control = instance.ControlServer(self._on_command)
+        self.control.start()
+
+        self.hotkeys.start()
+
+        # Idle unload runs on the Qt clock rather than a thread of its own: it only ever needs to
+        # ask a cheap question once a minute, and one fewer thread is one fewer thing to join.
+        self._idle = QTimer()
+        self._idle.setInterval(60_000)
+        self._idle.timeout.connect(lambda: self.engine.unload_if_idle())
+        self._idle.start()
+
+        self._preflight_warning()
+
+        if self._show_window:
+            self.open_window()
+
+        try:
+            return self.qt.exec()
+        finally:
+            self._shutdown()
+
+    def _shutdown(self) -> None:
+        self.hotkeys.stop()
+        self.control.stop()
+        with self._sessions_lock:
+            self._sessions.clear()
+
+    def _quit(self) -> None:
+        self._shutdown()
+        self.qt.quit()
+
+    # ---- hotkeys ---------------------------------------------------------------------
+
+    def _bind_hotkeys(self) -> None:
+        self.hotkeys.bind(DICTATION, self.cfg.hotkeys.push_to_talk, KeyMode.HOLD)
+        self.hotkeys.bind(MEETING, self.cfg.hotkeys.meeting_toggle, KeyMode.TOGGLE)
+
+    def _begin(self, name: str) -> None:
+        if self._paused:
+            return
+        mode = Mode.MEETING if name == MEETING else Mode.DICTATION
+        session = Session(
+            self.cfg, mode, self.engine,
+            emit=self.bridge.event.emit,
+            on_log=lambda m: print(m, flush=True),
+        )
+        with self._sessions_lock:
+            if name in self._sessions:
+                return
+            self._sessions[name] = session
+
+        if not session.start().ok:
+            with self._sessions_lock:
+                self._sessions.pop(name, None)
+
+    def _end(self, name: str) -> None:
+        with self._sessions_lock:
+            session = self._sessions.pop(name, None)
+        if session is None:
+            return
+        # Off the hotkey thread: that thread is polling the physical keymap, and blocking it for
+        # the length of a transcription means the next key press is simply missed.
+        threading.Thread(
+            target=self._finish, args=(session,), daemon=True, name="dito-finish"
+        ).start()
+
+    def _finish(self, session: Session) -> None:
+        result = session.stop()
+        if isinstance(result, ev.Finished) and result.text and self.cfg.output.paste:
+            outcome = paster.paste(
+                result.text,
+                send_enter=self.cfg.output.enter,
+                restore_clipboard=self.cfg.output.restore_clipboard,
+            )
+            if outcome.message:
+                self.bridge.event.emit(
+                    ev.Failed(result.session_id, outcome.message, result.folder)
+                )
+
+    # ---- events (Qt thread) ----------------------------------------------------------
+
+    def _on_event(self, event: object) -> None:
+        if isinstance(event, ev.Started):
+            meeting = event.mode == MEETING
+            self.overlay.show_recording(meeting=meeting)
+            self.tray.set_recording(meeting=meeting)
+            self._alarm_ringing = False
+
+        elif isinstance(event, ev.Level):
+            self.overlay.push_level(event.rms)
+
+        elif isinstance(event, ev.AudioAlarm):
+            self._on_alarm(event)
+
+        elif isinstance(event, ev.PhaseChanged):
+            if event.phase is ev.Phase.TRANSCRIBING:
+                self.overlay.show_working(event.detail or "")
+                self.tray.set_transcribing()
+
+        elif isinstance(event, ev.Partial):
+            self.overlay.show_working(f"{int(event.end_s // 60)} min transcritos")
+
+        elif isinstance(event, ev.Finished):
+            self._on_finished(event)
+
+        elif isinstance(event, ev.Failed):
+            self.overlay.show_toast("Não deu para colar", event.reason)
+            notify.notify("Dito", event.reason, urgent=False)
+            self.tray.set_ready(
+                self.cfg.hotkeys.push_to_talk, self.cfg.hotkeys.meeting_toggle
+            )
+
+    def _on_alarm(self, event: ev.AudioAlarm) -> None:
+        if event.state is AudioState.DEAD:
+            self.overlay.show_dead(event.reason, "Corrigir" if event.fix_hint else None)
+            self.tray.set_alarm(event.reason or "o microfone não está captando")
+            self._ring(event.reason)
+        elif event.state is AudioState.QUIET:
+            self.overlay.show_quiet(event.reason or "áudio muito baixo")
+        else:
+            self._alarm_ringing = False
+            self.overlay.show_recording(meeting=MEETING in self._sessions)
+
+    def _ring(self, reason: str | None) -> None:
+        """Sound and notification fire once per alarm, then at most every ten seconds. Repeating
+        on every tick would turn the alarm into noise the user learns to ignore, which is the same
+        as having no alarm."""
+        now = time.monotonic()
+        if self._alarm_ringing and now - self._last_alarm_sound < 10:
+            return
+        self._last_alarm_sound = now
+        first = not self._alarm_ringing
+        self._alarm_ringing = True
+        if self.cfg.audio.alerts.sound:
+            notify.alarm_sound()
+        if self.cfg.audio.alerts.notify and first:
+            notify.notify(
+                "Dito — SEM ÁUDIO",
+                reason or "o microfone não está captando nada",
+                urgent=True,
+            )
+
+    def _on_finished(self, event: ev.Finished) -> None:
+        self.tray.set_ready(self.cfg.hotkeys.push_to_talk, self.cfg.hotkeys.meeting_toggle)
+        if event.text:
+            self._last_text = event.text
+            self.tray.set_last_text(event.text)
+            if event.mode == MEETING:
+                minutos = int(event.seconds // 60)
+                palavras = len(event.text.split())
+                self.overlay.show_toast(
+                    "Reunião salva", f"{minutos} min · {palavras} palavras"
+                )
+            else:
+                self.overlay.dismiss()
+        elif not event.ever_heard_audio:
+            # The exact failure this project exists for. Never a silent no-op.
+            self.overlay.show_dead(
+                "nada foi captado — o áudio está guardado, dá para tentar de novo", None
+            )
+            notify.notify(
+                "Dito — nada foi captado",
+                f"o microfone não entregou áudio. A gravação está em {event.folder}",
+                urgent=True,
+            )
+        else:
+            self.overlay.show_toast("Nada reconhecido")
+        if self._window is not None and self._window.isVisible():
+            self._window.sessions.reload()
+
+    # ---- actions ---------------------------------------------------------------------
+
+    def _fix_audio(self) -> None:
+        """The Corrigir button. Only ever does the thing the diagnosis named."""
+        if audio_system.is_muted():
+            audio_system.unmute()
+        volume = audio_system.volume_pct()
+        if volume is not None and volume < 5:
+            audio_system.set_volume(80)
+        self.overlay.show_toast("Tentei desmutar", "fale de novo para conferir")
+
+    def _copy_last(self) -> None:
+        if self._last_text:
+            paster.copy(self._last_text)
+            self.overlay.show_toast("Copiado")
+
+    def _set_paused(self, paused: bool) -> None:
+        self._paused = paused
+        if paused:
+            self.hotkeys.pause()
+            self.tray.set_paused()
+        else:
+            self.hotkeys.resume()
+            self.tray.set_ready(
+                self.cfg.hotkeys.push_to_talk, self.cfg.hotkeys.meeting_toggle
+            )
+
+    def open_window(self) -> None:
+        if self._window is None:
+            self._window = MainWindow(
+                self.cfg,
+                self.palette,
+                icon=app_icon(),
+                pause_hotkeys=self.hotkeys.pause,
+                resume_hotkeys=self.hotkeys.resume,
+                conflicts=self._conflicts,
+                on_config_changed=self._reload_config,
+            )
+        self._window.present()
+
+    def _conflicts(self, key: str, owner: str) -> str | None:
+        return self.hotkeys.conflicts(key, ignoring=owner)
+
+    def _reload_config(self) -> None:
+        """Applied live. The gap between changing a hotkey and it working has to be zero, or the
+        user presses a key that does nothing and concludes the app is broken."""
+        self.hotkeys.pause()
+        self._bind_hotkeys()
+        self.hotkeys.resume()
+        self.engine.idle_unload_min = self.cfg.stt.idle_unload_min
+        if self.engine.model_name != self.cfg.stt.model:
+            self.engine.model_name = self.cfg.stt.model
+            self.engine.unload()
+        self.tray.set_ready(self.cfg.hotkeys.push_to_talk, self.cfg.hotkeys.meeting_toggle)
+
+    def _on_command(self, command: str) -> str:
+        if command == instance.SHOW:
+            QTimer.singleShot(0, self.open_window)
+            return "ok"
+        if command == instance.PING:
+            return "ok"
+        return "?"
+
+    def _preflight_warning(self) -> None:
+        """Say it before the first key press, not after 99 seconds of speech."""
+        health = audio_system.health()
+        if health.blocks_recording:
+            self.tray.set_alarm(health.reason or "microfone indisponível")
+            notify.notify("Dito", health.reason or "microfone indisponível", urgent=True)
+
+
+def run(show_window: bool = False, cfg: cfgmod.Config | None = None) -> int:
+    return DitoApp(cfg=cfg, show_window=show_window).run()
+
+
+def ensure_ui_or_hint() -> Callable[[], int]:
+    return lambda: run(show_window=True)

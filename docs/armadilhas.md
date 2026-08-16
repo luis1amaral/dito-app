@@ -214,6 +214,27 @@ que a trava existe para impedir.
 
 **Não renomeie.** Há um teste que quebra se alguém "limpar" o nome.
 
+### 5.1b A trava do código antigo NUNCA funcionou — o retorno era descartado
+
+Descoberto durante o refactor, e vale por si só. Em `voice_type.py:1120`:
+
+```python
+if not args.selftest:
+    claim_single_instance()      # <- o socket devolvido não é guardado em lugar nenhum
+```
+
+A função faz `bind` num socket UNIX abstrato e **devolve** o socket. Como ninguém guarda a
+referência, o CPython coleta o objeto no instante seguinte, o socket fecha, e o nome abstrato é
+liberado pelo kernel. Provado na prática: com o ditado antigo rodando, o Dito novo conseguiu tomar
+a mesma trava, e `ss -x -l | grep defalt-voice-input` não mostra nada.
+
+Ou seja: durante todo esse tempo, dois ditados poderiam rodar juntos brigando pelo microfone e
+colando cada frase duas vezes — que é exatamente o que a trava existia para impedir.
+
+**Uma trava de recurso só vale enquanto alguém segura o objeto.** No Dito o socket vive em
+`DitoApp._lock` pelo processo inteiro, e há um teste que prova que a trava rejeita a segunda
+tentativa.
+
 ### 5.2 Arquivo de PID fica órfão
 
 O supervisor sobe o processo e não escreve o PID; quem escrevia era outro caminho de inicialização.

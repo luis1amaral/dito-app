@@ -20,10 +20,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPixmap  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QTabWidget  # noqa: E402
 
+from dito import config  # noqa: E402
 from dito.ui import theme  # noqa: E402
 from dito.ui.overlay import Overlay  # noqa: E402
+from dito.ui.window import MainWindow  # noqa: E402
 
 PAD = 40
 
@@ -95,6 +97,22 @@ def main() -> int:
             w, h, size = shoot(hud, path, dark)
             print(f"  {path}  {w}x{h}  {size / 1024:.0f} kB")
         hud.close()
+
+    for mode in (theme.Mode.LIGHT, theme.Mode.DARK):
+        pal = theme.palette(mode)
+        window = MainWindow(cfg=config.load(), palette=pal)
+        window.resize(880, 620)
+        window.show()
+        QApplication.processEvents()
+        for tab, name in ((0, "sessions"), (1, "settings")):
+            window.findChild(QTabWidget).setCurrentIndex(tab)
+            QApplication.processEvents()
+            shot = window.grab()
+            path = out_dir / f"window-{mode.value}-{name}.png"
+            shot.save(str(path))
+            print(f"  {path}  {shot.width()}x{shot.height()}  "
+                  f"{path.stat().st_size / 1024:.0f} kB")
+        window.hide()
 
     print(f"\n{len(list(out_dir.glob('*.png')))} imagens em {out_dir}/")
     return 0

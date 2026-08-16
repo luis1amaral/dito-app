@@ -1,9 +1,9 @@
 """WAV -> Opus, for meeting audio that is otherwise kept forever.
 
-The numbers that decide this file: recording is 16 kHz mono int16, which is 32 kB/s — 115 MB per
-hour, 345 MB for a three-hour meeting. At 24 kbps Opus the same three hours are about 32 MB, and
-speech at that bitrate is still perfectly intelligible. That is a 10x reduction on the one file
-the user is asked to keep indefinitely.
+The numbers that decide this file, all measured here on 3 min of speech-shaped audio: recording is
+16 kHz mono int16, which is 115 MB per hour — 345 MB for a three-hour meeting. The same three
+hours of Opus at 24 kbps are 31 MB. That is an 11x reduction on the one file the user is asked to
+keep indefinitely, and speech at that bitrate is still perfectly intelligible.
 
 **PyAV, never the `ffmpeg` binary.** There is no ffmpeg on this machine (checked); PyAV already
 comes in through faster-whisper, so the codec is right there in-process. Shelling out would add a
@@ -11,9 +11,9 @@ dependency the `.deb` does not install and would fail at the worst possible mome
 a three-hour meeting.
 
 **The WAV is deleted only after the Opus has been decoded end to end.** Not "the file exists", not
-"the header parses": every packet is decoded and the sample count is compared with the source.
-Measured cost is 46 ms per minute of audio, so about 8 s for a three-hour meeting on top of the
-~75 s the encode itself takes — cheap insurance, given that losing audio is the one thing this
+"the header parses": every packet is decoded and the sample count is compared against the source.
+Measured cost is 0.2 s per 3 min of audio — about 12 s for a three-hour meeting, on top of the
+~97 s the encode itself takes. Cheap insurance, given that losing audio is the one thing this
 project does not do.
 """
 
@@ -24,7 +24,15 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 
-BITRATE = 24_000                  # bits/s: ~32 MB for 3 h, measured 167 kB for 60 s of noisy tone
+# bits/s. Measured on 3 min of speech-shaped audio: 23.1 kbps out, i.e. 31 MB for three hours
+# against 345 MB of WAV.
+BITRATE = 24_000
+
+# Constrained VBR, not the default one. On speech the two are indistinguishable in size (23.1 kbps
+# either way, measured), but plain VBR overshot the target by 43% — 34.3 kbps — on a tonal signal.
+# Constrained keeps the "3 h fits in ~32 MB" promise true for whatever the microphone happens to
+# pick up, and costs nothing when the content is what it is supposed to be.
+ENCODER_OPTIONS = {"vbr": "constrained"}
 
 # What ffmpeg's libopus encoder accepts. Recording is 16 kHz, which is on the list, so the usual
 # path resamples nothing; anything else goes to 48 kHz, Opus's native rate.
@@ -116,6 +124,8 @@ def to_opus(
 def _encode(wav: Path, target: Path, bitrate: int) -> float:
     """Returns the source duration measured from the samples actually decoded — the honest number
     to compare against, rather than whatever the container header claims."""
+    # Imported here rather than at module load: PyAV drags in the ffmpeg shared libraries, and
+    # compression only ever happens after a meeting ends.
     import av
 
     samples = 0
@@ -124,7 +134,8 @@ def _encode(wav: Path, target: Path, bitrate: int) -> float:
         rate = istream.rate if istream.rate in OPUS_RATES else FALLBACK_RATE
 
         with av.open(str(target), "w", format="ogg") as dst:
-            ostream = dst.add_stream("libopus", rate=rate, layout="mono")
+            ostream = dst.add_stream("libopus", rate=rate, layout="mono",
+                                     options=dict(ENCODER_OPTIONS))
             ostream.bit_rate = bitrate
             resampler = av.AudioResampler(
                 format=ostream.format.name, layout=ostream.layout.name, rate=ostream.rate

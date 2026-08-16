@@ -412,7 +412,12 @@ QTabBar::tab {{
 QTabBar::tab:hover {{ background: {p.surface_alt}; }}
 QTabBar::tab:selected {{ background: {p.surface}; color: {p.text_primary}; }}
 
-QScrollArea {{ border: none; background: transparent; }}
+/* The scroll area's viewport and its inner container do not inherit the window background, so
+   without this they paint the palette's default white and show up as bands between cards. */
+QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {{
+    border: none;
+    background: transparent;
+}}
 QScrollBar:vertical {{ background: transparent; width: {Space.MD}px; margin: 0; }}
 QScrollBar::handle:vertical {{
     background: {p.border_strong};
