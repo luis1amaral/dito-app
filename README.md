@@ -123,8 +123,9 @@ dito doctor        # microfone, atalhos, modelo, colagem
 
 ### Requisitos e limites, sem letra miúda
 
-- **Debian 13 (trixie)** é onde isto foi construído e testado. Em Ubuntu e derivados os nomes de
-  pacote das dependências podem divergir — `python3-onnxruntime` em especial pode não existir.
+- **Debian 13 (trixie)** é onde isto foi construído e testado. Qt (PySide6) e onnxruntime vêm do
+  pip em toda distro — não dependem mais do apt ter o pacote certo (Ubuntu Noble e derivados,
+  Mint 22.x incluso, não têm `python3-pyside6.*`/`qt6-svg-plugins` nem `python3-onnxruntime`).
 - **Sessão X11.** O atalho global **não funciona no Wayland** (`docs/armadilhas.md` 5.6). No
   GNOME, escolha "Xorg" na tela de login.
 - **Nada abre no login** além do ícone da bandeja — o daemon sobe calado. Se a preparação ainda
@@ -144,9 +145,8 @@ fora do controle do dpkg e trava o apt quando falha, sem nenhuma janela para exp
 
 ```bash
 sudo apt install --no-install-recommends \
-  python3-pyside6.qtwidgets python3-pyside6.qtsvg python3-tomli-w \
-  python3-numpy python3-av python3-onnxruntime python3-pynput python3-pyperclip \
-  libportaudio2 pulseaudio-utils xclip
+  python3-tomli-w python3-numpy python3-av python3-pynput python3-pyperclip \
+  libportaudio2 libxcb-cursor0 pulseaudio-utils xclip
 
 python3 -m venv --system-site-packages .venv
 .venv/bin/pip install -e ".[dev]"
@@ -154,9 +154,10 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/python -m pytest
 ```
 
-O `--system-site-packages` não é detalhe: é o que faz o `pip` reaproveitar o Qt, o numpy e o
-onnxruntime do apt em vez de baixar ~250 MB de wheels — e é o mesmo arranjo que o `.deb` usa, para
-que o que roda aqui seja o que roda instalado.
+O `--system-site-packages` não é detalhe: é o que faz o `pip` reaproveitar o numpy e o av do apt
+em vez de baixar wheels de novo — o mesmo arranjo que o `.deb` usa. Qt (PySide6) e onnxruntime o
+`pip install -e ".[dev]"` já traz sozinho, de qualquer distro, porque estão em
+`[project.dependencies]` sem exclusão nenhuma no `make-deb.sh`.
 
 ⚠️ **A venv não é relocável.** O `pyvenv.cfg` e todos os shebangs em `bin/` gravam o caminho
 absoluto. Mudou a pasta de lugar, recrie a venv; não adianta mover.

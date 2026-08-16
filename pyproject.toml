@@ -4,18 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dito"
-version = "0.3.9"
+version = "0.3.10"
 description = "Ditado por voz offline: fale, e o texto aparece onde o cursor está"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
 authors = [{ name = "Luis Amaral", email = "lluispaulop@gmail.com" }]
 
-# As versoes sao TETO-ABERTO de proposito. A venv e criada com --system-site-packages e a maioria
-# destes pacotes vem do apt do Debian (python3-numpy, python3-av, python3-onnxruntime,
-# python3-pynput, python3-pyperclip, python3-xlib, python3-pyside6.*); com o piso frouxo o pip
-# reconhece o que o apt ja instalou e NAO baixa de novo. Apertar um piso aqui faz o pip sombrear o
-# pacote do sistema com um wheel do PyPI, e ai o que roda em desenvolvimento deixa de ser o que
-# roda no .deb — que e exatamente o modo de falha que este arquivo existe para evitar.
+# As versoes sao TETO-ABERTO de proposito. A venv e criada com --system-site-packages e alguns
+# destes pacotes vem do apt do Debian (python3-numpy, python3-av, python3-pynput,
+# python3-pyperclip, python3-xlib); com o piso frouxo o pip reconhece o que o apt ja instalou e
+# NAO baixa de novo. PySide6 nao esta mais nessa lista: qt6-svg-plugins e python3-pyside6.* so
+# existem a partir do Ubuntu 25.10, entao PySide6 (e onnxruntime, dependencia do faster-whisper)
+# vem do pip em toda distro, sempre — ver packaging/deb/README.md.
 dependencies = [
     "faster-whisper>=1.1",   # PyPI: nao existe no apt
     "sounddevice>=0.5",      # PyPI: nao existe no apt

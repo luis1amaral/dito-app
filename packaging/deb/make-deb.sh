@@ -44,15 +44,18 @@ with open("pyproject.toml", "rb") as f:
 # The lock is everything in [project.dependencies] that the .deb's Depends does NOT already
 # provide. Those apt packages are visible inside the venv (it is created with
 # --system-site-packages) and pip recognises them as installed, because each ships dist-info or
-# egg-info metadata -- PySide6's lives in libpyside6-py3-6.8, pulled in by python3-pyside6.*.
-# Listing them again would only invite pip to shadow the system copy with a PyPI wheel, which is
-# the exact drift pyproject.toml's open floors exist to avoid.
+# egg-info metadata. Listing them again would only invite pip to shadow the system copy with a
+# PyPI wheel, which is the exact drift pyproject.toml's open floors exist to avoid.
 # Anything NOT in this set falls through to the lock, which is the safe default: a new dependency
 # gets installed rather than silently missing.
+# pyside6 dropped from this set on purpose: python3-pyside6.qtwidgets/qtsvg and qt6-svg-plugins
+# only exist from Ubuntu 25.10 onward, so Noble-based distros (incl. Mint 22.x) can never satisfy
+# Depends: there. The PyPI wheel bundles its own Qt (svg plugin included), so it also replaces
+# qt6-svg-plugins outright -- that apt package is gone from control.in, not just unlisted here.
 REQS=$(python3 -c '
 import re, tomllib
 
-FROM_APT = {"numpy", "pyside6", "pynput", "pyperclip", "python-xlib", "tomli-w"}
+FROM_APT = {"numpy", "pynput", "pyperclip", "python-xlib", "tomli-w"}
 with open("pyproject.toml", "rb") as f:
     deps = tomllib.load(f)["project"]["dependencies"]
 for spec in deps:

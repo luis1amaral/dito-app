@@ -7,17 +7,14 @@ Maintainer: Luis Amaral <lluispaulop@gmail.com>
 Installed-Size: @INSTALLED_SIZE@
 Depends: python3 (>= 3.11),
  python3-venv,
- python3-pyside6.qtwidgets,
- python3-pyside6.qtsvg,
- qt6-svg-plugins,
  python3-numpy,
  python3-av,
- python3-onnxruntime,
  python3-pynput,
  python3-pyperclip,
  python3-xlib,
  python3-tomli-w,
  libportaudio2,
+ libxcb-cursor0,
  pulseaudio-utils,
  xclip | xsel
 Recommends: alsa-utils
@@ -31,7 +28,8 @@ Description: ditado por voz offline — fale, e o texto aparece onde o cursor es
  no fim; aqui o alarme dispara em cerca de 1 segundo, e o áudio vai para o disco desde
  o primeiro bloco — se a transcrição falhar, o .wav continua lá, íntegro e tocável.
  .
- O pacote é fino de propósito: instala o código e usa o Qt, o numpy, o av e o
- onnxruntime do próprio Debian. Na primeira vez que você abre o app, ele monta uma
- venv em ~/.local/share/dito/venv com o punhado de bibliotecas que só existem no PyPI.
- Exige sessão X11 (o atalho global não funciona no Wayland).
+ O pacote é fino de propósito: instala o código e usa o numpy e o av do próprio
+ Debian. Na primeira vez que você abre o app, ele monta uma venv em
+ ~/.local/share/dito/venv com Qt, onnxruntime e o punhado de bibliotecas que só
+ existem no PyPI ou que o apt do sistema não tem em toda distro-alvo. Exige
+ sessão X11 (o atalho global não funciona no Wayland).

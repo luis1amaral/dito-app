@@ -1,5 +1,46 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o .deb não instalava em Ubuntu/Mint, só em Debian trixie/LMDE
+
+### O quê
+1. **`Depends` do `.deb` perdeu `python3-pyside6.qtwidgets`, `python3-pyside6.qtsvg`,
+   `qt6-svg-plugins` e `python3-onnxruntime`.** `PySide6` entrou no `requirements.lock` (tirado do
+   `FROM_APT` do `make-deb.sh`) — vem do pip em toda distro, sempre. `onnxruntime` nem precisou ser
+   listado: já é dependência transitiva do `faster-whisper` no PyPI.
+2. **`libxcb-cursor0` entrou no `Depends`, explícito.** Antes vinha de graça via `libqt6gui6`
+   (puxado pelo PySide6 do apt); sem essa cadeia, o plugin `xcb` do Qt fica sem ela e o app aborta
+   com "could not load the Qt platform plugin xcb".
+3. Versão `0.3.10`. Docs (`README.md`, `packaging/deb/README.md`, `pyproject.toml`) atualizadas
+   para a nova divisão apt/pip.
+
+### Por quê
+Instalei numa máquina Linux Mint 22.2 (base Ubuntu Noble/24.04) e `apt-get install dito` falhava
+com `Depends: python3-pyside6.qtwidgets but it is not installable` (e mais três). Causa raiz: o
+`control.in` foi verificado só contra Debian 13 (trixie) / LMDE 7 — que já têm esses pacotes Qt6
+splitados. Confirmei em packages.ubuntu.com que `python3-pyside6.qtwidgets` só chega ao Ubuntu no
+25.10 (Questing); Noble (e tudo que segue Noble, Mint 22.x incluso) nunca vai ter esse pacote.
+
+Mover PySide6 pro pip não é gambiarra: `docs/armadilhas.md` 6.5 já tinha medido que o Qt do apt
+tocava **sem** suporte a SVG (`qt6-svg-plugins` faltando) enquanto o PySide6 do pip já lê SVG
+nativamente. Empurrar todo o PySide6 pro pip elimina a causa daquele bug de vez, em vez de só
+remendar com mais uma linha de `Depends`.
+
+### O que se perde, dito em voz alta
+O bootstrap gráfico (`bootstrap.py::_run_with_window`) importa `PySide6` no python do **sistema**,
+antes da venv existir — e o sistema não tem mais Qt instalado por padrão. `main()` já envolve essa
+chamada num `except Exception`, então cai sozinho pro bootstrap de terminal (funciona, só sem a
+janela com barra de progresso) em toda máquina, não só nas Ubuntu-based. Documentado em
+`packaging/deb/README.md`.
+
+### Como verifiquei
+`apt-get install -s dito` (simulação, sem sudo) reproduziu o erro real antes da correção —
+`unmet dependencies` nos 4 pacotes. Depois da correção: `make-deb.sh` gerou
+`dist/dito_0.3.10_all.deb` (130 KB, bem abaixo do teto de 25 MiB do Cloudflare Pages);
+`dpkg-deb -x` confirmou `PySide6>=6.8` no `requirements.lock` gerado; `apt-get install -s
+./dist/dito_0.3.10_all.deb` resolveu limpo, `Inst dito (0.3.10 local-deb [all])`, sem nenhum unmet.
+**Não instalei de verdade** (precisa de sudo interativo, que não tenho aqui) nem testei o `pip
+install PySide6` de verdade na venv — só a simulação do apt e a geração do lock estão provadas.
+
 ## 2026-08-16 — 86% da CPU gasta na transcrição não era cálculo, era espera ocupada
 
 Com a GPU já funcionando, transcrever 12 s de fala ainda custava **2,471 s de CPU** (115% de um

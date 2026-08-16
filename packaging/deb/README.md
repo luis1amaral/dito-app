@@ -29,8 +29,8 @@ Então o pacote leva **só o código-fonte** e resolve o resto em dois lugares:
 
 | O quê | De onde vem | Quando |
 |---|---|---|
-| Qt, numpy, av, onnxruntime, pynput, pyperclip, xlib, tomli-w | `Depends:` do pacote — apt do Debian | na instalação (34 pacotes, medido com `apt-get install -s`) |
-| `faster-whisper`, `sounddevice` (só existem no PyPI) | venv em `~/.local/share/dito/venv` | na **primeira execução**, como usuário |
+| numpy, av, pynput, pyperclip, xlib, tomli-w | `Depends:` do pacote — apt do Debian | na instalação |
+| Qt (PySide6), onnxruntime, `faster-whisper`, `sounddevice` | venv em `~/.local/share/dito/venv` | na **primeira execução**, como usuário |
 | modelo Whisper (~486 MB no `small`) | HuggingFace, para `~/.cache/huggingface` | no primeiro ditado |
 
 **O que se ganha:** o `.deb` cabe no Pages, atualiza junto com o sistema pelo `apt upgrade`, e o
@@ -40,12 +40,18 @@ Qt/numpy/onnxruntime é **um** por máquina em vez de uma cópia por app.
 
 1. **A primeira execução precisa de internet** e demora — pip baixando `ctranslate2` e companhia.
    Depois disso o app é 100% offline, como prometido.
-2. **O app depende da versão que o Debian empacota.** Hoje: PySide6 6.8.2.1, numpy 2.2.4,
-   onnxruntime 1.21. Por isso os pisos no `pyproject.toml` são frouxos — apertar um faz o pip
-   sombrear o pacote do sistema com um wheel do PyPI, e aí o que roda em desenvolvimento deixa de
-   ser o que roda instalado.
+2. **O app depende da versão que o Debian empacota** para numpy e av — hoje numpy 2.2.4. Por isso
+   os pisos desses dois no `pyproject.toml` continuam frouxos: apertar faz o pip sombrear o pacote
+   do sistema com um wheel do PyPI, e aí o que roda em desenvolvimento deixa de ser o que roda
+   instalado. PySide6 e onnxruntime não têm mais esse risco — vêm do PyPI em toda máquina, sempre
+   a mesma versão que o `pyproject.toml` pede.
 3. **`apt remove` não leva a venv junto.** Ela é dado do usuário, mora no `$HOME` e o dpkg não a
    conhece. O `postrm` avisa e diz o comando.
+4. **O bootstrap gráfico perde a janela.** `_run_with_window()` importa `PySide6` no python do
+   sistema, que não tem mais Qt instalado por padrão — cai sempre no bootstrap de terminal
+   (funciona, só não tem barra de progresso bonita). Sem isso, `python3-pyside6.qtwidgets` e
+   `qt6-svg-plugins` simplesmente não existem em nenhuma distro-alvo com base Ubuntu Noble (24.04)
+   ou anterior — incluindo Mint 22.x — só chegaram ao apt do Ubuntu no 25.10.
 
 **Se um dia o pacote precisar mesmo ser grande**, o caminho não é espremer o Pages: é publicar num
 bucket R2 público, que não tem esse teto. Aí o repositório apt muda de host, não de formato.
@@ -90,8 +96,11 @@ venv não existe:
    senão                 -> venv + pip no terminal      (rede de segurança)
 ```
 
-O bootstrap gráfico roda no **python do sistema**, e isso só é possível porque o Qt vem do apt:
-existe janela para mostrar progresso antes mesmo de existir a venv que mostraria.
+O bootstrap gráfico **tenta** rodar no python do sistema: como o Qt agora vem do pip (não mais do
+apt), o sistema não tem `PySide6` antes da venv existir, então `_run_with_window()` levanta
+`ModuleNotFoundError` e `dito.bootstrap.main()` — que já envolve essa chamada num `except Exception`
+— cai sozinho para o bootstrap de terminal, sem janela. Funciona igual, só sem a barra de
+progresso gráfica; é o preço direto de tirar o Qt do `Depends:` (ver "o que se perde" acima).
 
 `XDG_DATA_HOME` é lido com `${...:-}` e não `${...-}` de propósito — nesta máquina as variáveis
 `XDG_*` estão **definidas e vazias**, e com `-` a venv iria parar num caminho *relativo*, criado
@@ -139,19 +148,18 @@ Todas conferidas com `apt-cache policy` no Debian 13 (trixie / LMDE 7) antes de 
 |---|---|
 | `python3 (>= 3.11)` | o código usa `X \| None`, `tomllib` e `from __future__` novo |
 | `python3-venv` | o bootstrap cria a venv (traz `python3-pip-whl`, então a venv já nasce com pip) |
-| `python3-pyside6.qtwidgets`, `python3-pyside6.qtsvg` | a interface, e o bootstrap gráfico antes dela |
 | `python3-numpy` | todo o caminho de áudio |
-| `python3-av`, `python3-onnxruntime` | dependências do `faster-whisper` que o apt já tem — evita ~200 MB de wheel |
+| `python3-av` | dependência do `faster-whisper` que o apt já tem — evita uma fatia do wheel |
 | `python3-pynput` | atalho global |
 | `python3-pyperclip`, `xclip \| xsel` | colagem; sem o `xclip` o `pyperclip` levanta exceção e o texto se perde (armadilha 4.4) |
 | `python3-xlib` | `query_keymap`, `XGrabKey` — o auto-repeat do X11 (armadilha 2.1) |
 | `python3-tomli-w` | grava o `config.toml` |
 | `libportaudio2` | o `sounddevice` carrega essa `.so` em tempo de execução |
+| `libxcb-cursor0` | o plugin `xcb` do Qt precisa dela pra abrir janela — vinha de graça via `libqt6gui6` enquanto o PySide6 era `Depends:`; virou explícita quando o Qt foi pro pip (armadilha nova: sem ela, "could not load the Qt platform plugin xcb" e o app aborta) |
 | `pulseaudio-utils` | `pactl` — mute e volume no `doctor` |
 | `alsa-utils` (**Recommends**) | `amixer`, para o ponto cego do ganho de hardware (armadilha 1.2). Sem ele o app funciona e só perde um diagnóstico — por isso não é `Depends` |
 
 Não há `dpkg-shlibdeps` aqui: o pacote é `Architecture: all` e não tem um único ELF para analisar.
-`libxcb-cursor0` também **não** está na lista de propósito — o `libqt6gui6` já o exige.
 
 O `requirements.lock` é **gerado**, nunca editado à mão: o `make-deb.sh` lê
 `[project.dependencies]` do `pyproject.toml` e tira o que os `Depends` já garantem. Hoje sobram
