@@ -107,6 +107,8 @@ class Retention:
 @dataclass
 class Ui:
     theme: str = "auto"               # auto | light | dark
+    # Interface language, independent of `stt.language`, which is what Whisper transcribes.
+    language: str = "auto"            # auto | en | pt_BR
     overlay_position: str = "bottom-center"
     tray: bool = True
     autostart: bool = True

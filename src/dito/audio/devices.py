@@ -1,11 +1,4 @@
-"""Finding and resolving the input device.
-
-`sounddevice` accepts either an index or a name substring, but both fail in ways worth naming:
-an index shifts when a USB headset is plugged in or out, and a name substring that matches
-nothing raises at stream-open time rather than when the setting was saved. So the config stores
-a string, and this module resolves it — reporting "that device is gone" as data, not as an
-exception thrown from inside a keypress handler.
-"""
+"""Resolves the configured input device; "it is gone" is data — docs/armadilhas.md 1.8."""
 
 from __future__ import annotations
 
@@ -55,12 +48,7 @@ def list_inputs() -> list[Device]:
 
 
 def resolve(setting: str) -> int | str | None:
-    """Config value -> what sounddevice should receive. `None` means "system default".
-
-    Returns the setting untouched when it names a device that exists, so sounddevice does its own
-    matching; returns None when the setting is empty. Callers use `missing()` to tell apart
-    "default" from "configured but gone" — the two need different messages on screen.
-    """
+    """Config value -> device for sounddevice; None is "default" or gone, see `missing()`."""
     setting = (setting or "").strip()
     if not setting:
         return None

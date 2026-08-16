@@ -1,20 +1,4 @@
-"""The "press a key" field.
-
-The tricky part is not reading a key press — it is reading one while a global listener is holding
-that same key. The sequence matters:
-
-  1. suspend the global backend (it keeps its thread and simply discards; destroying a pynput
-     Listener and rebuilding it is what leaves a key stuck down);
-  2. grab the keyboard at the *application* level, so the next press belongs to this widget;
-  3. resolve the key to the canonical name the backend uses, not to the character Qt reports —
-     the backend matches on the X keysym, and Qt's text() is empty for the keys worth binding;
-  4. validate: no bare modifier, no key already bound to another Dito action, and then an actual
-     test grab, because X has no API for "who owns this key" and attempting it IS the test;
-  5. release and resume.
-
-Only keys that do not type a character are offered. Binding a letter globally would swallow it
-everywhere, which is a trap rather than a feature.
-"""
+"""The "press a key" field, read while the global listener holds the key: armadilhas 7.10."""
 
 from __future__ import annotations
 
@@ -149,8 +133,7 @@ class KeyCapture(QPushButton):
             self._end_capture()
             return
         if qt_key in MODIFIERS:
-            # Waiting rather than rejecting: reaching for Ctrl+F9 presses Ctrl first, and
-            # complaining about it would be nagging the user for typing correctly.
+            # Wait, do not reject: reaching for Ctrl+F9 presses Ctrl first.
             return
 
         name = BINDABLE.get(qt_key)
@@ -171,7 +154,6 @@ class KeyCapture(QPushButton):
         self.captured.emit(name)
 
     def focusOutEvent(self, event) -> None:  # noqa: N802 - Qt override
-        """Clicking away cancels. A widget left holding the keyboard grab would eat every
-        keystroke in the app."""
+        """Clicking away cancels: a widget left holding the grab eats every keystroke."""
         self._end_capture()
         super().focusOutEvent(event)

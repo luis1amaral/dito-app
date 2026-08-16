@@ -1,19 +1,4 @@
-"""What happens to a meeting after the recording stops.
-
-Three steps, in this order, and the order is the point:
-
-  1. **Write the text first.** It is small, it never fails, and it is the thing the user came for.
-     Compressing before writing would mean a crash in the encoder costs the transcript too.
-  2. **Compress the audio.** Only after the Opus has been decoded back and verified does the WAV
-     go — see audio/encode.py. Losing audio is the one thing this project does not do.
-  3. **Write the Obsidian note.** Last, because it is the step most likely to be refused (the
-     vault may not exist, and the rule is not to create it), and a refusal must not take the
-     first two down with it.
-
-The session folder under ~/.local/share stays the working area. The library folder is where the
-user's own copy lands, because "abrir a pasta" should open something recognisable and not a
-timestamped directory inside a dotfile tree.
-"""
+"""A meeting after the stop: text, then audio, then note — see docs/armadilhas.md 7.1."""
 
 from __future__ import annotations
 
@@ -67,8 +52,7 @@ def publish_meeting(
     try:
         target.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        # The library is the user's folder and can be anywhere, including somewhere unwritable.
-        # Falling back to the session folder keeps the meeting rather than losing it.
+        # The library is the user's folder and may be unwritable; the session folder keeps it.
         warnings.append(f"não consegui criar {target}: {exc}")
         target = session_folder
 

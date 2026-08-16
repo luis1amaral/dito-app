@@ -1,13 +1,4 @@
-"""The settings tab.
-
-Changes apply and save immediately. A settings screen with a Save button invites the state where
-what you see and what is running disagree, and this app runs a global hotkey — the gap between
-"I changed F9 to F8" and "F8 works" has to be zero, or the user presses a key that does nothing
-and concludes the app is broken.
-
-Writes are atomic (see config.save), so applying on every keystroke cannot leave half a file on
-disk.
-"""
+"""The settings tab: every change applies and saves at once, atomically, with no Save button."""
 
 from __future__ import annotations
 
@@ -56,10 +47,7 @@ def _section(title: str, p: Palette) -> tuple[QFrame, QVBoxLayout]:
 
 
 def _row(label: str, widget: QWidget, hint: str = "") -> QWidget:
-    """Label above hint above control, grouped tightly.
-
-    Proximity is what groups: the gap between a label and its own field has to be smaller than
-    the gap between two fields, or the form reads as one flat list."""
+    """Label, hint, control: the gap inside a field must stay smaller than the gap between."""
     holder = QWidget()
     box = QVBoxLayout(holder)
     box.setContentsMargins(0, 0, 0, 0)

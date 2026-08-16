@@ -1,29 +1,10 @@
-"""Cuts a long recording into pieces that can be transcribed while it is still being recorded.
-
-A meeting has no time limit here — it records until told to stop. Two consequences follow, and
-this module exists for both:
-
-  * **Memory has to stay flat.** The previous version accumulated every block in a list and
-    concatenated at the end; a three-hour meeting would be gigabytes of float32 in RAM.
-  * **The wait at the end has to disappear.** Measured on this machine, `small` on CPU int8 runs
-    at RTF 0.35-0.45. Transcribing only after the meeting ends costs ~25 minutes for a one-hour
-    meeting. Transcribing as it goes keeps up with 2.2x of headroom.
-
-Where to cut matters. Whisper's encoder works on 30-second windows, so pieces in the 20-45s band
-amortise it well. Cutting mid-word costs a word, so the cut lands in silence: preferably a real
-pause, and when the ceiling is hit, at the quietest moment available rather than at an arbitrary
-sample boundary.
-
-Pure logic: blocks and peaks in, chunks out. No threads, no model, no clock.
-"""
+"""Cuts a live recording into 20-45 s chunks at silence — see docs/armadilhas.md 3.5."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Above room tone (measured 0.0038) and well below speech (0.036+): what counts as "not talking"
-# for the purpose of finding a seam. Deliberately not the same constant as the alarm's threshold —
-# these answer different questions and should be free to move apart.
+# Room tone 0.0038 < this < speech 0.036 (docs/armadilhas.md 1.6); deliberately not the alarm's.
 SEAM_THRESHOLD = 0.01
 
 
@@ -84,8 +65,7 @@ class Chunker:
         return (len(self._blocks[0]) / self.sample_rate) if self._blocks else 0.0
 
     def _quietest_seam(self) -> int:
-        """Ceiling reached with no pause in sight: cut at the quietest window in the recent tail
-        instead of at an arbitrary boundary, so at worst a word breaks where it is softest."""
+        """No pause in sight: cut at the quietest recent window, where a word breaks softest."""
         block_s = self._block_s()
         if block_s <= 0:
             return len(self._blocks)

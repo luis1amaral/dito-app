@@ -1,18 +1,4 @@
-"""Delivering the transcribed text into whatever field has focus.
-
-Clipboard + Ctrl+V, never synthetic per-character typing: accented pt-BR text comes out wrong
-when typed key by key, and it is slow enough to be visible.
-
-Three timings here are not arbitrary:
-  * a short settle before Ctrl+V, so the clipboard write has landed before the paste reads it;
-  * 250 ms before Enter, because Enter arriving first submits an empty field;
-  * ~1 s before restoring the previous clipboard, because restoring immediately races the
-    application that is still reading the clipboard during the paste.
-
-Failure here used to lose the text entirely — the exception went to a log file nobody reads.
-`paste()` returns a result instead of raising, so the caller can keep the text somewhere the user
-can reach it.
-"""
+"""Text into the focused field — armadilhas 4.1: clipboard + Ctrl+V, never synthetic typing."""
 
 from __future__ import annotations
 
@@ -20,6 +6,7 @@ import threading
 import time
 from dataclasses import dataclass
 
+# See docs/armadilhas.md 4.2 and 4.3: Enter waits for the paste, the restore waits even longer.
 SETTLE_S = 0.05
 BEFORE_ENTER_S = 0.25
 RESTORE_AFTER_S = 1.0
@@ -48,12 +35,12 @@ def copy(text: str) -> bool:
         pyperclip.copy(text)
         return True
     except Exception:
-        # On Linux this is almost always a missing xclip. The caller reports it; raising here
-        # would take the whole job queue down, which is how a dictation silently "stops working".
+        # Almost always a missing xclip (armadilhas 4.4); raising here kills the whole job queue.
         return False
 
 
 def paste(text: str, send_enter: bool = False, restore_clipboard: bool = True) -> PasteResult:
+    """Returns a result, never raises (armadilhas 4.4: the text used to be lost here)."""
     if not text:
         return PasteResult(pasted=False, copied=False, error="texto vazio")
 

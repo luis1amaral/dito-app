@@ -1,18 +1,4 @@
-"""The meeting note, written into the Obsidian vault in the shape the `reuniao` skill defines:
-front-matter, then `Decidido` / `Pendências` / `Discutido, sem decisão` / `Ligações`, then the raw
-transcript folded away at the end.
-
-Two rules from that skill are load-bearing, and both are easy to break by accident:
-
-1. **A missing vault is never created.** `~/notas` is a git repo that comes from the vault's own
-   bootstrap. A folder invented here would be a *second* vault that never syncs: the note would
-   look filed while being invisible in Obsidian and on every other machine. When the vault is
-   absent the note lands next to the recording instead, and the caller tells the user so.
-
-2. **Dito does not summarize.** The three content sections come out empty, with the headers ready
-   to fill by hand. A machine-guessed decision written in the affirmative is indistinguishable
-   from one that was actually taken — that is worse than a blank section, not better.
-"""
+"""The meeting note in the `reuniao` skill's shape — see docs/armadilhas.md 7.2 and 7.3."""
 
 from __future__ import annotations
 
@@ -26,12 +12,10 @@ from pathlib import Path
 from ..config import Config
 from ..core.library import AUDIO_FILES
 
-# Long enough to stay readable in the file list, short enough to survive any filesystem when the
-# date prefix and a `-12` collision suffix are added on top.
+# Leaves room for the date prefix and a `-12` collision suffix on every filesystem.
 SLUG_MAX = 60
 
-# Marks the note as machine-created and still unfilled, so a search for it finds every meeting
-# whose decisions nobody wrote down yet.
+# Marks the note as machine-created, so one search finds every meeting nobody filled in yet.
 DEFAULT_TAGS = ("dito",)
 
 FALLBACK_SLUG = "reuniao"
@@ -39,8 +23,7 @@ FALLBACK_SLUG = "reuniao"
 
 @dataclass(frozen=True)
 class MeetingNote:
-    """What the caller knows about the meeting. Only `folder`, `text` and `started` come from the
-    recording; the rest is what a human can add before saving."""
+    """Only `folder`, `text` and `started` come from the recording; the rest a human adds."""
 
     folder: Path
     text: str
@@ -61,10 +44,7 @@ class WrittenNote:
 
 
 def slugify(text: str, *, fallback: str = FALLBACK_SLUG, max_len: int = SLUG_MAX) -> str:
-    """`Reunião: Orçamento / 2026` -> `reuniao-orcamento-2026`.
-
-    Everything outside `[a-z0-9]` collapses into a single dash, which is also what keeps a subject
-    like `../../etc/passwd` from escaping the folder it is supposed to be written in."""
+    """`Reunião: Orçamento` -> `reuniao-orcamento`, and armadilhas 7.6: also the `../` barrier."""
     decomposed = unicodedata.normalize("NFKD", text)
     without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
     slug = re.sub(r"[^a-z0-9]+", "-", without_accents.lower()).strip("-")
@@ -100,8 +80,7 @@ def _vault_folder(cfg: Config) -> tuple[Path | None, str | None]:
 
 
 def _write(folder: Path, stem: str, note: MeetingNote, cfg: Config) -> Path:
-    """Claim the filename first, then fill it: the body has to name the audio file that sits
-    beside it, and that name is only known once the collision suffix is settled."""
+    """Claim the filename first: the body names the audio beside it, suffix and all."""
     path = _claim(folder, stem)
     try:
         audio = _copy_audio(note, path, cfg)
@@ -113,8 +92,7 @@ def _write(folder: Path, stem: str, note: MeetingNote, cfg: Config) -> Path:
 
 
 def _claim(folder: Path, stem: str) -> Path:
-    """`x` mode is the whole point: checking `exists()` and then writing would still overwrite a
-    note created in between, and a meeting note is never worth losing."""
+    """Exclusive create, never `exists()` then write — armadilhas 7.5: that race overwrites."""
     attempt = 1
     while True:
         suffix = "" if attempt == 1 else f"-{attempt}"
@@ -128,10 +106,7 @@ def _claim(folder: Path, stem: str) -> Path:
 
 
 def _copy_audio(note: MeetingNote, path: Path, cfg: Config) -> str | None:
-    """Off by default, and the default is the important part: the vault is a git repo with
-    auto-commit (Obsidian Git), so tens of MB of audio land in the history the moment they touch
-    the folder — and pulling them back out of a shared history is expensive and disruptive. The
-    note links to the session folder instead, which costs one line and no bytes."""
+    """Off by default, and that default matters — see docs/armadilhas.md 7.4 (Obsidian Git)."""
     if not cfg.meeting.obsidian.copy_audio:
         return None
 
@@ -169,8 +144,7 @@ def _render(note: MeetingNote, audio_name: str | None) -> str:
     if audio_name:
         lines.append(f"![[{audio_name}]]")
 
-    # Empty on purpose — see the module docstring. Whoever fills these was in the meeting; Dito
-    # was not, it only heard it.
+    # Empty on purpose — see docs/armadilhas.md 7.3: Dito heard the meeting, it was not in it.
     lines += ["", "## Decidido", "", "## Pendências", "", "## Discutido, sem decisão", ""]
 
     lines.append("## Ligações")
@@ -179,8 +153,7 @@ def _render(note: MeetingNote, audio_name: str | None) -> str:
     if note.links:
         lines.append("")
 
-    # The skill is explicit that a pasted transcript is not the note. It goes in folded, at the
-    # end, so the file stays readable and still holds the source of every line above it.
+    # A pasted transcript is not the note: folded at the end, readable, still the source above.
     lines += [
         "<details>",
         "<summary>Transcrição bruta</summary>",
@@ -201,8 +174,7 @@ def hms(seconds: float) -> str:
 
 
 def _uri(folder: Path) -> str:
-    """`as_uri` needs an absolute path and percent-encodes spaces, which is exactly what a
-    `file://` link in markdown needs to survive a folder name with a space in it."""
+    """`as_uri` percent-encodes spaces, which is what a markdown `file://` link needs."""
     try:
         return folder.resolve().as_uri()
     except ValueError:

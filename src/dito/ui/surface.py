@@ -1,20 +1,4 @@
-"""Painting a floating surface: the rounded card and the soft shadow under it.
-
-Why the shadow is painted by hand instead of with `QGraphicsDropShadowEffect`: on a translucent
-top-level window the effect makes Qt render the widget into an offscreen buffer, and the alpha
-does not survive the trip — the window shows up as an opaque RECTANGLE behind the rounded card.
-
-That is not a theory. Measured by grabbing the same screen region with the pill shown and hidden
-and comparing pixels:
-
-    bypassWM=True  shadow=True  -> corners changed 4/4   SQUARE
-    bypassWM=False shadow=True  -> corners changed 4/4   SQUARE
-    bypassWM=True  shadow=False -> corners changed 0/4   clean
-    bypassWM=False shadow=False -> corners changed 0/4   clean
-
-Stacked translucent rings cost a few draw calls and composite correctly, which is the right trade
-for something that sits on top of everything the user is looking at.
-"""
+"""Rounded card plus hand-painted shadow — see docs/armadilhas.md 7.1 for why by hand."""
 
 from __future__ import annotations
 
@@ -30,8 +14,7 @@ NO_PEN = QPen(Qt.PenStyle.NoPen)
 
 
 def shadow_margin() -> int:
-    """Empty space the window has to keep around the card. Layouts add this to their own margins;
-    without it the shadow is clipped and reads as a hard edge."""
+    """Space the window keeps around the card; layouts add it or the shadow is clipped."""
     return SHADOW_SPREAD + SHADOW_OFFSET
 
 

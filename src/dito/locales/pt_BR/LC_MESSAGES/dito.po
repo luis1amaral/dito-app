@@ -1,0 +1,30 @@
+# Portuguese translations for dito package.
+# Copyright (C) 2026 THE dito'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the dito package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: dito\n"
+"Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
+"POT-Creation-Date: 2026-08-15 23:06-0300\n"
+"PO-Revision-Date: 2026-08-15 23:06-0300\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/_prova_i18n.py:3
+msgid "NO AUDIO"
+msgstr "SEM ÁUDIO"
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/_prova_i18n.py:2
+msgid "Recording"
+msgstr "Gravando"
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/_prova_i18n.py:4
+msgid "the microphone is not picking anything up"
+msgstr "o microfone não está captando nada"

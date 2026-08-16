@@ -1,12 +1,4 @@
-"""The Dito window: what you get when you open the app.
-
-It does not appear at login. The daemon starts silently; this window exists only when asked for,
-from the tray or the application menu — an explicit requirement, and the reason the autostart
-entry launches a different mode than the menu entry does.
-
-Two tabs, because there are exactly two reasons to open it: to see what you dictated, and to
-change how it behaves.
-"""
+"""The Dito window, opened on request and never at login: transcriptions and settings."""
 
 from __future__ import annotations
 
@@ -76,8 +68,7 @@ def _human_when(when: datetime | None) -> str:
 
 
 class SessionRow(QFrame):
-    """One recording in the list. Deliberately not a table: the useful thing here is the text you
-    dictated, and a table column would truncate it into uselessness."""
+    """One recording in the list, not a table row: a column would truncate the text away."""
 
     def __init__(self, info: library.SessionInfo, palette: Palette, parent=None) -> None:
         super().__init__(parent)
@@ -96,8 +87,7 @@ class SessionRow(QFrame):
         head.addWidget(when)
 
         kind = QLabel("reunião" if info.mode == "meeting" else "ditado")
-        # text_secondary, not text_muted: a chip label is content (it names the thing), so it owes
-        # the content floor. On the alt surface, muted rendered as a smudge.
+        # text_secondary: a chip label is content and owes the 4.5 floor; muted was a smudge.
         kind.setStyleSheet(
             f"color: {palette.text_secondary}; background: {palette.surface_alt};"
             f" border-radius: {Radius.CONTROL}px; padding: 2px {Space.SM}px;"
@@ -277,8 +267,7 @@ class MainWindow(QWidget):
         QTimer.singleShot(2200, lambda: self._toast.setText(""))
 
     def present(self) -> None:
-        """Bring the window forward whether it was hidden, minimised or already open — a second
-        launch of the binary lands here instead of starting a second process."""
+        """Bring the window forward from hidden, minimised or open: a second launch lands here."""
         self.sessions.reload()
         self.show()
         self.setWindowState(
@@ -288,8 +277,7 @@ class MainWindow(QWidget):
         self.activateWindow()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt override
-        """Closing the window does NOT quit: the daemon keeps listening, which is the whole point
-        of a background dictation tool. Quitting is an explicit choice in the tray menu."""
+        """Closing does NOT quit: the daemon keeps listening; quitting is the tray menu."""
         event.ignore()
         self.hide()
         self.closed.emit()

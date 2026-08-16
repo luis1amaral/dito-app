@@ -1,19 +1,4 @@
-"""Whisper, running locally. Nothing leaves the machine.
-
-Three behaviours here are not obvious and were paid for in debugging:
-
-1. **The GPU fallback needs a forced encode.** Constructing `WhisperModel(device="cuda")` does not
-   touch cuBLAS/cuDNN, so a missing library sails past the constructor and only explodes on the
-   first real transcription — by which point the fallback path is long gone and the user just
-   sees a crash. One second of zeros inside the `try` is what makes the fallback actually fire.
-
-2. **The model is unloaded when idle, and glibc has to be told.** Freeing is not returning:
-   without `malloc_trim(0)` the measured RSS *grew* from 378 MB to 606 MB after an unload,
-   because the allocator keeps the arena.
-
-3. **One thread at a time.** faster-whisper is not safe to call concurrently; a live preview and
-   a final pass overlapping on the same model corrupts both. The lock is the whole protection.
-"""
+"""Whisper running locally, nothing leaves the machine — see docs/armadilhas.md 3.1, 3.2 and 3.4."""
 
 from __future__ import annotations
 
@@ -42,14 +27,12 @@ class Transcription:
 
     @property
     def rtf(self) -> float:
-        """Real-time factor. Below 1.0 means transcription keeps up with speech, which is what
-        makes transcribing a meeting *while* it records possible instead of a 25-minute wait."""
+        """Real-time factor: below 1.0 means transcription keeps up with the recording."""
         return self.seconds_spent / self.seconds_of_audio if self.seconds_of_audio else 0.0
 
 
 def register_cuda_dlls() -> None:
-    """Delegates to the Windows adapter, which owns the explanation and the fix. Kept as a name
-    here so `engine.py` reads the same on both platforms."""
+    """Windows adapter owns the fix (docs/armadilhas.md 3.3); this name keeps engine.py flat."""
     from ..platform.windows.cuda_dlls import register
 
     register()
@@ -72,6 +55,7 @@ class WhisperEngine:
 
         self._model = None
         self._backend = "não carregado"
+        # faster-whisper is not safe to call concurrently — see docs/armadilhas.md 3.4.
         self._lock = threading.RLock()
         self._last_use = time.monotonic()
         self._pinned = 0
@@ -86,8 +70,7 @@ class WhisperEngine:
         return self._model is not None
 
     def pin(self) -> None:
-        """Hold the model in memory regardless of idle time. A meeting can have long silences;
-        unloading mid-meeting would stall the first chunk after every pause."""
+        """Hold the model in memory: unloading mid-meeting stalls the first chunk after a pause."""
         with self._lock:
             self._pinned += 1
 
@@ -109,7 +92,7 @@ class WhisperEngine:
                     import numpy as np
 
                     model = WhisperModel(self.model_name, device="cuda", compute_type="float16")
-                    # Forced encode: see the module docstring. Without it the fallback never runs.
+                    # See docs/armadilhas.md 3.2: without this forced encode the fallback is dead.
                     list(
                         model.transcribe(
                             np.zeros(SAMPLE_RATE, dtype="float32"), language=self.language
@@ -159,11 +142,7 @@ class WhisperEngine:
         return True
 
     def transcribe(self, audio, beam: int = 5, language: str | None = None) -> Transcription:
-        """`audio` is a float32 numpy array at 16 kHz.
-
-        beam=1 (greedy) exists for provisional passes: on CPU it is 2-3x faster than beam search,
-        and a partial result can afford to be provisional. The final pass keeps beam=5.
-        """
+        """float32 at 16 kHz; beam=1 is 2-3x faster on CPU, for provisional passes only."""
         seconds = len(audio) / SAMPLE_RATE if audio is not None else 0.0
         started = time.monotonic()
         with self._lock:
@@ -173,8 +152,7 @@ class WhisperEngine:
                 language=language or self.language,
                 vad_filter=True,
                 beam_size=beam,
-                # Each chunk is transcribed independently: carrying context across chunks lets one
-                # bad decode poison every chunk after it, and the chunks are cut at silence anyway.
+                # Independent chunks: shared context lets one bad decode poison all that follow.
                 condition_on_previous_text=False,
             )
             segments = tuple(

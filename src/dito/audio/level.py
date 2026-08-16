@@ -1,28 +1,4 @@
-"""Input-level watchdog: the thing that says the microphone is not listening WHILE you speak.
-
-Why it exists, precisely: PortAudio does not raise when capture dies. It keeps calling the
-callback and hands over zeros. The previous version's log has the receipt —
-`transcrevendo 99.2s... (pico=0.0000 rms=0.0000)` — 99 seconds of speech lost, with no exception
-anywhere to catch. No amount of try/except detects this. Only the signal does.
-
-Two distinct signals, because the causes differ and so does the right message:
-
-  DEAD   exact digital silence (peak < 1e-4). Nothing is arriving: muted in hardware or driver,
-         or the stream is attached to a dead node. This is the observed failure. Always armed —
-         after real speech it means the device died mid-sentence, which is worth shouting about.
-  QUIET  something arrives but far too softly (peak < 8e-3). Gain too low, or speaking far from
-         the mic. Only armed until real audio is heard ONCE: after that, quiet is a pause between
-         sentences, and warning about it would be a lie.
-
-Both thresholds are measured, not guessed, on the machine this was built for:
-  * speech peaks at 0.036-0.272 (from the previous version's logs)
-  * the H510 headset's room-tone floor in a silent room is 0.0038 (measured with `dito selftest`)
-8e-3 sits above that floor and 4.5x below the weakest speech; 1e-4 is reachable only by a stream
-that is mathematically silent, which no live microphone ever is.
-
-This class is pure: no threads, no I/O, no clock of its own. `now` is passed in. That is what
-makes the alarm testable without a microphone (see tests/test_watchdog.py).
-"""
+"""Input-level watchdog, the only detector of a dead mic — see docs/armadilhas.md 1.1 and 1.6."""
 
 from __future__ import annotations
 
@@ -46,6 +22,8 @@ class Reading:
 
 
 class Watchdog:
+    """Pure: `now` is passed in, so the alarm is testable without a microphone."""
+
     def __init__(
         self,
         dead_ms: int = 700,
@@ -58,7 +36,6 @@ class Watchdog:
         self.dead_s = dead_ms / 1000
         self.quiet_s = quiet_ms / 1000
         # PipeWire wakes a SUSPENDED source lazily, so the first blocks are legitimately silent.
-        # Alarming during that window would cry wolf on every single recording.
         self.grace_s = grace_ms / 1000
         self.clear_s = clear_ms / 1000
         self.dead_threshold = dead_threshold
@@ -85,8 +62,7 @@ class Watchdog:
 
     @property
     def ever_heard(self) -> bool:
-        """True once real audio has arrived in this session. A recording that ends having never
-        been True is the one worth offering to retry."""
+        """True once real audio arrived; a recording that ends False is the one worth retrying."""
         return self._ever_heard
 
     def record_overflow(self) -> None:
@@ -97,14 +73,13 @@ class Watchdog:
             return self._state
 
         if peak >= self.quiet_threshold:
-            self._ever_heard = True
             self._silent_since = None
             self._dead_since = None
             if self._sound_since is None:
                 self._sound_since = now
-            # Clearing takes sustained sound, so one loud click does not blink the alarm off and
-            # straight back on.
+            # See docs/armadilhas.md 1.9: clearing needs sustained sound, transient must not latch.
             if now - self._sound_since >= self.clear_s:
+                self._ever_heard = True
                 self._state = State.OK
             return self._state
 
@@ -120,13 +95,10 @@ class Watchdog:
         if self._dead_since is not None and now - self._dead_since >= self.dead_s:
             self._state = State.DEAD
         elif self._state is State.DEAD:
-            # Some signal is back, still too weak to call healthy: downgrade to amber rather
-            # than stay red. The device is alive again; the level is not yet usable.
+            # Signal is back but not yet usable: amber, not red — the device is alive again.
             self._state = State.QUIET
         elif not self._ever_heard and now - self._silent_since >= self.quiet_s:
-            # Gated on never having heard anything. Without the gate, pausing between sentences
-            # raises "audio too quiet" — measured, this machine's room tone is 0.0038, so every
-            # silent gap longer than quiet_s would trip it. A pause is not a gain problem.
+            # See docs/armadilhas.md 1.6: gated on never having heard, or a pause reads as low gain.
             self._state = State.QUIET
         # Otherwise keep the current state: after real speech, silence is just a pause.
         return self._state

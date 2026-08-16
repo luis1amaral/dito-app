@@ -1,18 +1,4 @@
-"""The review card: read what came out, fix it, then send.
-
-Placement is a decision, not a default. It sits where the pill sits — bottom centre — and grows
-upward from it. Something that appears in a different place from where it came reads as an
-unrelated event, and putting it in the opposite corner of the screen would make the eye cross the
-monitor between recording and reading. The pill hands over to the card in the same spot.
-
-Unlike the pill, this window DOES take keyboard focus, because you type in it. That is why it is a
-separate window rather than the pill growing a text box: the pill must never take focus, since the
-text goes to whatever you were typing in. Focus is borrowed on open and given back before pasting
-(see platform/linux_x11/focus.py).
-
-Nothing is sent on a timer. The previous version had a 30-second auto-close, removed on request:
-a dictated message must never vanish on its own, and must never be sent on its own either.
-"""
+"""Read what came out, fix it, send. Takes focus and gives it back — docs/armadilhas.md 7.2."""
 
 from __future__ import annotations
 
@@ -59,8 +45,7 @@ class ReviewCard(QWidget):
     def _build(self, p: Palette) -> None:
         pad = shadow_margin()
         outer = QVBoxLayout(self)
-        # Room for the hand-painted shadow (see ui/surface.py — the Qt effect turns a translucent
-        # window into an opaque rectangle).
+        # Room for the hand-painted shadow (docs/armadilhas.md 7.1).
         outer.setContentsMargins(Space.XL + pad, Space.LG + pad, Space.XL + pad, Space.LG + pad)
         outer.setSpacing(Space.MD)
 
@@ -84,8 +69,7 @@ class ReviewCard(QWidget):
             f" padding: {Space.SM}px {Space.MD}px; font-size: {Type.BODY}px;"
             f" selection-background-color: {p.hud_recording}; }}"
             f"QPlainTextEdit:focus {{ border: 1px solid {p.hud_text}; }}"
-            # The card's own stylesheet overrides the app's, so the scrollbar has to be restyled
-            # here too — otherwise Qt draws its default arrows inside a single-line box.
+            # Restyled here too: this stylesheet overrides the app's and Qt would draw its arrows.
             f"QScrollBar:vertical {{ background: transparent; width: {Space.SM}px; margin: 0; }}"
             f"QScrollBar::handle:vertical {{ background: rgba(255,255,255,0.28);"
             f" border-radius: {Space.XS}px; min-height: {Space.XXL}px; }}"
@@ -114,8 +98,7 @@ class ReviewCard(QWidget):
         p = self._palette
         button = QPushButton(label)
         button.setCursor(Qt.CursorShape.PointingHandCursor)
-        # Primary rightmost, which is the order the platform's own dialogs use — the confirming
-        # action sits closest to where the eye finishes.
+        # Primary rightmost, the order the platform's own dialogs use.
         if primary:
             style = (
                 f"QPushButton {{ background: {p.hud_text}; color: {p.hud_surface};"
@@ -124,8 +107,7 @@ class ReviewCard(QWidget):
             hover = "rgba(255,255,255,0.86)"
             pressed = "rgba(255,255,255,0.74)"
         else:
-            # Outlined rather than filled: a light fill on a light surface does not read as a
-            # control, and WCAG 1.4.11 applies to the outline, not to the fill.
+            # Outlined, not filled: WCAG 1.4.11 applies to the outline, and a light fill vanishes.
             style = (
                 f"QPushButton {{ background: transparent; color: {p.hud_text};"
                 f" border: 1px solid rgba(255,255,255,0.35); font-weight: {Type.MEDIUM};"
@@ -152,22 +134,11 @@ class ReviewCard(QWidget):
 
     # ---- behaviour -------------------------------------------------------------------
 
-    # Card width minus the layout margins and the editor's own padding and border. Computed rather
-    # than read from the widget because the document has to be laid out BEFORE the card is sized:
-    # measuring first and sizing after made the card open one line tall and then jump to its real
-    # height, which reads as a glitch at exactly the moment the user starts reading.
+    # Computed, not read from the widget, because sizing happens before layout — armadilhas 7.5.
     _TEXT_WIDTH = WIDTH - 2 * Space.XL - 2 * Space.MD - 2
 
     def _grow(self) -> None:
-        """Follows the text up to a ceiling, then scrolls inside. A card that keeps growing ends
-        up taller than the screen on a long dictation.
-
-        Measured with font metrics rather than by asking the document: QPlainTextEdit lays out
-        against its viewport and ignores `setTextWidth`, so before the widget has ever been shown
-        the document reports one line whatever it holds. That made the card open one line tall and
-        jump to its real height a frame later — a glitch at exactly the moment you start reading.
-        Font metrics need no layout, so the first measurement is already the right one.
-        """
+        """Grows with the text up to a ceiling, measured with font metrics — armadilhas 7.5."""
         metrics = self.editor.fontMetrics()
         text = self.editor.toPlainText() or " "
         needed = metrics.boundingRect(

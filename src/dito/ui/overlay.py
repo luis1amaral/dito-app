@@ -1,23 +1,4 @@
-"""The floating pill: the only thing that appears on screen while you speak.
-
-Hard constraint, and the reason for most of the flags below: **this window must never take
-focus.** The transcribed text is pasted into whatever the user was typing in, so stealing focus
-would paste Dito's own window. On X11 a `Qt.Tool` window with `WA_ShowWithoutActivating` and
-`WindowDoesNotAcceptFocus` stays unfocusable; the review dialog, which does need the keyboard, is
-a separate window that hands focus back.
-
-The alarm state is the point of the whole product. It is deliberately loud in three independent
-ways, because each can be missed on its own:
-  * **shape** — the waveform collapses to a flat line, which reads even at a glance and even for
-    someone who cannot distinguish the colours;
-  * **colour** — the pill fills red rather than tinting an edge;
-  * **movement** — a short shake, once, because motion catches peripheral vision that a colour
-    change does not.
-Sound and the system notification are fired by the app layer, not from here.
-
-Entrance and exit follow the same path (up from below, back down), because something that
-disappears in a different direction from the one it arrived by reads as two unrelated events.
-"""
+"""The floating pill shown while you speak. See docs/armadilhas.md 7.2 and 7.9."""
 
 from __future__ import annotations
 
@@ -56,8 +37,7 @@ class HudState(StrEnum):
 
 
 def _clock(seconds: float) -> str:
-    """mm:ss, growing to h:mm:ss. A meeting has no time limit, so the field has to grow rather
-    than wrap around at 60 minutes."""
+    """mm:ss growing to h:mm:ss: a meeting has no time limit, so it must not wrap at 60 min."""
     total = int(seconds)
     hours, rest = divmod(total, 3600)
     minutes, secs = divmod(rest, 60)
@@ -89,8 +69,7 @@ class Overlay(QWidget):
 
         self._build(palette)
 
-        # Two independent springs: the vertical slide and the width change on alarm. One spring on
-        # a combined distance desynchronises the moment the two have different velocities.
+        # One spring per axis: a single spring on a combined distance desynchronises the two.
         self._driver = SpringDriver(self)
         self._offset = self._driver.add(Spring(ENTER_OFFSET))
         self._alarm_grow = self._driver.add(
@@ -109,8 +88,7 @@ class Overlay(QWidget):
     def _build(self, p: Palette) -> None:
         pad = shadow_margin()
         outer = QVBoxLayout(self)
-        # The shadow is painted inside this window, so the layout has to leave room for it —
-        # otherwise it is clipped at the edge and reads as a hard line.
+        # Room for the hand-painted shadow (docs/armadilhas.md 7.1); clipped, it reads as an edge.
         outer.setContentsMargins(Space.LG + pad, Space.MD + pad, Space.LG + pad, Space.MD + pad)
         outer.setSpacing(Space.XS)
 
@@ -163,15 +141,12 @@ class Overlay(QWidget):
     # ---- painting --------------------------------------------------------------------
 
     def paintEvent(self, _event) -> None:  # noqa: N802 - Qt override
-        # hud_danger, not the theme's danger: the pill has its own surface in both themes, and the
-        # dark theme's danger is a light red that white text fails against (measured 2.77).
+        # hud_danger, never the theme's danger — see docs/armadilhas.md 7.3.
         if self._state is HudState.DEAD:
             fill = QColor(self._palette.hud_danger)
         else:
             fill = QColor(self._palette.hud_surface)
-        # Not fully opaque: the pill floats over the user's work and should read as a layer above
-        # it. Real backdrop blur is not reliably available on this compositor, so a near-opaque
-        # surface plus a shadow is the honest version — a fake frosted look just reads as dirty.
+        # Near-opaque plus shadow: no reliable backdrop blur here, and fake frost reads as dirty.
         fill.setAlphaF(0.96)
 
         pad = shadow_margin()
@@ -192,8 +167,7 @@ class Overlay(QWidget):
         x, y = self._resting_geometry()
         shake = 0.0
         if time.monotonic() < self._shake_until:
-            # A short, decaying wobble. Long enough to catch the eye in peripheral vision, short
-            # enough that it never becomes the thing you are looking at.
+            # Decaying wobble: long enough for peripheral vision, short enough not to distract.
             remaining = self._shake_until - time.monotonic()
             shake = SHAKE_PX * remaining / (Motion.SHAKE_MS / 1000) * math.sin(self._shake_phase)
             self._shake_phase += 0.9
@@ -209,18 +183,11 @@ class Overlay(QWidget):
 
 
     def _apply_colors(self, pulsing: bool = False) -> None:
-        """Every colour in the pill is decided here, in one place, per state.
-
-        It has to be one place because the pill's own background changes: in the alarm state the
-        surface goes red, so the muted grey that reads correctly on the dark surface becomes
-        unreadable, and a red status dot becomes invisible against it. Scattering these choices
-        across the show_* methods is exactly how that bug got in.
-        """
+        """Every colour of the pill, per state, in one place — see docs/armadilhas.md 7.3."""
         p = self._palette
         on_red = self._state is HudState.DEAD
 
-        # On the alarm the foreground is fixed white, not `text_inverse`: that token flips with
-        # the theme, so in dark mode the dot came out near-black on the red fill.
+        # Fixed white on the alarm, not `text_inverse`: that token flips and turns the dot black.
         dot = {
             HudState.RECORDING: p.hud_recording,
             HudState.QUIET: p.hud_alert,
@@ -232,8 +199,7 @@ class Overlay(QWidget):
         self._dot.configure(dot, pulsing)
 
         title_color = p.hud_text
-        # On the red surface the muted grey drops below any usable contrast, so the secondary
-        # text becomes white at reduced opacity — same hierarchy, legible ground.
+        # White at reduced opacity on the red fill: the muted grey has no contrast there.
         detail_color = "rgba(255, 255, 255, 0.88)" if on_red else p.hud_muted
         clock_color = "rgba(255, 255, 255, 0.75)" if on_red else p.hud_muted
 
@@ -347,8 +313,7 @@ class Overlay(QWidget):
         self._ticker.start()
 
     def _nudge(self) -> None:
-        """Any state change re-measures and re-targets rather than restarting: the pill grows or
-        shrinks from where it currently is."""
+        """Re-measure and re-target instead of restarting: the pill grows from where it is."""
         if self._state is not HudState.HIDDEN and not self.isVisible():
             self._started_at = time.monotonic()
             self._offset.jump_to(ENTER_OFFSET)

@@ -130,6 +130,24 @@ def test_ever_heard_tracks_the_quiet_threshold(peak, expected_ever_heard):
     assert wd.ever_heard is expected_ever_heard
 
 
+def test_a_single_transient_does_not_count_as_having_heard_you():
+    """A keystroke as the hotkey goes down is 100 ms of signal. It used to latch `ever_heard` for
+    the whole session and permanently disarm the amber warning — measured on a real recording
+    where two blocks out of forty crossed the line, median peak 0.00069, and nothing was said."""
+    wd, now = fresh(clear_ms=200)
+    now = feed_for(wd, SPEECH, 0.10, now)      # the click
+    now = feed_for(wd, 0.0005, 4.0, now)       # then a dead microphone
+
+    assert not wd.ever_heard, "um estalo não é ter ouvido a pessoa"
+    assert wd.state is not State.OK, "o alarme tinha que estar aceso"
+
+
+def test_sustained_speech_does_count(fresh_kwargs=None):
+    wd, now = fresh(clear_ms=200)
+    feed_for(wd, SPEECH, 1.0, now)
+    assert wd.ever_heard
+
+
 def test_thresholds_sit_between_the_measured_floor_and_the_measured_speech():
     """Guards the numbers themselves. Room tone measured at 0.0038 and the weakest logged speech
     at 0.036: a threshold outside that band is either a false alarm or a missed one."""

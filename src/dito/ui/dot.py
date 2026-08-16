@@ -1,15 +1,4 @@
-"""The pulsing status dot.
-
-Painted rather than styled, for two reasons that were both visible on screen:
-
-1. **A stylesheet radius cannot round an odd size.** `border-radius: size // 2` on a 9 px label
-   gives 4, which is less than half — so the dot grew square corners at exactly the sizes the
-   pulse passes through. Reported as "a square thing around the round one".
-
-2. **Resizing a widget 20 times a second relayouts its parent 20 times a second.** The pill
-   twitched as the dot breathed. The widget is a fixed box now, and only the circle inside it
-   changes, so the layout never moves.
-"""
+"""The pulsing status dot, painted and not styled — see docs/armadilhas.md 7.4."""
 
 from __future__ import annotations
 
@@ -59,7 +48,6 @@ class StatusDot(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(self._color)
-        # Float geometry, centred in a fixed box: the circle stays a circle at any diameter,
-        # including the fractional ones the pulse spends most of its time at.
+        # Float geometry in a fixed box: stays a circle at the fractional diameters of the pulse.
         offset = (BOX - diameter) / 2
         painter.drawEllipse(QRectF(offset, offset, diameter, diameter))

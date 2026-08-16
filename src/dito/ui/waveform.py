@@ -1,14 +1,4 @@
-"""The live waveform inside the recording pill.
-
-This is not decoration. The bars ARE the "it is hearing you" signal — a static icon cannot say
-that, and the whole reason this project was rewritten is that the old badge looked identical
-whether audio was arriving or not. Flat bars must be immediately readable as "nothing is coming
-in", which is why the flat state is drawn as a deliberate line rather than as bars of height zero
-that could pass for a rendering glitch.
-
-Each bar eases toward its target rather than jumping, because a bar that snaps reads as noise;
-the eye follows continuous movement and ignores flicker.
-"""
+"""The live waveform: the bars ARE the "it is hearing you" signal — docs/armadilhas.md 7.9."""
 
 from __future__ import annotations
 
@@ -54,10 +44,7 @@ class Waveform(QWidget):
         self.update()
 
     def push(self, rms: float) -> None:
-        """One new sample, scrolling right to left.
-
-        The mapping is log-ish because speech RMS lives around 0.02-0.10 and a linear bar would
-        barely leave the floor for normal talking."""
+        """One sample, scrolling right to left; log-ish because speech RMS is only 0.02-0.10."""
         level = min(1.0, math.sqrt(max(0.0, rms) * 18))
         self._targets = self._targets[1:] + [level]
 

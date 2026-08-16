@@ -1,27 +1,4 @@
-"""Global hotkeys on X11 — the part of this program with the most scar tissue.
-
-Reading the key events alone does not work, and the reasons are all empirical:
-
-1. **Auto-repeat sends Release+Press pairs.** Hold a key down and X11 delivers a release
-   immediately followed by a press, milliseconds apart. Treating the first release as "let go"
-   ends the recording half a second after it started.
-
-2. **So the events are not the truth; the keymap is.** `query_keymap` reports the PHYSICAL state
-   of every key. A release is only real once the key has been continuously up for a grace window.
-   Keys synthesised by XTest show up there too, so the method stays consistent.
-
-3. **Wireless keyboards emit phantom releases** (power saving) that the keymap itself confirms.
-   Those used to split one sentence into two recordings. The watcher bridges them: the same
-   recording continues.
-
-4. **Xlib is not thread-safe.** Every auto-repeat release used to spawn a timer landing in
-   `query_keymap`; unserialised, two replies interleave on one connection and the process hangs.
-   Every call here goes through a lock, on a connection this module owns.
-
-5. **`suppress_event` is win32-only.** On X11 the cancel key leaks a character into whatever
-   field has focus. `XGrabKey` is what actually consumes it — and since there is no API for "who
-   owns this key", *attempting the grab is the test*: `BadAccess` means someone else has it.
-"""
+"""Global hotkeys on X11 — the events lie, the keymap does not. See docs/armadilhas.md 2."""
 
 from __future__ import annotations
 
@@ -48,8 +25,7 @@ class Binding:
 
 
 class GrabDenied(RuntimeError):
-    """Another program already owns this key. There is no way to ask X who — the grab attempt is
-    the only test available, and this is its failure."""
+    """Someone else owns this key — armadilhas 2.6: attempting the grab is the only test."""
 
 
 def _keysym_name(key: str) -> str:
@@ -58,7 +34,7 @@ def _keysym_name(key: str) -> str:
 
 
 class KeyState:
-    """Physical key state, read from the X server and serialised behind one lock."""
+    """Physical key state, on our own X connection behind one lock (armadilhas 2.3)."""
 
     def __init__(self) -> None:
         from Xlib import display
@@ -97,14 +73,9 @@ class KeyState:
 
 
 class KeyGrabber:
-    """Consumes keys so they never reach the focused window.
+    """Consumes keys so they never reach the focused window (armadilhas 2.6)."""
 
-    Grabs are registered for every combination of the "don't care" modifiers. Without that, the
-    grab silently stops working the moment NumLock or CapsLock is on — a classic X11 trap, and
-    one that looks like "the hotkey randomly stopped".
-    """
-
-    # NumLock (Mod2), CapsLock (Lock), ScrollLock (Mod5) in every combination.
+    # See docs/armadilhas.md 2.8: NumLock (Mod2), CapsLock (Lock), ScrollLock (Mod5), all combos.
     _IGNORED = (0, 0x02, 0x10, 0x02 | 0x10, 0x40, 0x40 | 0x02, 0x40 | 0x10, 0x40 | 0x02 | 0x10)
 
     def __init__(self, state: KeyState) -> None:
@@ -162,12 +133,7 @@ class KeyGrabber:
 
 
 class HotkeyManager:
-    """Turns raw key events into start/stop decisions.
-
-    `on_start(name)` and `on_stop(name)` are called from a worker thread, never from the key
-    event thread — the old version learned that transcribing inside the callback blocks the hook
-    and, on Windows, gets the listener torn down entirely.
-    """
+    """Raw key events into start/stop, off the event thread — armadilhas 2.7 says why."""
 
     def __init__(
         self,
@@ -201,8 +167,7 @@ class HotkeyManager:
         self._by_key[binding.key] = binding
 
     def conflicts(self, key: str, ignoring: str | None = None) -> str | None:
-        """Which of our own actions already uses this key. Checked before the X grab, because a
-        collision inside Dito deserves a clearer message than `BadAccess`."""
+        """Which of our own actions owns this key — a clearer message than `BadAccess`."""
         key = key.lower()
         for name, binding in self._bindings.items():
             if name != ignoring and binding.key == key:
@@ -228,9 +193,7 @@ class HotkeyManager:
         self._listener.start()
 
     def stop(self) -> None:
-        """Order matters. Closing the X connection while the hold watcher is mid-`query_keymap`
-        raises ConnectionClosedError inside that thread, so `on_stop` never fires and a recording
-        in progress is simply abandoned. The watcher is told to finish, and waited for, first."""
+        """Order matters: the watcher is drained first — see docs/armadilhas.md 2.9."""
         self._shutting_down = True
         watcher, self._watcher = self._watcher, None
         if watcher is not None and watcher.is_alive():
@@ -247,9 +210,7 @@ class HotkeyManager:
             self._state = None
 
     def pause(self) -> None:
-        """Used while the settings window captures a new key. The listener thread stays alive and
-        simply discards — tearing a pynput Listener down and rebuilding it is what leaves a key
-        stuck down."""
+        """The listener stays alive and discards — see docs/armadilhas.md 2.10."""
         self._paused = True
         if self._grabber is not None:
             self._grabber.ungrab_all()
@@ -269,8 +230,7 @@ class HotkeyManager:
             try:
                 self._grabber.grab(binding.key)
             except GrabDenied as exc:
-                # Not fatal: without the grab the key still works, it just also reaches the
-                # focused window. Silently falling back would be worse than saying so.
+                # Not fatal: the key still works, it just also reaches the focused window.
                 self._log(f"[atalho] {exc} — seguindo sem consumir a tecla")
 
     # ---- events ---------------------------------------------------------------------
@@ -293,8 +253,7 @@ class HotkeyManager:
             return
         if pressed:
             self._pressed(binding)
-        # Releases are deliberately ignored here. On X11 they are not trustworthy (auto-repeat,
-        # phantom releases); the watcher thread decides, from the physical keymap.
+        # Releases ignored here — armadilhas 2.1 and 2.2: only the physical keymap decides.
 
     def _pressed(self, binding: Binding) -> None:
         with self._lock:
@@ -319,12 +278,7 @@ class HotkeyManager:
         self._watcher.start()
 
     def _watch_hold(self, binding: Binding) -> None:
-        """Finish only when the key has been PHYSICALLY up for GRACE_S continuously.
-
-        This is the fix for both auto-repeat and phantom releases. A wireless keyboard's spurious
-        release is confirmed by the keymap too, so no amount of event filtering catches it — only
-        requiring sustained absence does.
-        """
+        """Ends only after GRACE_S physically up — armadilhas 2.1 and 2.2, nothing else works."""
         state = self._state
         if state is None:
             return

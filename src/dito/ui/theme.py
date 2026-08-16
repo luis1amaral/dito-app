@@ -1,19 +1,4 @@
-"""The visual system. Every colour, gap, radius, size and duration in the UI comes from here.
-
-The rule this file enforces: **no literal hex and no literal px anywhere in a widget.** A value
-typed straight into a screen is a value that will disagree with its neighbour six months from
-now, and nobody will be able to say which one is right.
-
-Colours are named by ROLE, never by lightness. `surface` is still `surface` in the dark theme,
-whereas `grey100` becomes a lie the moment the background goes dark. The proof that the naming is
-right is that light and dark cross over with no `if` in any widget — a widget asks for
-`palette.surface` and gets the correct answer in both.
-
-Motion uses Apple's two parameters (damping ratio and response) rather than the physics triplet,
-because those are the ones you can reason about: damping 1.0 settles without overshoot, and
-overshoot is only appropriate when the user's own gesture carried momentum. Nothing in this app
-is dragged, so the default is critically damped.
-"""
+"""The visual system: every colour, gap, radius, size and duration in the UI comes from here."""
 
 from __future__ import annotations
 
@@ -26,9 +11,7 @@ class Mode(StrEnum):
     DARK = "dark"
 
 
-# ---------------------------------------------------------------------------------------
-# Colour
-# ---------------------------------------------------------------------------------------
+# ---- Colour --------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -46,8 +29,7 @@ class Palette:
     text_muted: str
     text_inverse: str
 
-    # Each semantic role carries its own hover/active. Deciding the pressed shade once, here, is
-    # what stops one button dimming with opacity while its neighbour darkens by 8%.
+    # Each role carries its own hover/active, decided once here so no two controls press alike.
     primary: str
     primary_hover: str
     primary_active: str
@@ -62,19 +44,11 @@ class Palette:
     overlay_scrim: str
     focus_ring: str
 
-    # The recording pill floats over arbitrary content, so it carries its own surface: on a light
-    # desktop a light pill would disappear into a light window behind it.
+    # The pill floats over arbitrary content, so it carries its own surface, dark in both themes.
     hud_surface: str
     hud_text: str
     hud_muted: str
-    # The pill's own accent set, fixed in both themes — none of these may be the theme token.
-    #
-    # The pill's surface is dark whichever theme the desktop is in, so anything painted on it has
-    # to be legible against a dark ground. Measured on #17171c, the light-theme tokens only just
-    # clear the 3.0 floor for a graphical object (danger 3.21, alert 3.02) and `primary` fails
-    # outright at 2.45. The dark-theme values sit at 6.45 / 10.04 / 5.46, so those are used in
-    # both. `hud_danger` is the inverse case: it is the alarm FILL, and white on the dark theme's
-    # light red measures 2.77 — unreadable in the one state this product exists for.
+    # See docs/armadilhas.md 7.3: a theme token on the pill's dark ground is the wrong value.
     hud_danger: str
     hud_recording: str
     hud_alert: str
@@ -122,8 +96,7 @@ DARK = Palette(
     text_secondary="#c2c2cd",
     text_muted="#8e8e9d",
     text_inverse="#16161a",
-    # Lifted against a dark background: the light-theme indigo reads as near-black here. Same
-    # role, different value — which is exactly what the tokens exist to absorb.
+    # Lifted: the light theme's indigo reads as near-black here. Same role, different value.
     primary="#8b7cff",
     primary_hover="#9c90ff",
     primary_active="#7e6ef4",
@@ -149,8 +122,7 @@ def palette(mode: Mode | str) -> Palette:
 
 
 def resolve_mode(setting: str) -> Mode:
-    """`auto` follows the desktop. Qt 6.5+ reports the system colour scheme; when it cannot say,
-    light is the safer default — a dark app on a light desktop is louder than the reverse."""
+    """`auto` asks Qt for the desktop's scheme; light when it cannot say, the quieter mistake."""
     if setting == "dark":
         return Mode.DARK
     if setting == "light":
@@ -165,14 +137,11 @@ def resolve_mode(setting: str) -> Mode:
         return Mode.LIGHT
 
 
-# ---------------------------------------------------------------------------------------
-# Scales
-# ---------------------------------------------------------------------------------------
+# ---- Scales --------------------------------------------------------------------------
 
 
 class Space:
-    """Base 8 with a 4 half-step for fine adjustment. Closed on purpose: a scale with forty
-    values is not a scale, it is a list of excuses."""
+    """Base 8 with a 4 half-step, closed on purpose: forty values would not be a scale."""
 
     XS = 4
     SM = 8
@@ -185,24 +154,16 @@ class Space:
 
 
 class Radius:
-    """Named by use rather than by number, so the name says where it belongs.
-
-    A child's radius must never exceed its parent's: the correct inner radius is
-    `outer - padding`, and equal radii make the child's corner touch the parent's, which produces
-    that ugly crescent. PILL is a clamp, not a computed half-height — that way it follows any
-    change in control height on its own."""
+    """Named by use; a child's radius is `outer - padding`. See docs/armadilhas.md 7.4."""
 
     CONTROL = 8
     CARD = 12
     OVERLAY = 18
-    PILL = 9999
+    PILL = 9999      # a clamp, not a computed half-height, so it follows the control's height
 
 
 class Type:
-    """Four sizes carry a whole app. Hierarchy comes from weight and colour, not from inventing
-    a fifth size. Line height moves inversely with size: body copy wants air, a title does not.
-
-    No Inter on this machine (checked with fc-list), so the stack is what actually exists."""
+    """Four sizes; hierarchy comes from weight and colour. Stack measured in docs/marca.md 6."""
 
     FAMILY = "Cantarell, 'Noto Sans', 'DejaVu Sans', sans-serif"
     MONO = "'DejaVu Sans Mono', monospace"
@@ -237,12 +198,7 @@ class Layer:
 
 
 class Motion:
-    """Apple's damping ratio + response, in seconds.
-
-    Damping 1.0 is critically damped: it settles without overshoot, which is right for anything
-    that simply appears. Overshoot belongs only where the user's own gesture carried momentum,
-    and nothing here is dragged — so bounce is the exception, not the house style.
-    """
+    """Apple's damping ratio + response, in seconds. See docs/armadilhas.md 7.8."""
 
     STANDARD_RESPONSE = 0.35
     STANDARD_DAMPING = 1.0
@@ -252,16 +208,14 @@ class Motion:
 
     # Feedback has to be immediate on press: the moment lag appears, directness falls off a cliff.
     PRESS_MS = 100
-    # A result the user has to read needs time to be read. Measured against reading speed, not
-    # taste: "Salvo" at 900 ms is gone before the eye reaches it.
+    # Measured against reading speed, not taste: "Salvo" at 900 ms is gone before the eye lands.
     TOAST_MS = 1800
     ALARM_PULSE_MS = 1000
     SHAKE_MS = 220
 
 
 class Size:
-    """Minimum, never fixed: a fixed height clips the text the moment someone raises the system
-    font size."""
+    """Minimum, never fixed: a fixed height clips the text at a larger system font size."""
 
     CONTROL_H = 34
     CONTROL_H_LG = 40
@@ -273,9 +227,7 @@ class Size:
     WINDOW_H = 600
 
 
-# ---------------------------------------------------------------------------------------
-# Contrast — a requirement, and the threshold depends on the role
-# ---------------------------------------------------------------------------------------
+# ---- Contrast: a requirement, and the threshold depends on the role --------------------
 
 
 def _channel(value: float) -> float:
@@ -296,8 +248,7 @@ def contrast(fg: str, bg: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
-# Per role, with the reason written down, because "4.5 for everything" fails correct decisions:
-# a hint with body contrast stops reading as a hint, and a card border is not a control.
+# Per role: "4.5 for everything" fails correct decisions. Measured pairs in docs/marca.md 5.
 CONTRAST_FLOOR = {
     "content": 4.5,      # WCAG AA. Button and chip labels count as content
     "hint": 3.0,         # deliberately below: a hint with body contrast stops looking like a hint
@@ -306,9 +257,7 @@ CONTRAST_FLOOR = {
 }
 
 
-# ---------------------------------------------------------------------------------------
-# Qt stylesheet, generated from the tokens above — never written by hand
-# ---------------------------------------------------------------------------------------
+# ---- Qt stylesheet, generated from the tokens above — never written by hand ------------
 
 
 def stylesheet(p: Palette) -> str:
@@ -426,8 +375,7 @@ QTabBar::tab {{
 QTabBar::tab:hover {{ background: {p.surface_alt}; }}
 QTabBar::tab:selected {{ background: {p.surface}; color: {p.text_primary}; }}
 
-/* The scroll area's viewport and its inner container do not inherit the window background, so
-   without this they paint the palette's default white and show up as bands between cards. */
+/* See docs/armadilhas.md 7.6: the scroll area paints white bands between cards without this. */
 QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {{
     border: none;
     background: transparent;

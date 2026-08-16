@@ -1,16 +1,4 @@
-"""One recording, from key-down to text.
-
-The shape of this file is dictated by one rule: **the audio must reach the disk before anything
-can go wrong with it.** Capture feeds a consumer thread; the consumer's first act on every block
-is to write it. Only then does it measure the level, and only then does it hand anything to the
-transcriber. If the model fails to load, if the paste fails, if the process is killed — the WAV
-is on disk, valid, and the session can be retried.
-
-Dictation and meeting differ in exactly one way: a dictation is transcribed once at the end,
-because it is short and accuracy matters more (beam 5); a meeting is cut into chunks and
-transcribed as it goes, because it has no time limit and waiting until the end would cost about
-25 minutes for a one-hour recording.
-"""
+"""One recording, from key-down to text: the audio reaches disk before anything else can fail."""
 
 from __future__ import annotations
 
@@ -35,6 +23,7 @@ from . import events as ev
 
 
 class Mode(StrEnum):
+    # See docs/armadilhas.md 3.4: a meeting is chunked as it goes, a dictation waits for the end.
     DICTATION = "dictation"
     MEETING = "meeting"
 
@@ -46,12 +35,9 @@ class Preflight:
     fix_hint: str | None = None
 
 
+# Runs on the keypress path: every check added here must stay in the tens of milliseconds.
 def preflight(device_setting: str) -> Preflight:
-    """Checked before opening the stream, so a known-bad microphone is reported instead of
-    recorded. Kept under a few tens of milliseconds: this runs on the keypress path.
-
-    Only refuses on certainty. "Don't know" always proceeds — the level watchdog covers the rest,
-    and refusing to record for lack of information is worse than recording."""
+    """Refuses only on certainty — armadilhas 1.1: only the signal level knows a mic is dead."""
     if devices.missing(device_setting):
         return Preflight(False, f"o microfone «{device_setting}» não está conectado")
 
@@ -174,10 +160,7 @@ class Session:
             self.emit(failed)
             return failed
         finally:
-            # Neither of these may raise out of the finally. Closing the writer flushes and
-            # fsyncs, which fails on a full disk — and that exception used to destroy text that
-            # had ALREADY been transcribed successfully, emit no event at all (leaving the pill
-            # stuck on "transcribing" forever) and skip the unpin, stranding ~500 MB of model.
+            # See docs/armadilhas.md 1.12: neither of these may raise out of the finally.
             try:
                 if self._writer is not None:
                     self._writer.close()
@@ -204,9 +187,7 @@ class Session:
 
     # ---- audio consumer --------------------------------------------------------------
 
-    # Short enough that a stalled device is noticed on the same schedule as a silent one. The old
-    # 1.0s timeout was also the reason a vanished microphone went unreported: the loop simply
-    # went round again and the watchdog was never fed.
+    # See docs/armadilhas.md 1.11: the old 1 s timeout left a vanished microphone unreported.
     _POLL_S = 0.05
 
     def _consume(self) -> None:
@@ -222,12 +203,7 @@ class Session:
             except queue.Empty:
                 if self._stop.is_set():
                     break
-                # A microphone that VANISHES delivers nothing at all — PortAudio simply stops
-                # calling the callback. Feeding the watchdog zero here is what makes that case
-                # alarm: from where the user sits, "arriving as silence" and "not arriving" are
-                # the same fact. Without it the pill stayed green and the clock kept counting
-                # while a dead headset recorded nothing, which is the original 99-second failure
-                # through a second door (armadilhas 1.7: the PipeWire node dropping out).
+                # See docs/armadilhas.md 1.11: nothing arriving must alarm like silence arriving.
                 self._stalled = True
                 self._tick_watchdog(0.0, time.monotonic())
                 continue
@@ -235,10 +211,7 @@ class Session:
                 break
             self._stalled = False
 
-            # Disk first, always. Everything below can fail without costing the recording.
-            # The except is deliberately broad: OSError alone let a ValueError from a closed file
-            # kill this thread outright, and a dead audio thread means no writing AND no alarm —
-            # silently, which is the one outcome this project does not allow.
+            # Disk first — and docs/armadilhas.md 1.10: this except stays broad on purpose.
             try:
                 writer.write(block.audio)
             except Exception as exc:
@@ -252,8 +225,7 @@ class Session:
                 self.emit(ev.Level(block.reading.peak, block.reading.rms, writer.seconds))
 
             if capture.error and not self._device_error:
-                # capture.error used to be written and never read, so a PortAudio device error
-                # went nowhere at all.
+                # See docs/armadilhas.md 1.11: this field used to be written and never read.
                 self._device_error = capture.error
                 self._log(f"[erro] dispositivo: {self._device_error}")
                 self.emit(
@@ -280,9 +252,7 @@ class Session:
             self.emit(ev.AudioAlarm(state=state, reason=self._alarm_reason(state)))
 
     def _note_write_failure(self, exc: Exception) -> None:
-        """Reported once, loudly, and then the loop keeps going: the watchdog still has to run,
-        because a disk that stopped accepting writes is exactly when knowing about the microphone
-        matters most."""
+        """Reported once, loudly; the loop goes on, because the watchdog still has to run."""
         if self._error:
             return
         self._error = f"falha ao gravar em disco: {type(exc).__name__}: {exc}"
@@ -291,8 +261,7 @@ class Session:
 
     def _alarm_reason(self, state: AudioState) -> str | None:
         if state is AudioState.DEAD:
-            # The two causes need different wording: one is a live device delivering silence, the
-            # other is a device that stopped delivering at all.
+            # A live device delivering silence and one that stopped delivering read differently.
             if self._stalled:
                 return "o microfone parou de responder — o dispositivo pode ter caído"
             return "o microfone não está captando nada"
@@ -303,17 +272,7 @@ class Session:
     # ---- transcription ---------------------------------------------------------------
 
     def _submit(self, chunk) -> None:
-        """Hand a chunk to the transcriber WITHOUT ever blocking the audio thread.
-
-        The previous version claimed "the capture thread keeps writing to disk" and did the
-        opposite: it called `put` with a timeout and then an unbounded `put` — from inside the
-        consumer that writes the WAV. With the STT thread dead, the queue filled, the consumer
-        blocked forever and **the recording stopped reaching the disk** while the user kept
-        talking. Measured: the WAV froze at 2 s across the next 18 s of speech.
-
-        A chunk that cannot be queued goes to a backlog in memory and is transcribed at the end.
-        Text arrives late; audio never stops. That is the correct trade in that order.
-        """
+        """Never blocks the audio thread (armadilhas 1.9): late text beats stopped audio."""
         try:
             self._jobs.put_nowait(chunk)
             return
@@ -325,9 +284,7 @@ class Session:
             self._log("[aviso] transcrição atrasada — o áudio continua sendo gravado")
 
     def _stt_loop(self) -> None:
-        """Wrapped whole. A transcription worker that dies takes the meeting's text with it, so
-        it must not be possible for any single chunk — or any single failed disk append — to end
-        the loop."""
+        """Wrapped whole: one bad chunk must not end the loop and lose the meeting's text."""
         try:
             while True:
                 chunk = self._jobs.get()
@@ -352,14 +309,12 @@ class Session:
         try:
             self._append_transcript(chunk, result.text)
         except OSError as exc:
-            # The text is already in `_parts`, so the meeting is not lost — only the incremental
-            # copy on disk. Letting this escape used to kill the whole worker.
+            # The text is already in `_parts`; only the incremental copy on disk is lost here.
             self._log(f"[aviso] não consegui anexar ao transcript.jsonl: {exc}")
             self.emit(ev.Partial(chunk.index, chunk.start_s, chunk.end_s, result.text))
 
     def _append_transcript(self, chunk, text: str) -> None:
-        """Appended as each chunk lands. Dying at minute 50 of a meeting still leaves 0-49 on
-        disk, in order, readable."""
+        """Appended per chunk: dying at minute 50 leaves 0-49 on disk, in order, readable."""
         line = json.dumps(
             {"index": chunk.index, "start": chunk.start_s, "end": chunk.end_s, "text": text},
             ensure_ascii=False,
@@ -376,8 +331,7 @@ class Session:
             self._jobs.put(None)
             if self._stt_thread is not None:
                 self._stt_thread.join(timeout=600.0)
-            # Whatever could not be queued while recording is transcribed now, in order. It was
-            # never lost — it just arrived late, which is the trade `_submit` makes on purpose.
+            # The backlog `_submit` deferred, in order: late, never lost (armadilhas 1.9).
             if self._backlog:
                 self._log(f"[reunião] {len(self._backlog)} trecho(s) atrasado(s) — transcrevendo")
                 for chunk in self._backlog:
@@ -400,8 +354,7 @@ class Session:
     # ---- persistence -----------------------------------------------------------------
 
     def _write_meta(self, state: str, text: str = "", seconds: float = 0.0) -> None:
-        """`session.json` is what makes a crashed session recoverable: any folder whose state is
-        not `done` is offered for retry on the next start."""
+        """Any folder whose state is not `done` is offered for retry on the next start."""
         data = {
             "id": self.session_id,
             "mode": self.mode.value,

@@ -1,19 +1,4 @@
-"""Streaming WAV writer — the safety net that makes "I spoke and nothing was saved" impossible.
-
-The previous version kept the whole recording in a Python list and only ever touched disk after
-transcription succeeded. When transcription produced nothing, the audio went out of scope and
-99 seconds of speech were gone. Here the file exists from the first block onward.
-
-Why not the `wave` module: it only writes the RIFF/data sizes when you call `close()`. Kill the
-process mid-recording and the header on disk still claims **zero frames**, so every player
-refuses the file — the audio bytes are there and nothing can read them. That defeats the entire
-point of writing early. So the 44-byte canonical header is written by hand and its two size
-fields are patched on every flush, which keeps the file valid and playable at any instant,
-including after `kill -9`.
-
-int16 rather than float32: half the size (32 kB/s => 115 MB/h) and it is what every player and
-editor opens without conversion. Whisper is fed from the in-memory float32 blocks anyway.
-"""
+"""Streaming WAV writer: hand-rolled RIFF, valid at any instant — see docs/armadilhas.md 1.4."""
 
 from __future__ import annotations
 
@@ -27,6 +12,7 @@ _RIFF_SIZE_OFFSET = 4
 _DATA_SIZE_OFFSET = 40
 
 
+# See docs/armadilhas.md 1.10: int16 on disk is half of float32 — 32 kB/s, 115 MB/h.
 def _header(sample_rate: int, channels: int, bits: int = 16) -> bytes:
     byte_rate = sample_rate * channels * bits // 8
     block_align = channels * bits // 8
@@ -83,19 +69,13 @@ class WavWriter:
         if block is None or len(block) == 0:
             return
         flat = np.asarray(block, dtype="float32").reshape(-1)
-        # Clip before scaling: a sample above 1.0 wraps around on the int16 cast and turns a loud
-        # moment into a burst of noise at the opposite polarity.
+        # Clip before scaling: above 1.0 the int16 cast wraps and inverts the loud moment.
         pcm = (np.clip(flat, -1.0, 1.0) * 32767.0).astype("<i2")
         data = pcm.tobytes()
         self._fh.write(data)
         self._bytes += len(data)
 
-        # Sizes are patched on EVERY block, not on the fsync interval. Patching only every five
-        # seconds meant any recording shorter than that still had RIFF=0/data=0 on disk, so a
-        # kill -9 four seconds in produced a file no player would open — and a dictation is
-        # typically two to five seconds long, which made the guarantee false for the common case.
-        # The cost is two four-byte writes into the page cache; fsync is what is expensive, and
-        # that stays on the interval.
+        # See docs/armadilhas.md 1.4: sizes are patched on EVERY block, a dictation lasts 2-5 s.
         self._patch_sizes()
         self._fh.flush()
 

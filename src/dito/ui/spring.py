@@ -1,21 +1,4 @@
-"""Spring motion for Qt.
-
-`QPropertyAnimation` interpolates between a start and an end over a fixed duration. That is fine
-for something nobody can interrupt, and wrong for everything else: retarget it mid-flight and it
-restarts from wherever it decided the start was, which is the visible jump you see in careless
-UIs. A spring has no fixed duration and no start value — it only ever has a current value, a
-velocity, and a target. Retargeting is just assigning a new target, and the motion stays
-continuous because the velocity carries through.
-
-Parameterised the way Apple exposes it, in damping ratio and response, rather than in
-mass/stiffness/damping:
-
-    damping 1.0  critically damped — reaches the target and stops, no overshoot
-    damping 0.8  a little bounce, appropriate only after a gesture that carried momentum
-    response     roughly how long it takes to get there, in seconds
-
-Nothing in this app is dragged, so the house default is critically damped.
-"""
+"""Spring motion for Qt, damping ratio + response. See docs/armadilhas.md 7.8."""
 
 from __future__ import annotations
 
@@ -46,8 +29,7 @@ class Spring:
         self.damping = damping
 
     def retarget(self, target: float, velocity: float | None = None) -> None:
-        """Aim somewhere new WITHOUT touching the current value. That is the whole point: the
-        animation continues from what is on screen instead of snapping to a fresh start."""
+        """Aim somewhere new WITHOUT touching the current value, so the motion never jumps."""
         self.target = target
         if velocity is not None:
             self.velocity = velocity
@@ -62,8 +44,7 @@ class Spring:
 
     def step(self, dt: float) -> float:
         omega = 2 * math.pi / self.response
-        # Semi-implicit Euler: velocity first, then position. Stable at 60 Hz for these stiffnesses,
-        # where plain Euler visibly overshoots on the snappier responses.
+        # Semi-implicit Euler, velocity first: plain Euler overshoots at 60 Hz on fast responses.
         accel = -(omega**2) * (self.value - self.target) - 2 * self.damping * omega * self.velocity
         self.velocity += accel * dt
         self.value += self.velocity * dt
@@ -74,12 +55,7 @@ class Spring:
 
 
 class SpringDriver(QObject):
-    """Drives one or more springs off a single timer and reports each frame.
-
-    One timer for the whole group rather than one per spring: 2D motion is two independent
-    springs (a single spring on a 2D distance desynchronises when the axes have different
-    velocities), and they must advance on the same frame or the shape wobbles.
-    """
+    """Drives a group of springs off ONE timer: on separate timers the axes drift apart."""
 
     frame = Signal()
     finished = Signal()

@@ -1,10 +1,4 @@
-"""Every filesystem location the app uses. One place decides; the rest asks here.
-
-XDG_* variables can be DEFINED AND EMPTY — that is the case on this machine, where Cinnamon
-exports none of them. `os.environ.get("XDG_CONFIG_HOME", fallback)` returns the empty string in
-that case, and `Path("") / "dito"` is the RELATIVE path `dito/`, created inside whatever the
-caller's working directory happens to be. `_xdg` treats empty as absent for that reason.
-"""
+"""Every filesystem location the app uses; one place decides and the rest asks here."""
 
 from __future__ import annotations
 
@@ -15,6 +9,7 @@ APP = "dito"
 
 
 def _xdg(var: str, fallback: Path) -> Path:
+    # See docs/armadilhas.md 5.4: XDG_* are defined AND empty here, so `get(var, default)` lies.
     value = os.environ.get(var, "").strip()
     return Path(value).expanduser() if value else fallback
 
@@ -32,9 +27,7 @@ def state_dir() -> Path:
 
 
 def runtime_dir() -> Path:
-    """$XDG_RUNTIME_DIR is a tmpfs wiped at logout — the right home for the control socket.
-    Without it (a session with no systemd-logind), fall back to the state dir, which at least
-    exists and is writable."""
+    """Control socket home; falls back to the state dir on a session without systemd-logind."""
     value = os.environ.get("XDG_RUNTIME_DIR", "").strip()
     return Path(value) / APP if value else state_dir()
 

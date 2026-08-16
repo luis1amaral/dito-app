@@ -1,12 +1,4 @@
-"""What a recording session tells the outside world.
-
-Typed events rather than the old `("preview", str)` tuples: the previous version dispatched on a
-string in a queue, and adding a case meant remembering to touch a chain of `elif`s in a function
-far away. A dataclass per event makes the compiler-ish tooling do that job, and makes it obvious
-what data each state carries.
-
-Everything here crosses a thread boundary, so every event is frozen.
-"""
+"""What a session tells the world: one frozen dataclass per state, because these cross threads."""
 
 from __future__ import annotations
 

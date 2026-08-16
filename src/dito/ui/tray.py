@@ -1,11 +1,4 @@
-"""The tray icon: the app's only permanent presence on screen.
-
-It is deliberately quiet. Nothing opens at login — the daemon starts silently and this icon is
-the whole of it, which is what the user asked for. But it is also the fallback channel for the
-alarm: if the pill is behind a fullscreen window, or on another workspace, the icon turning red
-is what is left. That is why it changes SHAPE and not only colour (see icons.py) and why its
-tooltip always says what is wrong.
-"""
+"""The tray icon: the app's only presence on screen, and the alarm's fallback channel."""
 
 from __future__ import annotations
 
@@ -64,8 +57,7 @@ class Tray(QSystemTrayIcon):
 
         self.setContextMenu(menu)
         self._menu = menu
-        # Left click opens the window. Some panels deliver Trigger, others DoubleClick; accepting
-        # both avoids an icon that appears to do nothing depending on the desktop.
+        # Both reasons accepted: some panels deliver Trigger on a left click, others DoubleClick.
         self.activated.connect(self._on_activated)
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
@@ -95,8 +87,7 @@ class Tray(QSystemTrayIcon):
         self._apply(TrayState.RECORDING, "transcrevendo…", "Dito — transcrevendo")
 
     def set_alarm(self, reason: str) -> None:
-        """The alarm's last line of defence: red icon plus a tooltip that says the cause, so the
-        problem is diagnosable from the panel without opening anything."""
+        """The alarm's last line of defence: red icon and the cause in the tooltip."""
         self._apply(TrayState.ALERT, "SEM ÁUDIO", f"Dito — {reason}")
 
     def set_paused(self) -> None:

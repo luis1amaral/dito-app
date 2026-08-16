@@ -1,9 +1,4 @@
-"""Loading the app's icons, with a drawn fallback.
-
-A missing asset must never take the app down. Dictation working without its icon is a cosmetic
-problem; refusing to start because an SVG is absent is a real one — and the tray icon is also the
-alarm's last line of defence, so it has to exist even when nothing else does.
-"""
+"""Loading the app's icons, with a drawn fallback: a missing asset never takes the app down."""
 
 from __future__ import annotations
 
@@ -46,8 +41,7 @@ def tray_icon(state: TrayState) -> QIcon:
 
 
 def _drawn(state: TrayState, palette: Palette, size: int) -> QIcon:
-    """The fallback. Three shapes, not three colours: a tray icon has to be readable at 22 px on
-    a panel that may be light or dark, and colour alone survives neither."""
+    """The fallback: three SHAPES, not three colours, to survive 22 px on any panel."""
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)

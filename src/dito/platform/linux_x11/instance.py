@@ -1,22 +1,4 @@
-"""One Dito at a time, and a way for a second launch to talk to the first.
-
-Two separate mechanisms, for two separate jobs:
-
-**The exclusion lock** is an abstract UNIX socket named `defalt-voice-input`. That name is a
-CONTRACT WITH ANOTHER REPOSITORY: the sibling project `defalt` claims the same name (a named
-mutex `Local\\defalt-voice-input` on Windows) precisely so the two can never run at once. Two
-dictation listeners fight over the microphone and paste every sentence twice. Renaming this on
-one side alone silently lets both run — which is the bug the lock exists to prevent, reintroduced
-by a tidy-up. There is a test that fails if the string changes.
-
-Abstract sockets (a leading NUL) are used rather than a PID file because the kernel reclaims them
-when the process dies. A PID file goes stale — this project has already seen one claiming 117814
-while the live process was 1812 — and then the "is it running?" check answers wrong.
-
-**The control socket** is separate, and Dito's own: `$XDG_RUNTIME_DIR/dito/dito.sock`. It is how
-`dito ui` reaches an already-running daemon and asks it to show the window, instead of starting a
-second process that would immediately lose the exclusion lock and exit.
-"""
+"""One Dito at a time (the exclusion lock), plus a control socket a second launch talks to."""
 
 from __future__ import annotations
 
@@ -27,7 +9,7 @@ from pathlib import Path
 
 from ... import paths
 
-# Do not rename. See the module docstring: this is shared with the `defalt` project on purpose.
+# Do NOT rename: contract with the sibling `defalt` project (docs/armadilhas.md 5.1).
 LEGACY_LOCK_NAME = "defalt-voice-input"
 
 SHOW = "show"
@@ -41,14 +23,10 @@ class AlreadyRunning(RuntimeError):
     pass
 
 
+# Abstract socket, not a PID file: the kernel reclaims the name on death (armadilhas 5.2).
 def claim(name: str = LEGACY_LOCK_NAME) -> socket.socket:
-    """Take the exclusion lock, or raise. The returned socket must stay alive for the whole
-    process: closing it releases the lock.
-
-    `name` exists so the tests can exercise the mechanism under their own name. Without it they
-    would fight the running daemon for the real lock and fail — a test that goes red because the
-    application is working is worse than no test.
-    """
+    """Take the lock; the returned socket must stay referenced (armadilhas 5.1b)."""
+    # `name` lets tests take their own lock instead of fighting the live daemon for the real one.
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.bind("\0" + name)
@@ -61,8 +39,7 @@ def claim(name: str = LEGACY_LOCK_NAME) -> socket.socket:
 
 
 class ControlServer:
-    """Listens for `show` from a second launch. Runs on its own thread; a request never touches
-    the UI directly, it goes through the callback the app hands over."""
+    """Listens for a second launch on its own thread; requests reach the UI via the callback."""
 
     def __init__(self, on_command: Callable[[str], str]) -> None:
         self._on_command = on_command

@@ -373,20 +373,31 @@ class DitoApp:
         )
         subject = (subject or default).strip() if accepted else default
 
+        minutes, words = int(event.seconds // 60), len(event.text.split())
+
         def work() -> None:
-            result = publish.publish_meeting(
-                Path(event.folder), event.text, event.seconds, started, self.cfg, subject
-            )
-            self.bridge.event.emit(
-                ev.Published(
+            # A thread that dies without emitting leaves the pill on "saving…" forever — the same
+            # lesson session.stop() already learned. Every worker here owes an event, always.
+            try:
+                result = publish.publish_meeting(
+                    Path(event.folder), event.text, event.seconds, started, self.cfg, subject
+                )
+                published = ev.Published(
                     folder=str(result.folder),
                     note=str(result.note) if result.note else None,
                     note_in_vault=result.note_in_vault,
-                    minutes=int(event.seconds // 60),
-                    words=len(event.text.split()),
+                    minutes=minutes,
+                    words=words,
                     warning=result.warnings[0] if result.warnings else None,
                 )
-            )
+            except Exception as exc:
+                self._log_error(f"ao salvar a reunião: {type(exc).__name__}: {exc}")
+                published = ev.Published(
+                    folder=event.folder, note=None, note_in_vault=False,
+                    minutes=minutes, words=words,
+                    warning=f"não consegui salvar a reunião: {exc}",
+                )
+            self.bridge.event.emit(published)
 
         threading.Thread(target=work, daemon=True, name="dito-publish").start()
 

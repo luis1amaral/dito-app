@@ -1,21 +1,4 @@
-"""WAV -> Opus, for meeting audio that is otherwise kept forever.
-
-The numbers that decide this file, all measured here on 3 min of speech-shaped audio: recording is
-16 kHz mono int16, which is 115 MB per hour — 345 MB for a three-hour meeting. The same three
-hours of Opus at 24 kbps are 31 MB. That is an 11x reduction on the one file the user is asked to
-keep indefinitely, and speech at that bitrate is still perfectly intelligible.
-
-**PyAV, never the `ffmpeg` binary.** There is no ffmpeg on this machine (checked); PyAV already
-comes in through faster-whisper, so the codec is right there in-process. Shelling out would add a
-dependency the `.deb` does not install and would fail at the worst possible moment — right after
-a three-hour meeting.
-
-**The WAV is deleted only after the Opus has been decoded end to end.** Not "the file exists", not
-"the header parses": every packet is decoded and the sample count is compared against the source.
-Measured cost is 0.2 s per 3 min of audio — about 12 s for a three-hour meeting, on top of the
-~97 s the encode itself takes. Cheap insurance, given that losing audio is the one thing this
-project does not do.
-"""
+"""WAV -> Opus via PyAV; the WAV goes only after a full decode — docs/armadilhas.md 1.10."""
 
 from __future__ import annotations
 
@@ -24,24 +7,17 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 
-# bits/s. Measured on 3 min of speech-shaped audio: 23.1 kbps out, i.e. 31 MB for three hours
-# against 345 MB of WAV.
+# bits/s; measured 23.1 kbps out on speech, i.e. 31 MB for three hours against 345 MB of WAV.
 BITRATE = 24_000
 
-# Constrained VBR, not the default one. On speech the two are indistinguishable in size (23.1 kbps
-# either way, measured), but plain VBR overshot the target by 43% — 34.3 kbps — on a tonal signal.
-# Constrained keeps the "3 h fits in ~32 MB" promise true for whatever the microphone happens to
-# pick up, and costs nothing when the content is what it is supposed to be.
+# See docs/armadilhas.md 1.10: plain VBR overshot the target by 43% on a tonal signal.
 ENCODER_OPTIONS = {"vbr": "constrained"}
 
-# What ffmpeg's libopus encoder accepts. Recording is 16 kHz, which is on the list, so the usual
-# path resamples nothing; anything else goes to 48 kHz, Opus's native rate.
+# What libopus accepts: the 16 kHz recording is on the list, so the usual path resamples nothing.
 OPUS_RATES = (8000, 12000, 16000, 24000, 48000)
 FALLBACK_RATE = 48000
 
-# Opus pads the last packet to a 20 ms frame and carries a pre-skip, so the encoded duration is
-# never bit-exact. Measured drift: 13 ms over 60 s. Half a second is 30x that and still catches a
-# truncated encode, which is what this tolerance is really for.
+# 30x the measured 13 ms drift over 60 s, still tight enough to catch a truncated encode.
 DURATION_TOLERANCE_S = 0.5
 
 _WAV_HEADER = 44
@@ -53,7 +29,7 @@ class EncodeResult:
     # The Opus file when it worked, the untouched WAV when it did not.
     path: Path
     saved_bytes: int
-    # Why the WAV was kept, in pt-BR and ready to show. `None` when the conversion worked.
+    # Why the WAV was kept, in pt-BR ready to show; None when the conversion worked.
     reason: str | None = None
 
     @property
@@ -64,37 +40,27 @@ class EncodeResult:
 def to_opus(
     wav_path: Path | str, *, bitrate: int = BITRATE, keep_wav: bool = False
 ) -> EncodeResult:
-    """Convert `audio.wav` to `audio.opus` beside it.
-
-    On success the WAV is gone (unless `keep_wav`) and `saved_bytes` says how much came back. On
-    any failure the WAV is exactly as it was and `reason` says what happened — there is no path
-    through this function that removes audio it has not proved it can read back.
-    """
+    """Convert `audio.wav` to `audio.opus` beside it; on any failure the WAV is left untouched."""
     wav = Path(wav_path)
     if not wav.is_file():
         return EncodeResult(wav, 0, f"{wav.name} não existe")
 
     tail = _undeclared_tail(wav)
     if tail:
-        # The RIFF sizes are patched on every flush precisely so the file is playable at any
-        # instant (armadilhas 1.4). Bytes past the declared size mean the last patch never
-        # happened, so a decoder — including the one below — would stop short of the end.
-        # Compressing that would quietly trade the tail of a meeting for disk space.
+        # See docs/armadilhas.md 1.4: bytes past the declared size mean the last patch never ran.
         return EncodeResult(
             wav, 0, f"o WAV tem {tail} bytes de áudio além do que o cabeçalho declara"
         )
 
     opus = wav.with_suffix(".opus")
-    # Written under a temporary name so an interrupted encode can never leave something that
-    # looks like a finished `audio.opus`. The muxer comes from `format=`, not the extension.
+    # Temporary name so an interrupted encode never leaves a plausible-looking `audio.opus`.
     tmp = wav.with_name(wav.stem + ".opus.part")
 
     try:
         source_seconds = _encode(wav, tmp, bitrate)
         encoded_seconds = _decode_seconds(tmp)
     except Exception as exc:
-        # Deliberately broad: PyAV raises its own error hierarchy plus OSError, and a codec that
-        # is missing or a file that is malformed must both end the same way — WAV intact.
+        # Broad on purpose: PyAV errors and OSError must all end the same way — WAV intact.
         tmp.unlink(missing_ok=True)
         return EncodeResult(wav, 0, f"a compressão falhou: {type(exc).__name__}: {exc}")
 
@@ -122,10 +88,8 @@ def to_opus(
 
 
 def _encode(wav: Path, target: Path, bitrate: int) -> float:
-    """Returns the source duration measured from the samples actually decoded — the honest number
-    to compare against, rather than whatever the container header claims."""
-    # Imported here rather than at module load: PyAV drags in the ffmpeg shared libraries, and
-    # compression only ever happens after a meeting ends.
+    """Returns the source duration from the samples decoded, not from what the header claims."""
+    # Imported late: PyAV drags in the ffmpeg libraries, and this runs only after a meeting.
     import av
 
     samples = 0
@@ -133,7 +97,7 @@ def _encode(wav: Path, target: Path, bitrate: int) -> float:
         istream = src.streams.audio[0]
         rate = istream.rate if istream.rate in OPUS_RATES else FALLBACK_RATE
 
-        with av.open(str(target), "w", format="ogg") as dst:
+        with av.open(str(target), "w", format="ogg") as dst:   # .part needs an explicit muxer
             ostream = dst.add_stream("libopus", rate=rate, layout="mono",
                                      options=dict(ENCODER_OPTIONS))
             ostream.bit_rate = bitrate
@@ -153,16 +117,14 @@ def _encode(wav: Path, target: Path, bitrate: int) -> float:
 
 def _mux(dst, ostream, frames) -> None:
     for frame in frames:
-        # The resampler carries the input timestamps forward; letting the encoder assign its own
-        # keeps the two clocks from disagreeing when the rate changes.
+        # Drop the resampler's carried-over pts: the encoder's own clock is the consistent one.
         frame.pts = None
         for packet in ostream.encode(frame):
             dst.mux(packet)
 
 
 def _decode_seconds(path: Path) -> float:
-    """Decode the whole file and count samples. Reading the duration out of the header would pass
-    on a file whose packets are corrupt, which is the case this check exists to catch."""
+    """Decode everything and count samples; the header would pass on a file with corrupt packets."""
     import av
 
     samples = 0
@@ -174,11 +136,7 @@ def _decode_seconds(path: Path) -> float:
 
 
 def _undeclared_tail(wav: Path) -> int:
-    """Audio bytes present in the file but not counted by the RIFF `data` size.
-
-    Only meaningful for the canonical 44-byte layout `audio/writer.py` produces; a WAV with extra
-    chunks is not recognized here and reports 0, which is the right answer for a file this project
-    did not write."""
+    """Audio bytes past the RIFF `data` size; 0 for any layout but the 44-byte one we write."""
     try:
         with wav.open("rb") as fh:
             head = fh.read(_WAV_HEADER)

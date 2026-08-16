@@ -1,18 +1,4 @@
-"""The index of everything that was recorded — what the "Transcrições" tab lists, and what the
-retention policy acts on.
-
-Two opposite rules shape this module.
-
-**Reading is defensive.** A folder whose `session.json` was truncated by a crash is precisely the
-one the user came looking for; raising on it would hide every *other* session as well. So nothing
-here throws: an unreadable folder is still listed, as `unknown`, with whatever the folder name and
-the files on disk can tell us.
-
-**Deleting is narrow.** Garbage collection removes audio files it knows by name, only from
-sessions that finished with text, only past the configured window. It never touches
-`session.json` or `transcript.jsonl`: those are a few kB, and they are the part that cannot be
-recovered from anything else on disk.
-"""
+"""The index of what was recorded. See docs/armadilhas.md 8: read defensive, delete narrow."""
 
 from __future__ import annotations
 
@@ -31,9 +17,7 @@ from ..config import Config
 META_FILE = "session.json"
 TRANSCRIPT_FILE = "transcript.jsonl"
 
-# Named, never globbed: this tuple is the list of things garbage collection is allowed to delete,
-# and a glob is one typo away from taking the transcript with it. Opus first — after compression
-# it is the surviving copy.
+# See docs/armadilhas.md 8.2: named, never globbed. Opus first — it is the surviving copy.
 AUDIO_FILES = ("audio.opus", "audio.wav")
 
 # States written by core/session.py::_write_meta. Anything else on disk reads as UNKNOWN.
@@ -86,8 +70,7 @@ def recoverable(root: Path | None = None) -> list[SessionInfo]:
 
 
 def open_folder(path: Path | str) -> bool:
-    """Hand the folder to the file manager. Returns whether the command started; a desktop with
-    no `xdg-open` is a missing convenience, never a reason to take a click down with a traceback."""
+    """Hand the folder to the file manager; a missing `xdg-open` is never worth a traceback."""
     try:
         subprocess.Popen(
             ["xdg-open", str(path)],
@@ -116,9 +99,7 @@ def collect_garbage(
         if not session.done:
             continue
 
-        # And never a `done` session with no text either. That is the failure from armadilhas 1.1
-        # — the microphone delivered zeros, Whisper recognized nothing, the session closed clean —
-        # and the WAV is the only remaining evidence of what was said.
+        # See docs/armadilhas.md 1.1: with no text, the WAV is the only evidence of what was said.
         if not session.preview:
             continue
 
@@ -162,8 +143,7 @@ def _read(folder: Path) -> SessionInfo:
 
 
 def _load_meta(path: Path) -> dict[str, Any]:
-    """Anything unreadable reads as "no metadata" — the folder name and the files still describe
-    the session well enough to list it and to offer it for recovery."""
+    """Anything unreadable reads as "no metadata"; the folder name still describes the session."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -172,8 +152,7 @@ def _load_meta(path: Path) -> dict[str, Any]:
 
 
 def _from_folder_name(name: str) -> tuple[datetime | None, str]:
-    """`2026-08-15_143200_meeting` -> the timestamp and the mode. The folder name is the one piece
-    of metadata a corrupt `session.json` cannot take away."""
+    """`2026-08-15_143200_meeting` -> the metadata a corrupt `session.json` cannot take away."""
     stamp, _, mode = name.rpartition("_")
     try:
         when = datetime.strptime(stamp, _STAMP_FORMAT)
@@ -189,16 +168,12 @@ def _parse_started(value: Any) -> datetime | None:
         when = datetime.fromisoformat(value)
     except ValueError:
         return None
-    # session.py writes naive local timestamps; a hand-edited aware one must not blow up the
-    # comparison against `datetime.now()` further down.
+    # session.py writes naive local stamps; a hand-edited aware one must still compare to now().
     return when.astimezone().replace(tzinfo=None) if when.tzinfo else when
 
 
 def _wav_seconds(folder: Path) -> float:
-    """Duration straight from the size on disk, for the crashed session whose `session.json` still
-    says 0 seconds. Physical size rather than the declared one on purpose: a process killed
-    mid-recording leaves bytes past the size the RIFF header admits to (armadilhas 1.4), and here
-    the point is to show the user how much audio is really there."""
+    """Physical size, not the declared one: armadilhas 1.4 — the RIFF header under-reports."""
     path = folder / "audio.wav"
     try:
         size = path.stat().st_size
@@ -210,8 +185,7 @@ def _wav_seconds(folder: Path) -> float:
 
 
 def _transcript_head(path: Path, lines: int = 5) -> str:
-    """A meeting that crashed has no `text` in its metadata, but every chunk it managed to
-    transcribe is already in the jsonl. Enough of it for a preview costs one small read."""
+    """A crashed meeting has no `text` in its metadata, but its chunks are already in the jsonl."""
     try:
         with path.open(encoding="utf-8") as fh:
             heads = [next(fh, "") for _ in range(lines)]
@@ -236,8 +210,7 @@ def _preview(text: str) -> str:
 
 
 def _folder_size(folder: Path) -> int:
-    """Symlinks are not followed and not counted: a linked file lives somewhere else and counting
-    it here would report disk that deleting this folder does not give back (armadilhas 6.3)."""
+    """Symlinks are neither followed nor counted — armadilhas 6.3: that disk is not ours to free."""
     total = 0
     stack = [folder]
     while stack:
@@ -257,8 +230,7 @@ def _folder_size(folder: Path) -> int:
 
 
 def _retention_seconds(cfg: Config, mode: str) -> float | None:
-    """`None` = keep forever. Zero means the same thing in the config (see `Retention`), and an
-    unrecognized mode is never collected: guessing wrong here deletes audio."""
+    """`None` (and 0 in the config) = keep forever; an unknown mode is never collected."""
     if mode == MODE_DICTATION:
         hours = cfg.retention.dictation_audio_hours
         return hours * 3600 if hours > 0 else None
@@ -275,8 +247,7 @@ def _age_seconds(session: SessionInfo, now: datetime) -> float:
 
 
 def _mtime_age(folder: Path, now: datetime) -> float:
-    """Fallback for a session with no usable timestamp anywhere. Returns 0 — "as new as it gets" —
-    when even the folder cannot be stat'd, because the safe answer is to keep the audio."""
+    """Last resort; returns 0 ("brand new") when even the stat fails, so the audio is kept."""
     try:
         modified = datetime.fromtimestamp(folder.stat().st_mtime)
     except OSError:

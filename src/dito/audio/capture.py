@@ -1,18 +1,4 @@
-"""Microphone capture: a PortAudio stream that hands blocks to a consumer thread.
-
-Two rules this file exists to enforce:
-
-1. **Nothing slow happens in the PortAudio callback.** It runs on a realtime audio thread; a
-   disk write or a transcription there causes dropouts, and on Windows a slow callback gets the
-   stream torn down. The callback copies the block, takes a cheap peak/RMS, and returns.
-
-2. **The `status` flag is read.** The previous version discarded it (`def cb(indata, frames, t,
-   status)` with `status` unused), so buffer overruns and device errors vanished. Here every
-   overflow is counted and surfaces as the "choppy audio" warning.
-
-Capture never decides whether audio is healthy — it only reports. The judgment is in
-`level.Watchdog`, so it can be tested without a microphone.
-"""
+"""Microphone capture: reports blocks and overflows, never judges — see docs/armadilhas.md 1.5."""
 
 from __future__ import annotations
 
@@ -35,8 +21,7 @@ class Block:
 
 
 class CaptureError(RuntimeError):
-    """Raised only by `start()`, and only for a genuine failure to open the device — a busy mic,
-    a device that vanished. Never raised from the audio thread."""
+    """Raised only by `start()`, for a device that is busy or gone — never from the audio thread."""
 
 
 class Capture:
@@ -62,8 +47,7 @@ class Capture:
 
     @property
     def error(self) -> str | None:
-        """Set when PortAudio reported a problem from the audio thread. Polled by the owner;
-        raising from the callback would only kill the audio thread silently."""
+        """Polled by the owner: raising from the callback would kill the audio thread silently."""
         with self._lock:
             return self._error
 
@@ -71,13 +55,13 @@ class Capture:
         import sounddevice as sd
 
         def callback(indata, frames, time_info, status):  # noqa: ARG001 - PortAudio signature
+            # Realtime thread: slow work here drops blocks, and Windows tears the stream down.
             try:
                 if status:
                     with self._lock:
                         if status.input_overflow:
                             self._overflows += 1
-                        # input_underflow is not our problem (that is playback); anything else
-                        # counts as a real device error worth surfacing on screen.
+                        # input_underflow is playback's problem; anything else is a real error.
                         if getattr(status, "input_error", False):
                             self._error = str(status)
                             if on_error:

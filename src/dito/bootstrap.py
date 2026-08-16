@@ -1,17 +1,4 @@
-"""First run after installing the .deb: build the user's virtualenv, with something on screen.
-
-Why this is not in the package's postinst, where it would be more conventional: `pip install` as
-root writes files dpkg does not know about, and a postinst that fails leaves the package
-half-configured and apt jammed — with no window anywhere to say what went wrong. Here it runs as
-the user, in their own directory, with a progress bar, a readable error and a retry button.
-
-It is not a new requirement either. The app already has to download a 464 MB model on first use,
-so first use already needs the network.
-
-This module runs on the SYSTEM python, before the venv exists. It may therefore import only the
-standard library and Qt — Qt because the .deb depends on the Debian package, so it is guaranteed
-present. Nothing from `dito` beyond this file.
-"""
+"""First-run setup of the user venv, with a window — see docs/armadilhas.md 6.4."""
 
 from __future__ import annotations
 
@@ -21,17 +8,14 @@ import sys
 import threading
 from pathlib import Path
 
+from .i18n import _
+from .i18n import setup as setup_language
+
 APP_DIR = Path("/usr/lib/dito")
 VENV_DIR = Path(
     os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
 ) / "dito" / "venv"
 LOCK = APP_DIR / "requirements.lock"
-
-TITLE = "Preparando o Dito"
-INTRO = (
-    "Faltam alguns componentes que o Debian não empacota.\n"
-    "São cerca de 50 MB, uma vez só."
-)
 
 
 def venv_python() -> Path:
@@ -39,6 +23,7 @@ def venv_python() -> Path:
 
 
 def ready() -> bool:
+    """True when the venv exists and the packages it was built for actually import."""
     if not venv_python().exists():
         return False
     try:
@@ -64,21 +49,20 @@ def _requirements() -> list[str]:
 
 
 def install(progress=None) -> tuple[bool, str]:
-    """Create the venv and install what is missing. Returns (ok, message in pt-BR)."""
+    """Create the venv and install what Debian does not package. Returns (ok, message)."""
     say = progress or (lambda _m: None)
     try:
         VENV_DIR.parent.mkdir(parents=True, exist_ok=True)
         if not venv_python().exists():
-            say("criando o ambiente…")
-            # --system-site-packages is load-bearing: it is what lets pip see the Qt, numpy and
-            # onnxruntime already installed by apt instead of downloading ~250 MB of wheels.
+            say(_("creating the environment…"))
+            # --system-site-packages is what lets pip reuse the apt Qt/numpy/onnxruntime.
             subprocess.run(
                 [sys.executable, "-m", "venv", "--system-site-packages", str(VENV_DIR)],
                 check=True,
                 capture_output=True,
             )
 
-        say("baixando os componentes…")
+        say(_("downloading the components…"))
         done = subprocess.run(
             [str(venv_python()), "-m", "pip", "install", "--upgrade", *_requirements()],
             capture_output=True,
@@ -86,20 +70,17 @@ def install(progress=None) -> tuple[bool, str]:
         )
         if done.returncode != 0:
             tail = (done.stderr or done.stdout or "").strip().splitlines()
-            reason = tail[-1] if tail else "o pip falhou sem dizer o motivo"
-            return False, f"não consegui baixar os componentes.\n{reason}"
+            reason = tail[-1] if tail else _("pip failed without saying why")
+            return False, f"{_('could not download the components.')}\n{reason}"
     except subprocess.CalledProcessError as exc:
         tail = (exc.stderr or b"").decode(errors="replace").strip().splitlines()
-        return False, tail[-1] if tail else "falha ao criar o ambiente"
+        return False, tail[-1] if tail else _("could not create the environment")
     except OSError as exc:
         return False, str(exc)
 
     if not ready():
-        return False, "o ambiente foi criado mas os componentes não carregam"
-    return True, "pronto"
-
-
-# ---------------------------------------------------------------------------------------
+        return False, _("the environment was created but the components do not load")
+    return True, _("ready")
 
 
 def _run_with_window() -> int:
@@ -122,22 +103,25 @@ def _run_with_window() -> int:
     signals = Signals()
 
     window = QWidget()
-    window.setWindowTitle(TITLE)
+    window.setWindowTitle(_("Setting up Dito"))
     window.resize(460, 0)
     layout = QVBoxLayout(window)
     layout.setContentsMargins(28, 24, 28, 24)
     layout.setSpacing(12)
 
-    heading = QLabel(TITLE)
+    heading = QLabel(_("Setting up Dito"))
     heading.setStyleSheet("font-size: 20px; font-weight: 600;")
     layout.addWidget(heading)
 
-    body = QLabel(INTRO)
+    body = QLabel(
+        _("A few components are missing that Debian does not package.\n"
+          "About 50 MB, once.")
+    )
     body.setWordWrap(True)
     layout.addWidget(body)
 
     bar = QProgressBar()
-    bar.setRange(0, 0)          # indeterminate: pip does not report a usable total
+    bar.setRange(0, 0)          # indeterminate: pip reports no usable total
     layout.addWidget(bar)
 
     status = QLabel("")
@@ -146,9 +130,9 @@ def _run_with_window() -> int:
 
     buttons = QHBoxLayout()
     buttons.addStretch(1)
-    retry = QPushButton("Tentar de novo")
+    retry = QPushButton(_("Try again"))
     retry.hide()
-    close = QPushButton("Fechar")
+    close = QPushButton(_("Close"))
     close.hide()
     buttons.addWidget(retry)
     buttons.addWidget(close)
@@ -171,7 +155,7 @@ def _run_with_window() -> int:
         bar.hide()
         if ok:
             state["code"] = 0
-            status.setText("Tudo pronto. Abrindo o Dito…")
+            status.setText(_("All set. Opening Dito…"))
             QTimer.singleShot(600, app.quit)
             return
         status.setText(message)
@@ -192,10 +176,10 @@ def _run_with_window() -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
+    setup_language(os.environ.get("DITO_LANG", "auto"))
 
+    # Set by the autostart entry: a login must never start a large download with no window.
     if os.environ.get("DITO_BOOTSTRAP") == "never":
-        # Set by the autostart entry: a login must never trigger a large download with no window
-        # to explain it. The daemon simply does not start until the user opens the app once.
         return 0
 
     if ready():
@@ -208,8 +192,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         return _run_with_window()
-    except Exception as exc:      # noqa: BLE001 - last resort, must still install
-        print(f"[aviso] sem janela ({type(exc).__name__}); seguindo pelo terminal", flush=True)
+    except Exception as exc:      # noqa: BLE001 - last resort, the install still has to happen
+        print(f"[{_('warning')}] {type(exc).__name__}", flush=True)
         ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
         print(message)
         return 0 if ok else 1
