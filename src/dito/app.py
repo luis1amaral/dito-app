@@ -16,6 +16,8 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
@@ -24,6 +26,7 @@ from . import config as cfgmod
 from . import paths
 from .audio.level import State as AudioState
 from .core import events as ev
+from .core import publish
 from .core.session import Mode, Session
 from .output import paste as paster
 from .platform.linux_x11 import audio_system, instance, notify
@@ -187,7 +190,11 @@ class DitoApp:
 
     def _finish(self, session: Session) -> None:
         result = session.stop()
-        if isinstance(result, ev.Finished) and result.text and self.cfg.output.paste:
+        if not isinstance(result, ev.Finished) or result.mode == MEETING:
+            # A meeting is written to a file, never pasted: dumping an hour of transcript into
+            # whatever field happens to have focus would be a small catastrophe.
+            return
+        if result.text and self.cfg.output.paste:
             outcome = paster.paste(
                 result.text,
                 send_enter=self.cfg.output.enter,
@@ -223,6 +230,9 @@ class DitoApp:
 
         elif isinstance(event, ev.Finished):
             self._on_finished(event)
+
+        elif isinstance(event, ev.Published):
+            self._on_published(event)
 
         elif isinstance(event, ev.Failed):
             self.overlay.show_toast("Não deu para colar", event.reason)
@@ -267,11 +277,7 @@ class DitoApp:
             self._last_text = event.text
             self.tray.set_last_text(event.text)
             if event.mode == MEETING:
-                minutos = int(event.seconds // 60)
-                palavras = len(event.text.split())
-                self.overlay.show_toast(
-                    "Reunião salva", f"{minutos} min · {palavras} palavras"
-                )
+                self._publish_meeting(event)
             else:
                 self.overlay.dismiss()
         elif not event.ever_heard_audio:
@@ -286,6 +292,53 @@ class DitoApp:
             )
         else:
             self.overlay.show_toast("Nada reconhecido")
+        if self._window is not None and self._window.isVisible():
+            self._window.sessions.reload()
+
+    def _publish_meeting(self, event: ev.Finished) -> None:
+        """Ask for a subject, then write text + audio + note off the UI thread.
+
+        The prompt lands immediately after the user deliberately pressed stop, which is the one
+        moment a dialog is expected rather than an interruption — and a meeting without a name is
+        a file nobody finds again. Escape keeps the timestamp.
+        """
+        from PySide6.QtWidgets import QInputDialog
+
+        self.overlay.show_working("salvando a reunião…")
+        started = datetime.now() - timedelta(seconds=event.seconds)
+        default = f"reuniao-{started:%H%M}"
+
+        subject, accepted = QInputDialog.getText(
+            self._window, "Reunião", "Assunto da reunião:", text=default
+        )
+        subject = (subject or default).strip() if accepted else default
+
+        def work() -> None:
+            result = publish.publish_meeting(
+                Path(event.folder), event.text, event.seconds, started, self.cfg, subject
+            )
+            self.bridge.event.emit(
+                ev.Published(
+                    folder=str(result.folder),
+                    note=str(result.note) if result.note else None,
+                    note_in_vault=result.note_in_vault,
+                    minutes=int(event.seconds // 60),
+                    words=len(event.text.split()),
+                    warning=result.warnings[0] if result.warnings else None,
+                )
+            )
+
+        threading.Thread(target=work, daemon=True, name="dito-publish").start()
+
+    def _on_published(self, event: ev.Published) -> None:
+        detail = f"{event.minutes} min · {event.words} palavras"
+        if event.warning:
+            self.overlay.show_toast("Reunião salva, com ressalva", event.warning, ms=6000)
+            notify.notify("Dito — reunião salva", event.warning)
+        else:
+            where = "nota no cofre" if event.note_in_vault else "nota junto da gravação"
+            self.overlay.show_toast("Reunião salva", f"{detail} · {where}")
+            notify.notify("Dito — reunião salva", f"{detail}\n{event.folder}")
         if self._window is not None and self._window.isVisible():
             self._window.sessions.reload()
 

@@ -78,6 +78,17 @@ class Finished:
 
 
 @dataclass(frozen=True)
+class Published:
+    """A meeting that reached the library: text written, audio compressed, note attempted."""
+    folder: str
+    note: str | None
+    note_in_vault: bool
+    minutes: int
+    words: int
+    warning: str | None = None
+
+
+@dataclass(frozen=True)
 class Failed:
     session_id: str
     reason: str
@@ -86,5 +97,5 @@ class Failed:
 
 
 Event = (
-    Started | Level | AudioAlarm | Partial | PhaseChanged | Finished | Failed
+    Started | Level | AudioAlarm | Partial | PhaseChanged | Finished | Published | Failed
 )

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <title>Dito — gravando</title>
+  <!-- Solid, where idle is hollow: that is the difference a person reads at 22 px without
+       looking at the colour. The core is `primary`, not `danger`, so that red in the panel keeps
+       meaning exactly one thing — the alarm.
+
+       The #f7f7f9 keyline is painted first as fill+stroke and the coloured core on top as fill
+       only, so the ring sits INSIDE the silhouette: the icon keeps the same outer size as the
+       other two states, and it survives a dark panel where indigo alone would not. -->
+  <path d="M 6.5 3.5 H 15 A 5.5 5.5 0 0 1 15 14.5 H 8.5 L 3.5 20.5 V 6.5 A 3 3 0 0 1 6.5 3.5 Z"
+        fill="#f7f7f9" stroke="#f7f7f9" stroke-width="2.5"
+        stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M 6.5 3.5 H 15 A 5.5 5.5 0 0 1 15 14.5 H 8.5 L 3.5 20.5 V 6.5 A 3 3 0 0 1 6.5 3.5 Z"
+        fill="#4b3bd4"/>
+  <!-- Tray meter: shorter than the one in icon.svg because the keyline eats 1.25 units of the
+       body. Redrawn for this size, not scaled down. -->
+  <rect x="7.15" y="7" width="2.5" height="4" rx="1.25" fill="#f7f7f9"/>
+  <rect x="11.15" y="5.2" width="2.5" height="7.6" rx="1.25" fill="#f7f7f9"/>
+  <rect x="15.15" y="6.3" width="2.5" height="5.4" rx="1.25" fill="#f7f7f9"/>
+</svg>
