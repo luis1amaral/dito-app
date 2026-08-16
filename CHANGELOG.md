@@ -1,5 +1,74 @@
 # CHANGELOG — Dito
 
+## 2026-08-15 — interface, marca, reunião no Obsidian e pacote `.deb`
+
+### O quê
+
+1. **Sistema visual** (`ui/theme.py`) — toda cor, espaço, raio, tamanho e duração saem de um lugar
+   só. Cor nomeada por PAPEL, então claro e escuro atravessam **sem um `if`** em nenhum widget.
+2. **Movimento com mola de verdade** (`ui/spring.py`) — `QPropertyAnimation` interpola entre dois
+   pontos num tempo fixo; re-mirar no meio faz ela reiniciar do que ela achar que era o começo,
+   que é o salto visível das interfaces desleixadas. Mola só tem valor atual, velocidade e alvo.
+3. **A pílula flutuante** (`ui/overlay.py`) — nunca toma foco (o texto vai para o campo onde você
+   estava). O alarme é alto em **três canais independentes**: a onda vira linha reta (forma), a
+   pílula enche de vermelho (cor) e ela treme uma vez (movimento, que pega visão periférica).
+4. **Bandeja, janela e captura de tecla** — nada abre no login; a janela vem do menu ou da
+   bandeja, e uma segunda execução do binário fala com a que já roda em vez de criar outra.
+5. **Reunião completa** — corta em trechos e transcreve durante, salva texto + Opus em
+   `~/Documentos/Dito` e escreve a nota no cofre no formato da skill `reuniao`.
+6. **Marca própria** — balão de fala com a onda dentro, e três ícones de bandeja.
+7. **Pacote `.deb`** de 111 KB, publicável no `apt.defaltm.com`.
+
+### Decisões de projeto que valem registro
+
+- **`pip install` no `postinst` está fora.** Como root, escreve fora do controle do dpkg, contraria
+  a política do Debian, e um `postinst` que falha trava o apt sem nenhuma janela para explicar.
+  O bootstrap roda na primeira execução, como usuário, com barra e botão de tentar de novo. E não
+  é exigência nova: o app já precisa baixar o modelo de 464 MB no primeiro uso.
+- **O `.deb` tem que ser fino** — o Cloudflare Pages, onde o `apt.defaltm.com` mora, **não serve
+  arquivo acima de 25 MiB**. Não é preferência, é a hospedagem.
+- **Reunião não cola.** Ditado cola onde o cursor está; despejar uma hora de transcrição no campo
+  em foco seria uma pequena catástrofe.
+- **O Dito não resume.** A nota sai com a transcrição e as seções prontas para preencher.
+- **O áudio não entra no cofre por padrão** — é repo git com auto-commit.
+- **Reunião não tem limite de tempo** (`max_horas = 0`). No lugar de um teto existe aviso de disco
+  cheio, que avisa e nunca interrompe.
+
+### Como foi verificado
+
+**140 testes verdes**, `ruff` limpo. Os que provam algo que não daria para afirmar de outro jeito:
+
+- Contraste **por papel** nos dois temas (4.5 conteúdo, 3.0 dica e contorno de controle).
+- O alarme desenha uma **forma diferente**, medido renderizando os dois estados fora da tela.
+- Os três ícones de bandeja se distinguem **só pela silhueta a 22 px** (idle×recording 22,5%,
+  idle×alert 49,6%, recording×alert 36,2%).
+- O chunker empurrando **3 horas** de fala contínua nunca segura mais que 45 s de áudio, e todo
+  sample que entra sai exatamente uma vez.
+- Cofre inexistente não é criado e a reunião não se perde; biblioteca sem permissão de escrita cai
+  na pasta da sessão; assunto `../../etc/passwd` não escapa da pasta.
+- Opus medido: WAV 5,7 MB → 519 kB; 3 h ≈ 31 MB. O WAV só é apagado depois de o Opus ser
+  **decodificado de volta** e conferido.
+
+### Defeitos encontrados pela própria verificação, antes de sair
+
+- **A trava de instância única do código antigo nunca funcionou.** `voice_type.py:1120` chamava
+  `claim_single_instance()` e **descartava o retorno**, então o CPython fechava o socket na hora.
+  Provado: o Dito tomou a mesma trava com o ditado antigo rodando, e `ss -x -l` não mostrava o
+  nome. Dois ditados sempre puderam rodar juntos colando tudo em dobro.
+- **No tema escuro, branco sobre o `danger` media 2,77** — ilegível, no único estado que justifica
+  o produto existir. A pílula agora tem superfície própria, igual nos dois temas, medida em 5,18.
+- O contorno de controle media 1,95 contra os 3,0 que a WCAG 1.4.11 pede; o cartão media 1,079
+  contra a página e não lia como outro plano.
+- O `QScrollArea` não herda o fundo da janela e pintava **faixas brancas** entre os cartões.
+- Um teste falhava pelo motivo errado: o XTest injeta no servidor X, não num processo, então duas
+  execuções simultâneas apertam as teclas uma da outra. Agora há trava entre processos.
+
+### Corrigido no meio do caminho, por medição
+
+Um teste meu estava errado, não o código: âmbar e vermelho diferem **0,19** em razão de contraste,
+o que não prova nada — razão de contraste mede só luminância, e matiz não pontua. O teste passou a
+medir matiz, e a garantia não-colorida é a onda virando linha reta.
+
 ## 2026-08-15 — ditado de ponta a ponta sem interface, com atalho configurável
 
 ### O quê
