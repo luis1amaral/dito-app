@@ -8,9 +8,9 @@ window; what stays here is diagnosis and one-shot jobs: `doctor`, `selftest`, `t
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 from . import __version__, config, paths
@@ -18,6 +18,8 @@ from .audio import devices
 from .audio.capture import BLOCKSIZE, Capture, CaptureError
 from .audio.level import Reading, State, Watchdog, measure
 from .audio.writer import WavWriter
+from .i18n import _
+from .i18n import setup as setup_language
 from .platform.linux_x11 import alsa_mixer, audio_system
 
 OK = "\033[32m"
@@ -39,42 +41,44 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     cfg = config.load()
     problems = 0
 
-    print("\nDito — diagnóstico\n")
+    print("\n" + _("Dito — diagnosis") + "\n")
 
-    print(" configuração")
+    print(" " + _("configuration"))
     cfg_path = paths.config_file()
-    _line("arquivo", str(cfg_path) if cfg_path.exists() else f"{cfg_path} (ainda não existe)",
+    _line(_("file"),
+          str(cfg_path) if cfg_path.exists()
+          else _("{path} (does not exist yet)").format(path=cfg_path),
           OK if cfg_path.exists() else DIM)
-    _line("tecla de ditado", cfg.hotkeys.push_to_talk.upper())
-    _line("tecla de reunião", cfg.hotkeys.meeting_toggle.upper())
-    _line("biblioteca", str(cfg.library_dir()))
+    _line(_("dictation key"), cfg.hotkeys.push_to_talk.upper())
+    _line(_("meeting key"), cfg.hotkeys.meeting_toggle.upper())
+    _line(_("library"), str(cfg.library_dir()))
 
-    print("\n microfone")
+    print("\n " + _("microphone"))
     inputs = devices.list_inputs()
     if not inputs:
-        _line("entradas", "nenhuma encontrada", BAD)
+        _line(_("inputs"), _("none found"), BAD)
         problems += 1
     else:
         for d in inputs:
-            _line("entrada" if d.default else "", str(d), OK if d.default else DIM)
+            _line(_("input") if d.default else "", str(d), OK if d.default else DIM)
 
     if devices.missing(cfg.audio.device):
-        _line("configurado", devices.describe(cfg.audio.device), BAD)
+        _line(_("configured"), devices.describe(cfg.audio.device), BAD)
         problems += 1
     else:
-        _line("em uso", devices.describe(cfg.audio.device))
+        _line(_("in use"), devices.describe(cfg.audio.device))
 
-    print("\n servidor de áudio")
+    print("\n " + _("audio server"))
     if not audio_system.available():
-        _line("pactl", "não instalado — sem detecção de mute", WARN)
+        _line("pactl", _("not installed — no mute detection"), WARN)
     else:
         health = audio_system.health()
-        _line("fonte padrão", health.name or "desconhecida", DIM)
+        _line(_("default source"), health.name or _("unknown"), DIM)
         muted = health.muted
-        _line("mudo", {True: "SIM", False: "não", None: "não sei"}[muted],
+        _line(_("muted"), {True: _("YES"), False: _("no"), None: _("can't tell")}[muted],
               BAD if muted else (OK if muted is False else WARN))
         vol = health.volume
-        _line("volume", f"{vol}%" if vol is not None else "não sei",
+        _line(_("volume"), f"{vol}%" if vol is not None else _("can't tell"),
               BAD if (vol is not None and vol < 5) else OK)
         if health.blocks_recording:
             problems += 1
@@ -83,16 +87,17 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         # `Capture 0 [0%]`, and the mic delivers silence with every pactl reading looking fine.
         gain = alsa_mixer.capture_gain(alsa_mixer.card_of_source(health.name))
         if not gain.checked:
-            _line("ganho no hardware", "não foi possível checar", DIM)
+            _line(_("hardware gain"), _("could not be checked"), DIM)
         elif gain.silent:
-            _line("ganho no hardware", gain.reason or "silencioso", BAD)
-            _line("", f"corrigir: {gain.fix_command}", DIM)
+            _line(_("hardware gain"), gain.reason or _("silent"), BAD)
+            _line("", _("fix: {command}").format(command=gain.fix_command), DIM)
             problems += 1
         else:
             atuais = ", ".join(f"{c.name} {c.pct}%" for c in gain.controls)
-            _line("ganho no hardware", f"card {gain.card} — {atuais}")
+            _line(_("hardware gain"),
+                  _("card {card} — {controls}").format(card=gain.card, controls=atuais))
 
-    print("\n modelo")
+    print("\n " + _("model"))
     cache = Path.home() / ".cache" / "huggingface" / "hub"
     hits = list(cache.glob(f"models--*faster-whisper-{cfg.stt.model}")) if cache.exists() else []
     if hits:
@@ -103,15 +108,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             for f in hits[0].rglob("*")
             if f.is_file() and not f.is_symlink()
         )
-        _line(cfg.stt.model, f"em cache ({size / 1e6:.0f} MB)")
+        _line(cfg.stt.model, _("cached ({size} MB)").format(size=f"{size / 1e6:.0f}"))
     else:
-        _line(cfg.stt.model, "não baixado — baixa no primeiro uso", WARN)
+        _line(cfg.stt.model, _("not downloaded — downloads on first use"), WARN)
 
     print()
     if problems:
-        print(_paint(f" {problems} problema(s) que impedem ou prejudicam o ditado.\n", BAD))
+        message = _("{count} problem(s) preventing or hurting dictation.").format(count=problems)
+        print(_paint(f" {message}\n", BAD))
     else:
-        print(_paint(" tudo pronto.\n", OK))
+        print(_paint(" " + _("all set.") + "\n", OK))
     return 1 if problems else 0
 
 
@@ -133,15 +139,15 @@ def cmd_selftest(args: argparse.Namespace) -> int:
     paths.ensure_dirs()
 
     sample_rate = devices.SAMPLE_RATE
-    stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    wav_path = paths.session_audio(f"{stamp}_selftest")
+    wav_path = paths.selftest_audio()
 
     alerts = cfg.audio.alerts
     watchdog = Watchdog(dead_ms=alerts.dead_ms, quiet_ms=alerts.quiet_ms)
 
     source = args.source
-    print(f"\n selftest — fonte «{source}», {args.seconds:g}s")
-    print(f" gravando em {wav_path}\n")
+    print("\n " + _("selftest — source «{source}», {seconds}s").format(
+        source=source, seconds=f"{args.seconds:g}"))
+    print(" " + _("recording to {path}").format(path=wav_path) + "\n")
 
     capture: Capture | None = None
     if source == "mic":
@@ -150,7 +156,7 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         try:
             capture.start()
         except CaptureError as exc:
-            print(_paint(f" microfone indisponível: {exc}", BAD))
+            print(_paint(" " + _("microphone unavailable: {error}").format(error=exc), BAD))
             return 2
 
     t0 = time.monotonic()
@@ -181,17 +187,17 @@ def cmd_selftest(args: argparse.Namespace) -> int:
                     writer.write(audio)
                     state, first_alarm = _tick(watchdog, reading, now, t0, state, first_alarm)
         except KeyboardInterrupt:
-            print("\n interrompido")
+            print("\n " + _("interrupted"))
         finally:
             if capture is not None:
                 capture.stop()
 
     size = wav_path.stat().st_size if wav_path.exists() else 0
-    print("\n resultado")
-    _line("blocos", str(blocks), DIM)
-    _line("pico máximo", f"{peak_max:.4f}", OK if peak_max >= 0.004 else BAD)
-    _line("estado final", state.value, OK if state is State.OK else BAD)
-    _line("alarme em", f"{first_alarm:.2f}s" if first_alarm else "não disparou",
+    print("\n " + _("result"))
+    _line(_("blocks"), str(blocks), DIM)
+    _line(_("highest peak"), f"{peak_max:.4f}", OK if peak_max >= 0.004 else BAD)
+    _line(_("final state"), state.value, OK if state is State.OK else BAD)
+    _line(_("alarm at"), f"{first_alarm:.2f}s" if first_alarm else _("did not fire"),
           OK if first_alarm else DIM)
     _line("wav", f"{size / 1024:.0f} kB  ({size and (size - 44) / 2 / sample_rate:.1f}s)",
           OK if size > 44 else BAD)
@@ -216,9 +222,9 @@ def _tick(
         elapsed = now - t0
         color = {State.OK: OK, State.QUIET: WARN, State.DEAD: BAD}[state]
         label = {
-            State.OK: "áudio voltou",
-            State.QUIET: "AUDIO MUITO BAIXO",
-            State.DEAD: "SEM ÁUDIO — o microfone não está captando",
+            State.OK: _("audio is back"),
+            State.QUIET: _("AUDIO TOO LOW"),
+            State.DEAD: _("NO AUDIO — the microphone is not picking up"),
         }[state]
         print(f"  {elapsed:6.2f}s  {_paint(label, color)}")
         if state is not State.OK and first_alarm is None:
@@ -281,18 +287,21 @@ def _listen_headless(args: argparse.Namespace) -> int:
             return
         if isinstance(event, ev.AudioAlarm):
             if event.state.value == "dead":
-                print(f"  {_paint('SEM ÁUDIO — ' + (event.reason or ''), BAD)}")
+                dead = _("NO AUDIO — {reason}").format(reason=event.reason or "")
+                print(f"  {_paint(dead, BAD)}")
                 if event.fix_hint:
-                    print(f"  {_paint('corrigir: ' + event.fix_hint, DIM)}")
+                    fix = _("fix: {command}").format(command=event.fix_hint)
+                    print(f"  {_paint(fix, DIM)}")
             elif event.state.value == "quiet":
-                print(f"  {_paint('áudio muito baixo', WARN)}")
+                print(f"  {_paint(_('audio too low'), WARN)}")
             else:
-                print(f"  {_paint('áudio voltou', OK)}")
+                print(f"  {_paint(_('audio is back'), OK)}")
         elif isinstance(event, ev.Partial):
             print(f"  {_paint(f'[{event.end_s:.0f}s]', DIM)} {event.text}")
         elif isinstance(event, ev.Failed):
             print(f"  {_paint(event.reason, BAD)}")
-            print(f"  {_paint('o áudio está em ' + (event.folder or '?'), DIM)}")
+            where = _("the audio is in {folder}").format(folder=event.folder or "?")
+            print(f"  {_paint(where, DIM)}")
 
     def begin(name: str) -> None:
         mode = Mode.MEETING if name == "meeting" else Mode.DICTATION
@@ -301,7 +310,7 @@ def _listen_headless(args: argparse.Namespace) -> int:
                 return
             session = Session(cfg, mode, engine, emit=show, on_log=lambda m: print(f"  {m}"))
             current[name] = session
-        print(f"\n● {'reunião' if mode is Mode.MEETING else 'gravando'}…")
+        print(f"\n● {_('meeting') if mode is Mode.MEETING else _('recording')}…")
         if not session.start().ok:
             with lock:
                 current.pop(name, None)
@@ -311,15 +320,16 @@ def _listen_headless(args: argparse.Namespace) -> int:
             session = current.pop(name, None)
         if session is None:
             return
-        print("  transcrevendo…")
+        print("  " + _("transcribing…"))
         result = session.stop()
         if not isinstance(result, ev.Finished):
             return
         if not result.text:
-            aviso = ("nada reconhecido — e o microfone não captou nada"
-                     if not result.ever_heard_audio else "nada reconhecido")
+            aviso = (_("nothing recognized — and the microphone picked nothing up")
+                     if not result.ever_heard_audio else _("nothing recognized"))
             print(f"  {_paint(aviso, BAD if not result.ever_heard_audio else WARN)}")
-            print(f"  {_paint('o áudio ficou guardado em ' + result.folder, DIM)}")
+            kept = _("the audio was kept in {folder}").format(folder=result.folder)
+            print(f"  {_paint(kept, DIM)}")
             return
         print(f"  → {result.text}")
         if cfg.output.paste and not args.no_paste:
@@ -340,10 +350,12 @@ def _listen_headless(args: argparse.Namespace) -> int:
     manager.bind("dictation", ptt, KeyMode.HOLD)
     manager.bind("meeting", meeting_key, KeyMode.TOGGLE)
 
-    print(f"\n Dito {__version__} — pronto.")
-    print(f"   segure {_paint(ptt.upper(), OK)} e fale; solte para transcrever")
-    print(f"   {_paint(meeting_key.upper(), OK)} liga e desliga a reunião (sem limite de tempo)")
-    print("   Ctrl+C encerra.\n")
+    print(f"\n Dito {__version__} — " + _("ready."))
+    print("   " + _("hold {key} and speak; release to transcribe").format(
+        key=_paint(ptt.upper(), OK)))
+    print("   " + _("{key} starts and stops the meeting (no time limit)").format(
+        key=_paint(meeting_key.upper(), OK)))
+    print("   " + _("Ctrl+C exits.") + "\n")
 
     manager.start()
     try:
@@ -351,7 +363,7 @@ def _listen_headless(args: argparse.Namespace) -> int:
             time.sleep(1.0)
             engine.unload_if_idle()
     except KeyboardInterrupt:
-        print("\n encerrado.")
+        print("\n " + _("finished."))
     finally:
         manager.stop()
         with lock:
@@ -368,9 +380,9 @@ def cmd_status(args: argparse.Namespace) -> int:
 
     reply = instance.send(instance.STATUS)
     if reply is None:
-        print(_paint(" parado", DIM))
+        print(_paint(" " + _("stopped"), DIM))
         return 1
-    print(f" {_paint('ouvindo', OK)} — {reply}")
+    print(f" {_paint(_('listening'), OK)} — {reply}")
     return 0
 
 
@@ -378,49 +390,53 @@ def cmd_stop(args: argparse.Namespace) -> int:
     from .platform.linux_x11 import instance
 
     if instance.send(instance.QUIT) is None:
-        print(_paint(" já estava parado", DIM))
+        print(_paint(" " + _("it was already stopped"), DIM))
         return 0
-    print(" parado.")
+    print(" " + _("stopped."))
     return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="dito", description="Ditado por voz offline.")
+    p = argparse.ArgumentParser(prog="dito", description=_("Offline voice dictation."))
     p.add_argument("--version", action="version", version=f"dito {__version__}")
     subs = p.add_subparsers(dest="comando")
 
-    d = subs.add_parser("doctor", help="checa microfone, mute, volume, modelo e configuração")
+    d = subs.add_parser(
+        "doctor", help=_("checks microphone, mute, volume, model and configuration")
+    )
     d.set_defaults(func=cmd_doctor)
 
-    s = subs.add_parser("selftest", help="grava alguns segundos e prova o alarme de áudio")
+    s = subs.add_parser("selftest", help=_("records a few seconds and proves the audio alarm"))
     s.add_argument("--seconds", type=float, default=5.0)
     s.add_argument("--source", choices=("mic", "zeros"), default="mic",
-                   help="«zeros» simula o microfone mudo sem precisar de microfone")
+                   help=_("«zeros» simulates a muted microphone with no microphone needed"))
     s.add_argument("--device", default=None)
     s.set_defaults(func=cmd_selftest)
 
-    ui = subs.add_parser("ui", help="abre a janela do Dito")
+    ui = subs.add_parser("ui", help=_("opens the Dito window"))
     ui.set_defaults(func=cmd_ui)
 
-    listen = subs.add_parser("listen", help="sobe o ditado na bandeja, sem abrir janela")
+    listen = subs.add_parser("listen", help=_("starts dictation in the tray, with no window"))
     listen.add_argument("--headless", action="store_true",
-                        help="sem Qt: só terminal, para depurar a cadeia sem a interface")
-    listen.add_argument("--key", default=None, help="sobrepõe a tecla de ditado (ex.: f7)")
-    listen.add_argument("--meeting-key", default=None, help="sobrepõe a tecla de reunião")
-    listen.add_argument("--no-paste", action="store_true", help="só imprime, não cola")
-    listen.add_argument("--no-enter", action="store_true", help="cola sem dar Enter")
+                        help=_("no Qt: terminal only, to debug the chain without the interface"))
+    listen.add_argument("--key", default=None, help=_("overrides the dictation key (e.g. f7)"))
+    listen.add_argument("--meeting-key", default=None, help=_("overrides the meeting key"))
+    listen.add_argument("--no-paste", action="store_true", help=_("only prints, does not paste"))
+    listen.add_argument("--no-enter", action="store_true", help=_("pastes without pressing Enter"))
     listen.set_defaults(func=cmd_listen)
 
-    st = subs.add_parser("status", help="diz se o ditado está ouvindo, na hora")
+    st = subs.add_parser("status", help=_("says whether dictation is listening, right now"))
     st.set_defaults(func=cmd_status)
 
-    stop = subs.add_parser("stop", help="encerra o ditado que está rodando")
+    stop = subs.add_parser("stop", help=_("shuts down the dictation that is running"))
     stop.set_defaults(func=cmd_stop)
 
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Before the parser is built: argparse keeps the help strings it was given.
+    setup_language(os.environ.get("DITO_LANG") or config.load().ui.language)
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "func", None):

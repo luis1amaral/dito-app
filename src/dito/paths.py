@@ -60,6 +60,12 @@ def session_partials(session_id: str) -> Path:
     return sessions_dir() / f"{session_id}{PARTIALS_SUFFIX}"
 
 
+def selftest_audio() -> Path:
+    """Outside sessions/: a diagnostic is not a recording, and seven of them once showed up in
+    the window as «to recover». One file, overwritten each run."""
+    return state_dir() / "selftest.wav"
+
+
 def log_file() -> Path:
     return state_dir() / "dito.log"
 

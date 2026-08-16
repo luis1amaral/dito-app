@@ -6,6 +6,8 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 
+from ...i18n import _
+
 DEFAULT_SOURCE = "@DEFAULT_SOURCE@"
 _TIMEOUT = 2.0
 
@@ -88,9 +90,9 @@ class SourceHealth:
     @property
     def reason(self) -> str | None:
         if self.muted is True:
-            return "o microfone está mudo no sistema"
+            return _("the microphone is muted in the system")
         if self.volume is not None and self.volume < 5:
-            return f"o volume de entrada está em {self.volume}%"
+            return _("the input volume is at {pct}%").format(pct=self.volume)
         return None
 
 

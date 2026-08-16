@@ -232,6 +232,10 @@ class Motion:
     MOMENTUM_RESPONSE = 0.30
     MOMENTUM_DAMPING = 0.8
 
+    # A 20 px knob at the window's response reads as sluggish: travel is short, so time must be.
+    CONTROL_RESPONSE = 0.22
+    SPINNER_MS = 1000
+
     # Feedback has to be immediate on press: the moment lag appears, directness falls off a cliff.
     PRESS_MS = 100
     # Measured against reading speed, not taste: "Salvo" at 900 ms is gone before the eye lands.
@@ -257,9 +261,23 @@ class Size:
     SWITCH_W = 44
     SWITCH_H = 24
     SWITCH_KNOB = 18
+    SWITCH_KNOB_PRESSED = 22
     SPINNER = 16
+    CHEVRON = 10
+    # A number needs a number's worth of width; a full-card spin box reads as an empty field.
+    FIELD_W_SM = 140
     FOCUS_RING = 2
     HAIRLINE = 1
+
+
+class Alpha:
+    """Opacity is a token too, or the same wash gets re-invented at three different strengths."""
+
+    FOCUS_RING = 0.5
+    SPINNER_TRACK = 0.25
+    # Near-opaque, not frosted: there is no reliable backdrop blur here and fake frost reads dirty.
+    HUD_SURFACE = 0.96
+    REVIEW_SURFACE = 0.97
 
 
 # ---- Contrast: a requirement, and the threshold depends on the role --------------------
@@ -295,8 +313,14 @@ CONTRAST_FLOOR = {
 # ---- Qt stylesheet, generated from the tokens above — never written by hand ------------
 
 
+# A live window is re-themed by swapping the sheet that carries its marker — see ui/live.py.
+APP_MARKER = "/* dito-theme:app */"
+HUD_MARKER = "/* dito-theme:hud */"
+
+
 def stylesheet(p: Palette) -> str:
-    return f"""
+    """The app's whole look. Every component in ui/components.py styles itself from here."""
+    return f"""{APP_MARKER}
 * {{
     font-family: {Type.FAMILY};
     font-size: {Type.BODY}px;
@@ -305,6 +329,8 @@ def stylesheet(p: Palette) -> str:
 QWidget#root, QDialog, QMainWindow {{
     background: {p.bg};
 }}
+
+/* ---- text roles: four sizes, hierarchy from weight and colour ---- */
 QLabel[role="display"] {{
     font-size: {Type.DISPLAY}px;
     font-weight: {Type.SEMIBOLD};
@@ -316,36 +342,75 @@ QLabel[role="title"] {{
     font-weight: {Type.SEMIBOLD};
     color: {p.text_primary};
 }}
+/* The label is quieter than the value it names — the MarkUp signature. Still AA on surface. */
+QLabel[role="label"] {{ font-weight: {Type.MEDIUM}; color: {p.text_secondary}; }}
 QLabel[role="secondary"] {{ color: {p.text_secondary}; }}
 QLabel[role="hint"] {{
     color: {p.text_muted};
     font-size: {Type.CAPTION}px;
 }}
-QLabel[role="danger"] {{ color: {p.danger}; font-weight: {Type.MEDIUM}; }}
-
-QFrame[role="card"] {{
-    background: {p.surface};
-    border: 1px solid {p.border};
-    border-radius: {Radius.CARD}px;
+QLabel[role="danger"] {{
+    color: {p.danger};
+    font-size: {Type.CAPTION}px;
+    font-weight: {Type.MEDIUM};
+}}
+QLabel[role="mono"] {{
+    font-family: {Type.MONO};
+    font-size: {Type.CAPTION}px;
+    color: {p.text_muted};
 }}
 
+/* ---- containers ---- */
+QFrame[role="card"] {{
+    background: {p.surface};
+    border: {Size.HAIRLINE}px solid {p.border};
+    border-radius: {Radius.CARD}px;
+}}
+QFrame[role="divider"] {{
+    background: {p.border};
+    border: none;
+    max-height: {Size.HAIRLINE}px;
+    min-height: {Size.HAIRLINE}px;
+}}
+
+/* ---- badge: neutral is a grey step, every status is its role colour filled ---- */
+QLabel[role="badge"] {{
+    padding: {Space.XS}px {Space.SM}px;
+    border-radius: {Radius.CONTROL}px;
+    background: {p.surface_alt};
+    color: {p.text_secondary};
+    font-size: {Type.CAPTION}px;
+    font-weight: {Type.MEDIUM};
+}}
+QLabel[role="badge"][tone="primary"] {{ background: {p.primary}; color: {p.text_inverse}; }}
+QLabel[role="badge"][tone="success"] {{ background: {p.success}; color: {p.text_inverse}; }}
+QLabel[role="badge"][tone="alert"] {{ background: {p.alert}; color: {p.text_inverse}; }}
+QLabel[role="badge"][tone="danger"] {{ background: {p.danger}; color: {p.text_inverse}; }}
+
+/* ---- button: size sets geometry, variant sets colour, so the two never fight ---- */
 QPushButton {{
     min-height: {Size.CONTROL_H}px;
     padding: 0 {Space.LG}px;
     border-radius: {Radius.CONTROL}px;
-    border: 1px solid {p.border_strong};
+    border: {Size.HAIRLINE}px solid {p.border_strong};
     background: {p.surface};
     color: {p.text_primary};
     font-weight: {Type.MEDIUM};
 }}
-QPushButton:hover {{ background: {p.surface_alt}; }}
-QPushButton:pressed {{ background: {p.border}; }}
-QPushButton:disabled {{ color: {p.text_muted}; border-color: {p.border}; }}
-QPushButton:focus {{ outline: none; border: 2px solid {p.focus_ring}; }}
+QPushButton[size="sm"] {{ min-height: {Size.CONTROL_H_SM}px; padding: 0 {Space.MD}px; }}
+QPushButton[size="lg"] {{ min-height: {Size.CONTROL_H_LG}px; padding: 0 {Space.XL}px; }}
+/* Hover on an outlined control darkens the EDGE one step; filling is the ghost/list idiom. */
+QPushButton:hover {{ border-color: {p.text_muted}; }}
+QPushButton:pressed {{ border-color: {p.text_primary}; background: {p.surface_alt}; }}
+/* The focus ring is painted, not styled: a border that grows on focus moves the layout by 1px. */
+QPushButton:focus {{ outline: none; border-color: {p.focus_ring}; }}
+QPushButton:disabled {{
+    background: {p.surface_alt}; color: {p.text_muted}; border-color: {p.border};
+}}
 
 QPushButton[variant="primary"] {{
     background: {p.primary};
-    border: 1px solid {p.primary};
+    border-color: {p.primary};
     color: {p.text_inverse};
     font-weight: {Type.SEMIBOLD};
 }}
@@ -355,49 +420,89 @@ QPushButton[variant="primary"]:hover {{
 QPushButton[variant="primary"]:pressed {{
     background: {p.primary_active}; border-color: {p.primary_active};
 }}
+QPushButton[variant="primary"]:focus {{ border-color: {p.focus_ring}; }}
+QPushButton[variant="primary"]:disabled {{
+    background: {p.surface_alt}; color: {p.text_muted}; border-color: {p.border};
+}}
+
 QPushButton[variant="danger"] {{
-    background: {p.danger}; border: 1px solid {p.danger}; color: {p.text_inverse};
+    background: {p.danger};
+    border-color: {p.danger};
+    color: {p.text_inverse};
+    font-weight: {Type.SEMIBOLD};
 }}
 QPushButton[variant="danger"]:hover {{
     background: {p.danger_hover}; border-color: {p.danger_hover};
 }}
+QPushButton[variant="danger"]:pressed {{
+    background: {p.danger_active}; border-color: {p.danger_active};
+}}
+QPushButton[variant="danger"]:disabled {{
+    background: {p.surface_alt}; color: {p.text_muted}; border-color: {p.border};
+}}
+
 QPushButton[variant="ghost"] {{
-    background: transparent; border: 1px solid transparent; color: {p.text_secondary};
+    background: transparent; border-color: transparent; color: {p.text_secondary};
 }}
 QPushButton[variant="ghost"]:hover {{ background: {p.surface_alt}; color: {p.text_primary}; }}
+QPushButton[variant="ghost"]:pressed {{ background: {p.border}; }}
+QPushButton[variant="ghost"]:disabled {{ background: transparent; border-color: transparent; }}
 
+/* A key name is a value, not prose, and the recorder is the button's seventh state. */
+QPushButton[mono="true"] {{ font-family: {Type.MONO}; }}
+QPushButton[capturing="true"] {{
+    border-color: {p.primary}; color: {p.primary}; font-weight: {Type.SEMIBOLD};
+}}
+
+/* ---- field, select, spin ---- */
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit, QTextEdit {{
     min-height: {Size.CONTROL_H}px;
     padding: 0 {Space.MD}px;
-    border: 1px solid {p.border_strong};
+    border: {Size.HAIRLINE}px solid {p.border_strong};
     border-radius: {Radius.CONTROL}px;
     background: {p.surface};
+    color: {p.text_primary};
     selection-background-color: {p.primary};
     selection-color: {p.text_inverse};
 }}
 QPlainTextEdit, QTextEdit {{ padding: {Space.SM}px {Space.MD}px; }}
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QPlainTextEdit:focus, QTextEdit:focus {{
-    border: 2px solid {p.focus_ring};
+QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover {{
+    border-color: {p.text_muted};
 }}
-QLineEdit:disabled, QComboBox:disabled {{ color: {p.text_muted}; background: {p.surface_alt}; }}
+QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover {{ background: {p.surface_alt}; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus,
+QPlainTextEdit:focus, QTextEdit:focus {{
+    outline: none; border-color: {p.focus_ring};
+}}
+QLineEdit[invalid="true"], QComboBox[invalid="true"], QPlainTextEdit[invalid="true"] {{
+    border-color: {p.danger};
+}}
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{
+    color: {p.text_muted}; background: {p.surface_alt}; border-color: {p.border};
+}}
 QComboBox::drop-down {{ border: none; width: {Space.XXL}px; }}
+/* Qt's own arrow is a bitmap that ignores the theme; ui/components.py paints the chevron. */
+QComboBox::down-arrow {{ image: none; width: 0; height: 0; }}
 QComboBox QAbstractItemView {{
     background: {p.surface};
-    border: 1px solid {p.border};
+    border: {Size.HAIRLINE}px solid {p.border};
+    border-radius: {Radius.CONTROL}px;
+    padding: {Space.XS}px;
+    outline: none;
     selection-background-color: {p.primary};
     selection-color: {p.text_inverse};
 }}
-
-QCheckBox {{ spacing: {Space.SM}px; min-height: {Size.TOUCH_TARGET}px; }}
-QCheckBox::indicator {{
-    width: 18px; height: 18px;
-    border: 1px solid {p.border_strong};
-    border-radius: {Radius.CONTROL // 2}px;
-    background: {p.surface};
+QComboBox QAbstractItemView::item {{
+    min-height: {Size.CONTROL_H_SM}px;
+    padding: 0 {Space.SM}px;
+    border-radius: {Radius.CONTROL - Space.XS}px;
 }}
-QCheckBox::indicator:checked {{ background: {p.primary}; border-color: {p.primary}; }}
-QCheckBox::indicator:focus {{ border: 2px solid {p.focus_ring}; }}
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
+    width: {Space.LG}px; border: none; background: transparent;
+}}
 
+/* ---- tabs ---- */
 QTabWidget::pane {{ border: none; background: transparent; }}
 QTabBar::tab {{
     padding: {Space.SM}px {Space.LG}px;
@@ -441,4 +546,62 @@ QToolTip {{
     padding: {Space.SM}px {Space.MD}px;
     border-radius: {Radius.CONTROL}px;
 }}
+"""
+
+
+def hud_stylesheet(p: Palette) -> str:
+    """The pill and the review card: same anatomy, the `hud_*` set instead of the theme's.
+
+    It is a widget-level sheet on purpose. See docs/armadilhas.md 7.6: a local sheet REPLACES the
+    app's for that subtree, so the scrollbar rules have to be repeated here or Qt draws its arrows.
+    """
+    return f"""{HUD_MARKER}
+* {{
+    font-family: {Type.FAMILY};
+    font-size: {Type.BODY}px;
+    color: {p.hud_text};
+}}
+QLabel[role="hud-title"] {{ font-weight: {Type.SEMIBOLD}; color: {p.hud_text}; }}
+QLabel[role="hud-hint"] {{ font-size: {Type.CAPTION}px; color: {p.hud_muted}; }}
+QLabel[role="hud-clock"] {{ font-family: {Type.MONO}; color: {p.hud_muted}; }}
+
+QPushButton {{
+    min-height: {Size.CONTROL_H}px;
+    padding: 0 {Space.LG}px;
+    border-radius: {Radius.CONTROL}px;
+    border: {Size.HAIRLINE}px solid transparent;
+    font-weight: {Type.MEDIUM};
+}}
+QPushButton[size="sm"] {{ min-height: {Size.CONTROL_H_SM}px; padding: 0 {Space.MD}px; }}
+QPushButton[variant="hud-solid"] {{
+    background: {p.hud_text}; color: {p.hud_surface}; font-weight: {Type.SEMIBOLD};
+}}
+QPushButton[variant="hud-solid"]:hover {{ background: {p.hud_solid_hover}; }}
+QPushButton[variant="hud-solid"]:pressed {{ background: {p.hud_solid_active}; }}
+QPushButton[variant="hud-outline"] {{
+    background: transparent; color: {p.hud_text}; border-color: {p.hud_edge};
+}}
+QPushButton[variant="hud-outline"]:hover {{ background: {p.hud_wash}; }}
+QPushButton[variant="hud-outline"]:pressed {{ background: {p.hud_wash_strong}; }}
+QPushButton:disabled {{ color: {p.hud_muted}; background: {p.hud_wash}; }}
+
+QPlainTextEdit {{
+    background: {p.hud_field};
+    color: {p.hud_text};
+    border: {Size.HAIRLINE}px solid {p.hud_edge};
+    border-radius: {Radius.CONTROL}px;
+    padding: {Space.SM}px {Space.MD}px;
+    selection-background-color: {p.hud_text};
+    selection-color: {p.hud_surface};
+}}
+QPlainTextEdit:focus {{ outline: none; border-color: {p.hud_text}; }}
+
+QScrollBar:vertical {{ background: transparent; width: {Space.SM}px; margin: 0; }}
+QScrollBar::handle:vertical {{
+    background: {p.hud_edge};
+    border-radius: {Space.XS}px;
+    min-height: {Space.XXL}px;
+}}
+QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}
+QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 """

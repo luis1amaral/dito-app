@@ -11,6 +11,7 @@ from pathlib import Path
 
 from ..config import Config
 from ..core.library import AUDIO_FILES
+from ..i18n import _
 
 # Leaves room for the date prefix and a `-12` collision suffix on every filesystem.
 SLUG_MAX = 60
@@ -39,7 +40,7 @@ class MeetingNote:
 class WrittenNote:
     path: Path
     in_vault: bool
-    # Why the note did not reach the vault, in pt-BR and ready to show. `None` when it did.
+    # Why the note did not reach the vault, translated and ready to show. `None` when it did.
     reason: str | None = None
 
 
@@ -60,7 +61,7 @@ def write_meeting_note(note: MeetingNote, cfg: Config) -> WrittenNote:
         try:
             return WrittenNote(_write(folder, stem, note, cfg), in_vault=True)
         except OSError as exc:
-            reason = f"não consegui escrever em {folder}: {exc}"
+            reason = _("could not write in {folder}: {error}").format(folder=folder, error=exc)
 
     note.folder.mkdir(parents=True, exist_ok=True)
     return WrittenNote(_write(note.folder, stem, note, cfg), in_vault=False, reason=reason)
@@ -69,13 +70,15 @@ def write_meeting_note(note: MeetingNote, cfg: Config) -> WrittenNote:
 def _vault_folder(cfg: Config) -> tuple[Path | None, str | None]:
     vault = cfg.vault_dir()
     if not vault.is_dir():
-        return None, f"o cofre {vault} não existe — a nota ficou junto da gravação"
+        return None, _(
+            "the vault {vault} does not exist — the note stayed next to the recording"
+        ).format(vault=vault)
 
     folder = vault / cfg.meeting.obsidian.folder
     try:
         folder.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        return None, f"não consegui criar {folder}: {exc}"
+        return None, _("could not create {folder}: {error}").format(folder=folder, error=exc)
     return folder, None
 
 

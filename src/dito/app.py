@@ -28,6 +28,8 @@ from .audio.level import State as AudioState
 from .core import events as ev
 from .core import publish
 from .core.session import Mode, Session
+from .i18n import _
+from .i18n import setup as setup_language
 from .output import paste as paster
 from .platform.linux_x11 import audio_system, instance, notify
 from .platform.linux_x11.focus import FocusBroker
@@ -70,6 +72,8 @@ class DitoApp:
     # ---- lifecycle -------------------------------------------------------------------
 
     def run(self) -> int:
+        # Before any widget: a string translated at construction time cannot change afterwards.
+        setup_language(self.cfg.ui.language)
         try:
             self._lock = instance.claim()
         except instance.AlreadyRunning:
@@ -77,7 +81,7 @@ class DitoApp:
             # one to show its window, which is what they actually wanted.
             if instance.send(instance.SHOW):
                 return 0
-            print("já existe um ditado rodando.")
+            print(_("dictation is already running."))
             return 1
 
         paths.ensure_dirs()
@@ -170,7 +174,7 @@ class DitoApp:
 
         for session in live:
             try:
-                print("[saindo] finalizando a gravação em andamento…", flush=True)
+                print("[exiting] finishing the recording in progress…", flush=True)
                 result = session.stop()
                 if isinstance(result, ev.Finished) and result.mode == MEETING and result.text:
                     started = datetime.now() - timedelta(seconds=result.seconds)
@@ -179,7 +183,7 @@ class DitoApp:
                         self.cfg, f"reuniao-{started:%H%M}",
                     )
             except Exception as exc:
-                self._log_error(f"ao finalizar a gravação: {type(exc).__name__}: {exc}")
+                self._log_error(f"while finishing the recording: {type(exc).__name__}: {exc}")
 
         self.hotkeys.stop()
         self.control.stop()
@@ -216,9 +220,10 @@ class DitoApp:
             ok = session.start().ok
         except Exception as exc:
             ok = False
-            self._log_error(f"não consegui começar a gravar: {type(exc).__name__}: {exc}")
+            self._log_error(f"could not start recording: {type(exc).__name__}: {exc}")
             self.bridge.event.emit(
-                ev.Failed(session.session_id, f"não consegui começar a gravar: {exc}",
+                ev.Failed(session.session_id,
+                          _("could not start recording: {error}").format(error=exc),
                           str(session.folder))
             )
         if not ok:
@@ -226,7 +231,7 @@ class DitoApp:
                 self._sessions.pop(name, None)
 
     def _log_error(self, message: str) -> None:
-        print(f"[erro] {message}", flush=True)
+        print(f"[error] {message}", flush=True)
 
     def _end(self, name: str) -> None:
         with self._sessions_lock:
@@ -285,7 +290,9 @@ class DitoApp:
                 self.tray.set_transcribing()
 
         elif isinstance(event, ev.Partial):
-            self.overlay.show_working(f"{int(event.end_s // 60)} min transcritos")
+            self.overlay.show_working(
+                _("{minutes} min transcribed").format(minutes=int(event.end_s // 60))
+            )
 
         elif isinstance(event, ev.Finished):
             self._on_finished(event)
@@ -294,7 +301,7 @@ class DitoApp:
             self._on_published(event)
 
         elif isinstance(event, ev.Failed):
-            self.overlay.show_toast("Não deu para colar", event.reason)
+            self.overlay.show_toast(_("Could not paste"), event.reason)
             notify.notify("Dito", event.reason, urgent=False)
             self.tray.set_ready(
                 self.cfg.hotkeys.push_to_talk, self.cfg.hotkeys.meeting_toggle
@@ -302,11 +309,11 @@ class DitoApp:
 
     def _on_alarm(self, event: ev.AudioAlarm) -> None:
         if event.state is AudioState.DEAD:
-            self.overlay.show_dead(event.reason, "Corrigir" if event.fix_hint else None)
-            self.tray.set_alarm(event.reason or "o microfone não está captando")
+            self.overlay.show_dead(event.reason, _("Fix") if event.fix_hint else None)
+            self.tray.set_alarm(event.reason or _("the microphone is not picking up"))
             self._ring(event.reason)
         elif event.state is AudioState.QUIET:
-            self.overlay.show_quiet(event.reason or "áudio muito baixo")
+            self.overlay.show_quiet(event.reason or _("audio too low"))
         else:
             self._alarm_ringing = False
             self.overlay.show_recording(meeting=MEETING in self._sessions)
@@ -325,8 +332,8 @@ class DitoApp:
             notify.alarm_sound()
         if self.cfg.audio.alerts.notify and first:
             notify.notify(
-                "Dito — SEM ÁUDIO",
-                reason or "o microfone não está captando nada",
+                _("Dito — NO AUDIO"),
+                reason or _("the microphone is not picking anything up"),
                 urgent=True,
             )
 
@@ -345,15 +352,17 @@ class DitoApp:
         elif not event.ever_heard_audio:
             # The exact failure this project exists for. Never a silent no-op.
             self.overlay.show_dead(
-                "nada foi captado — o áudio está guardado, dá para tentar de novo", None
+                _("nothing was picked up — the audio is saved, you can try again"), None
             )
             notify.notify(
-                "Dito — nada foi captado",
-                f"o microfone não entregou áudio. A gravação está em {event.folder}",
+                _("Dito — nothing was picked up"),
+                _("the microphone delivered no audio. The recording is in {folder}").format(
+                    folder=event.folder
+                ),
                 urgent=True,
             )
         else:
-            self.overlay.show_toast("Nada reconhecido")
+            self.overlay.show_toast(_("Nothing recognized"))
         if self._window is not None and self._window.isVisible():
             self._window.sessions.reload()
 
@@ -366,12 +375,12 @@ class DitoApp:
         """
         from PySide6.QtWidgets import QInputDialog
 
-        self.overlay.show_working("salvando a reunião…")
+        self.overlay.show_working(_("saving the meeting…"))
         started = datetime.now() - timedelta(seconds=event.seconds)
         default = f"reuniao-{started:%H%M}"
 
         subject, accepted = QInputDialog.getText(
-            self._window, "Reunião", "Assunto da reunião:", text=default
+            self._window, _("Meeting"), _("Meeting subject:"), text=default
         )
         subject = (subject or default).strip() if accepted else default
 
@@ -393,25 +402,30 @@ class DitoApp:
                     warning=result.warnings[0] if result.warnings else None,
                 )
             except Exception as exc:
-                self._log_error(f"ao salvar a reunião: {type(exc).__name__}: {exc}")
+                self._log_error(f"while saving the meeting: {type(exc).__name__}: {exc}")
                 published = ev.Published(
                     folder=event.folder, note=None, note_in_vault=False,
                     minutes=minutes, words=words,
-                    warning=f"não consegui salvar a reunião: {exc}",
+                    warning=_("could not save the meeting: {error}").format(error=exc),
                 )
             self.bridge.event.emit(published)
 
         threading.Thread(target=work, daemon=True, name="dito-publish").start()
 
     def _on_published(self, event: ev.Published) -> None:
-        detail = f"{event.minutes} min · {event.words} palavras"
+        detail = _("{minutes} min · {words} words").format(
+            minutes=event.minutes, words=event.words
+        )
         if event.warning:
-            self.overlay.show_toast("Reunião salva, com ressalva", event.warning, ms=6000)
-            notify.notify("Dito — reunião salva", event.warning)
+            self.overlay.show_toast(_("Meeting saved, with a caveat"), event.warning, ms=6000)
+            notify.notify(_("Dito — meeting saved"), event.warning)
         else:
-            where = "nota no cofre" if event.note_in_vault else "nota junto da gravação"
-            self.overlay.show_toast("Reunião salva", f"{detail} · {where}")
-            notify.notify("Dito — reunião salva", f"{detail}\n{event.folder}")
+            where = (
+                _("note in the vault") if event.note_in_vault
+                else _("note next to the recording")
+            )
+            self.overlay.show_toast(_("Meeting saved"), f"{detail} · {where}")
+            notify.notify(_("Dito — meeting saved"), f"{detail}\n{event.folder}")
         if self._window is not None and self._window.isVisible():
             self._window.sessions.reload()
 
@@ -438,23 +452,23 @@ class DitoApp:
 
     def _review_discarded(self) -> None:
         self._pending = None
-        self.overlay.show_toast("Descartado", ms=1200)
+        self.overlay.show_toast(_("Discarded"), ms=1200)
 
     # ---- actions ---------------------------------------------------------------------
 
     def _fix_audio(self) -> None:
-        """The Corrigir button. Only ever does the thing the diagnosis named."""
+        """The Fix button. Only ever does the thing the diagnosis named."""
         if audio_system.is_muted():
             audio_system.unmute()
         volume = audio_system.volume_pct()
         if volume is not None and volume < 5:
             audio_system.set_volume(80)
-        self.overlay.show_toast("Tentei desmutar", "fale de novo para conferir")
+        self.overlay.show_toast(_("Tried to unmute"), _("speak again to check"))
 
     def _copy_last(self) -> None:
         if self._last_text:
             paster.copy(self._last_text)
-            self.overlay.show_toast("Copiado")
+            self.overlay.show_toast(_("Copied"))
 
     def _set_paused(self, paused: bool) -> None:
         self._paused = paused
@@ -508,11 +522,16 @@ class DitoApp:
         if command == instance.PING:
             return "ok"
         if command == instance.STATUS:
-            estado = "pausado" if self._paused else "ouvindo"
-            return (
-                f"{estado} · {self.cfg.hotkeys.push_to_talk.upper()} dita, "
-                f"{self.cfg.hotkeys.meeting_toggle.upper()} reunião · "
-                f"modelo {self.cfg.stt.model} ({self.engine.backend})"
+            state = _("paused") if self._paused else _("listening")
+            return _(
+                "{state} · {dictation_key} dictates, {meeting_key} meeting · "
+                "model {model} ({backend})"
+            ).format(
+                state=state,
+                dictation_key=self.cfg.hotkeys.push_to_talk.upper(),
+                meeting_key=self.cfg.hotkeys.meeting_toggle.upper(),
+                model=self.cfg.stt.model,
+                backend=self.engine.backend,
             )
         return "?"
 
@@ -527,8 +546,9 @@ class DitoApp:
         """Say it before the first key press, not after 99 seconds of speech."""
         health = audio_system.health()
         if health.blocks_recording:
-            self.tray.set_alarm(health.reason or "microfone indisponível")
-            notify.notify("Dito", health.reason or "microfone indisponível", urgent=True)
+            reason = health.reason or _("microphone unavailable")
+            self.tray.set_alarm(reason)
+            notify.notify("Dito", reason, urgent=True)
 
 
 def run(show_window: bool = False, cfg: cfgmod.Config | None = None) -> int:

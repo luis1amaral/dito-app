@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .. import config as cfgmod
+from ..i18n import _
 from ..output import notes
 
 
@@ -21,7 +22,7 @@ class Published:
     @property
     def message(self) -> str:
         """One line for the pill. Warnings win: silence is what caused this project to exist."""
-        return self.warnings[0] if self.warnings else "reunião salva"
+        return self.warnings[0] if self.warnings else _("meeting saved")
 
 
 def _unique(folder: Path) -> Path:
@@ -51,7 +52,7 @@ def publish_meeting(
         target.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         # The library is the user's folder and may be unwritable; Dito's own space keeps it.
-        warnings.append(f"não consegui criar {target}: {exc}")
+        warnings.append(_("could not create {folder}: {error}").format(folder=target, error=exc))
         target = _unique(session_folder / name)
         target.mkdir(parents=True, exist_ok=True)
 
@@ -75,7 +76,7 @@ def publish_meeting(
         if written.reason:
             warnings.append(written.reason)
     except OSError as exc:
-        warnings.append(f"não consegui escrever a nota: {exc}")
+        warnings.append(_("could not write the note: {error}").format(error=exc))
 
     return Published(
         folder=target,

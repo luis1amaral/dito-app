@@ -5,6 +5,8 @@ from __future__ import annotations
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 
+from .theme import Alpha, Size
+
 SHADOW_SPREAD = 14      # px of padding the window reserves around the card for the shadow
 SHADOW_OFFSET = 5       # px downward: light comes from above
 SHADOW_LAYERS = 9
@@ -43,6 +45,19 @@ def paint_floating_surface(
 
     if border is not None:
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(border, 1))
+        painter.setPen(QPen(border, Size.HAIRLINE))
         painter.drawPath(path)
         painter.setPen(NO_PEN)
+
+
+def paint_focus_ring(painter: QPainter, rect: QRectF, radius: float, color: QColor) -> None:
+    """Painted INSIDE the widget: Qt clips at the widget rect, so an outside ring never shows."""
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    ring = QColor(color)
+    ring.setAlphaF(Alpha.FOCUS_RING)
+    inset = Size.FOCUS_RING / 2
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.setPen(QPen(ring, Size.FOCUS_RING))
+    painter.drawRoundedRect(
+        rect.adjusted(inset, inset, -inset, -inset), radius - inset, radius - inset
+    )

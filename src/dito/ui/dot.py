@@ -24,6 +24,10 @@ class StatusDot(QWidget):
         self.setFixedSize(BOX, BOX)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
+    @property
+    def color(self) -> str:
+        return self._color.name()
+
     def configure(self, color: str, pulsing: bool) -> None:
         changed = self._color.name() != QColor(color).name() or self._pulsing != pulsing
         self._color = QColor(color)

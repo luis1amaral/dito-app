@@ -6,6 +6,8 @@ import threading
 import time
 from dataclasses import dataclass
 
+from ..i18n import _
+
 # See docs/armadilhas.md 4.2 and 4.3: Enter waits for the paste, the restore waits even longer.
 SETTLE_S = 0.05
 BEFORE_ENTER_S = 0.25
@@ -24,8 +26,8 @@ class PasteResult:
         if self.pasted:
             return None
         if self.copied:
-            return "não consegui colar — o texto está na área de transferência"
-        return "não consegui colar nem copiar — o texto está salvo na pasta da sessão"
+            return _("could not paste — the text is on the clipboard")
+        return _("could not paste or copy — the text is saved in the session folder")
 
 
 def copy(text: str) -> bool:
@@ -42,7 +44,7 @@ def copy(text: str) -> bool:
 def paste(text: str, send_enter: bool = False, restore_clipboard: bool = True) -> PasteResult:
     """Returns a result, never raises (armadilhas 4.4: the text used to be lost here)."""
     if not text:
-        return PasteResult(pasted=False, copied=False, error="texto vazio")
+        return PasteResult(pasted=False, copied=False, error="empty text")
 
     previous: str | None = None
     if restore_clipboard:
@@ -55,7 +57,7 @@ def paste(text: str, send_enter: bool = False, restore_clipboard: bool = True) -
 
     if not copy(text):
         return PasteResult(
-            pasted=False, copied=False, error="clipboard indisponível (falta xclip?)"
+            pasted=False, copied=False, error="clipboard unavailable (is xclip missing?)"
         )
 
     try:

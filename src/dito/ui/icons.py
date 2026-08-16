@@ -67,7 +67,8 @@ def _drawn(state: TrayState, palette: Palette, size: int) -> QIcon:
         path.lineTo(2 * unit, 20 * unit)
         path.closeSubpath()
         painter.drawPath(path)
-        painter.setBrush(QColor("#ffffff"))
+        # hud_text, not `text_inverse`: the mark sits on the red fill and must not flip (7.3).
+        painter.setBrush(QColor(palette.hud_text))
         painter.drawRect(QRectF(11 * unit, 9 * unit, 2 * unit, 6 * unit))
         painter.drawRect(QRectF(11 * unit, 16 * unit, 2 * unit, 2 * unit))
     else:

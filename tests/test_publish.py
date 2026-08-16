@@ -79,7 +79,7 @@ def test_a_missing_vault_is_not_created_and_the_meeting_still_lands(tmp_path, cf
     assert not (tmp_path / "notas").exists()
     assert not result.note_in_vault
     assert result.note is not None and result.note.exists()
-    assert result.warnings and "cofre" in result.warnings[0]
+    assert result.warnings and "vault" in result.warnings[0]
     assert result.transcript.exists(), "a ressalva na nota não pode custar a transcrição"
 
 
@@ -142,5 +142,5 @@ def test_message_prefers_the_warning_over_the_happy_path():
     """Silence about a problem is what this whole project exists to prevent."""
     quiet = publish.Published(Path("/tmp"), Path("/tmp/t.md"), None, False, ())
     loud = publish.Published(Path("/tmp"), Path("/tmp/t.md"), None, False, ("deu ruim",))
-    assert quiet.message == "reunião salva"
+    assert quiet.message == "meeting saved"
     assert loud.message == "deu ruim"

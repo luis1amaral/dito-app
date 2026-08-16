@@ -18,6 +18,7 @@ from ..audio.capture import Capture, CaptureError
 from ..audio.level import State as AudioState
 from ..audio.level import Watchdog
 from ..audio.writer import WavWriter
+from ..i18n import _
 from ..platform.linux_x11 import alsa_mixer, audio_system
 from ..stt.chunker import Chunker
 from . import events as ev
@@ -40,11 +41,13 @@ class Preflight:
 def preflight(device_setting: str) -> Preflight:
     """Refuses only on certainty — armadilhas 1.1: only the signal level knows a mic is dead."""
     if devices.missing(device_setting):
-        return Preflight(False, f"o microfone «{device_setting}» não está conectado")
+        return Preflight(
+            False, _("the microphone «{device}» is not connected").format(device=device_setting)
+        )
 
     health = audio_system.health()
     if health.blocks_recording:
-        return Preflight(False, health.reason, "desmutar")
+        return Preflight(False, health.reason, _("unmute"))
 
     gain = alsa_mixer.capture_gain(alsa_mixer.card_of_source(health.name))
     if gain.silent:
@@ -119,9 +122,9 @@ class Session:
         except CaptureError as exc:
             self._error = str(exc)
             self._write_meta("failed")
-            self.emit(ev.Failed(self.session_id, f"microfone indisponível: {exc}",
-                                str(self.folder)))
-            return Preflight(False, f"microfone indisponível: {exc}")
+            unavailable = _("microphone unavailable: {error}").format(error=exc)
+            self.emit(ev.Failed(self.session_id, unavailable, str(self.folder)))
+            return Preflight(False, unavailable)
 
         self._writer = WavWriter(self.wav_path, devices.SAMPLE_RATE)
         self._started_at = time.monotonic()
@@ -157,7 +160,11 @@ class Session:
         except Exception as exc:
             self._error = f"{type(exc).__name__}: {exc}"
             self._write_meta("transcribe_failed")
-            failed = ev.Failed(self.session_id, f"a transcrição falhou: {exc}", str(self.folder))
+            failed = ev.Failed(
+                self.session_id,
+                _("the transcription failed: {error}").format(error=exc),
+                str(self.folder),
+            )
             self.emit(ev.PhaseChanged(ev.Phase.FAILED))
             self.emit(failed)
             return failed
@@ -167,7 +174,7 @@ class Session:
                 if self._writer is not None:
                     self._writer.close()
             except Exception as exc:
-                self._log(f"[erro] não consegui fechar o áudio: {type(exc).__name__}: {exc}")
+                self._log(f"[error] could not close the audio: {type(exc).__name__}: {exc}")
             try:
                 if self.mode is Mode.MEETING:
                     self.engine.unpin()
@@ -230,11 +237,13 @@ class Session:
             if capture.error and not self._device_error:
                 # A PortAudio device error was recorded here and never surfaced (armadilhas 1.5).
                 self._device_error = capture.error
-                self._log(f"[erro] dispositivo: {self._device_error}")
+                self._log(f"[error] device: {self._device_error}")
                 self.emit(
                     ev.AudioAlarm(
                         state=AudioState.DEAD,
-                        reason=f"o microfone reportou um erro: {self._device_error}",
+                        reason=_("the microphone reported an error: {error}").format(
+                            error=self._device_error
+                        ),
                     )
                 )
             if capture.overflows > self._overflows_seen:
@@ -258,18 +267,20 @@ class Session:
         """Reported once, loudly; the loop goes on, because the watchdog still has to run."""
         if self._error:
             return
-        self._error = f"falha ao gravar em disco: {type(exc).__name__}: {exc}"
-        self._log(f"[erro] {self._error}")
+        self._error = _("writing to disk failed: {error}").format(
+            error=f"{type(exc).__name__}: {exc}"
+        )
+        self._log(f"[error] {self._error}")
         self.emit(ev.Failed(self.session_id, self._error, str(self.folder)))
 
     def _alarm_reason(self, state: AudioState) -> str | None:
         if state is AudioState.DEAD:
             # A live device delivering silence and one that stopped delivering read differently.
             if self._stalled:
-                return "o microfone parou de responder — o dispositivo pode ter caído"
-            return "o microfone não está captando nada"
+                return _("the microphone stopped responding — the device may have dropped")
+            return _("the microphone is not picking anything up")
         if state is AudioState.QUIET:
-            return "o áudio está muito baixo"
+            return _("the audio is too low")
         return None
 
     # ---- transcription ---------------------------------------------------------------
@@ -284,7 +295,7 @@ class Session:
         self._backlog.append(chunk)
         if not self._late:
             self._late = True
-            self._log("[aviso] transcrição atrasada — o áudio continua sendo gravado")
+            self._log("[warning] transcription is behind — the audio keeps being recorded")
 
     def _stt_loop(self) -> None:
         """Wrapped whole: one bad chunk must not end the loop and lose the meeting's text."""
@@ -295,7 +306,7 @@ class Session:
                     return
                 self._transcribe_chunk(chunk)
         except Exception as exc:
-            self._log(f"[erro] a transcrição da reunião parou: {type(exc).__name__}: {exc}")
+            self._log(f"[error] the meeting transcription stopped: {type(exc).__name__}: {exc}")
         finally:
             self._stt_alive = False
 
@@ -303,7 +314,7 @@ class Session:
         try:
             result = self.engine.transcribe(chunk.audio, beam=self.cfg.stt.beam_meeting)
         except Exception as exc:
-            self._log(f"[erro] trecho {chunk.index}: {type(exc).__name__}: {exc}")
+            self._log(f"[error] chunk {chunk.index}: {type(exc).__name__}: {exc}")
             return
         if not result.text:
             return
@@ -313,7 +324,7 @@ class Session:
             self._append_transcript(chunk, result.text)
         except OSError as exc:
             # The text is already in `_parts`; only the incremental copy on disk is lost here.
-            self._log(f"[aviso] não consegui anexar ao transcript.jsonl: {exc}")
+            self._log(f"[warning] could not append to transcript.jsonl: {exc}")
             self.emit(ev.Partial(chunk.index, chunk.start_s, chunk.end_s, result.text))
 
     def _append_transcript(self, chunk, text: str) -> None:
@@ -336,7 +347,7 @@ class Session:
                 self._stt_thread.join(timeout=600.0)
             # The backlog `_submit` deferred, in order: late, never lost (armadilhas 3.6).
             if self._backlog:
-                self._log(f"[reunião] {len(self._backlog)} trecho(s) atrasado(s) — transcrevendo")
+                self._log(f"[meeting] {len(self._backlog)} late chunk(s) — transcribing")
                 for chunk in self._backlog:
                     self._transcribe_chunk(chunk)
                 self._backlog.clear()
@@ -374,7 +385,7 @@ class Session:
             tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp.replace(self.meta_path)
         except OSError as exc:
-            self._log(f"[aviso] não consegui gravar {self.meta_path.name}: {exc}")
+            self._log(f"[warning] could not write {self.meta_path.name}: {exc}")
             return False
         return self._reads_back(text)
 
@@ -396,4 +407,4 @@ class Session:
         try:
             path.unlink(missing_ok=True)
         except OSError as exc:
-            self._log(f"[aviso] não consegui apagar {path.name}: {exc}")
+            self._log(f"[warning] could not delete {path.name}: {exc}")

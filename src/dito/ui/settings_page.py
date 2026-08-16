@@ -4,64 +4,54 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDoubleSpinBox,
-    QFileDialog,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QVBoxLayout, QWidget
 
 from .. import config as cfgmod
 from ..audio import devices
+from ..i18n import AUTO, DEFAULT, _
+from . import live
+from .components import (
+    Button,
+    Card,
+    ControlSize,
+    Field,
+    FormRow,
+    Row,
+    Select,
+    Spin,
+    Switch,
+)
 from .keycapture import KeyCapture
-from .theme import Palette, Space, Type
-
-MODELS = [
-    ("tiny", "tiny — o mais rápido, erra mais"),
-    ("base", "base"),
-    ("small", "small — equilíbrio (padrão)"),
-    ("medium", "medium — melhor, ~3× mais lento na CPU"),
-    ("large-v3", "large-v3 — o melhor, pesado"),
-]
+from .theme import Palette, Space
 
 
-def _section(title: str, p: Palette) -> tuple[QFrame, QVBoxLayout]:
-    card = QFrame()
-    card.setProperty("role", "card")
-    outer = QVBoxLayout(card)
-    outer.setContentsMargins(Space.XL, Space.LG, Space.XL, Space.LG)
-    outer.setSpacing(Space.MD)
-
-    heading = QLabel(title)
-    heading.setProperty("role", "title")
-    outer.addWidget(heading)
-    return card, outer
+def _models() -> list[tuple[str, str]]:
+    return [
+        ("tiny", _("tiny — the fastest, gets more wrong")),
+        ("base", _("base")),
+        ("small", _("small — the balance (default)")),
+        ("medium", _("medium — better, ~3× slower on the CPU")),
+        ("large-v3", _("large-v3 — the best, heavy")),
+    ]
 
 
-def _row(label: str, widget: QWidget, hint: str = "") -> QWidget:
-    """Label, hint, control: the gap inside a field must stay smaller than the gap between."""
-    holder = QWidget()
-    box = QVBoxLayout(holder)
-    box.setContentsMargins(0, 0, 0, 0)
-    box.setSpacing(Space.XS)
+def _themes() -> list[tuple[str, str]]:
+    return [
+        ("auto", _("Follow the system")),
+        ("light", _("Light")),
+        ("dark", _("Dark")),
+    ]
 
-    caption = QLabel(label)
-    box.addWidget(caption)
-    if hint:
-        note = QLabel(hint)
-        note.setProperty("role", "hint")
-        note.setWordWrap(True)
-        box.addWidget(note)
-    box.addWidget(widget)
-    return holder
+
+def _languages() -> list[tuple[str, str]]:
+    return [(AUTO, _("Follow the system")), (DEFAULT, "English"), ("pt_BR", "Português")]
+
+
+def _devices() -> list[tuple[str, str]]:
+    found = [("", _("System default"))]
+    found += [(d.name, d.name) for d in devices.list_inputs()]
+    return found
 
 
 class SettingsPage(QWidget):
@@ -89,19 +79,33 @@ class SettingsPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(Space.LG)
 
-        root.addWidget(self._hotkeys_section())
-        root.addWidget(self._audio_section())
-        root.addWidget(self._stt_section())
-        root.addWidget(self._meeting_section())
-        root.addWidget(self._library_section())
+        self._cards: list[Card] = []
+        for build in (
+            self._hotkeys_section,
+            self._audio_section,
+            self._stt_section,
+            self._meeting_section,
+            self._library_section,
+            self._appearance_section,
+        ):
+            card = build()
+            self._cards.append(card)
+            root.addWidget(card)
         root.addStretch(1)
 
+        # Built empty, filled here: one method owns every string, and it is the same one the
+        # language switch calls later.
+        self.retranslate()
         self._loading = False
+
+    def set_palette(self, palette: Palette) -> None:
+        self._palette = palette
 
     # ---- sections --------------------------------------------------------------------
 
-    def _hotkeys_section(self) -> QFrame:
-        card, box = _section("Atalhos", self._palette)
+    def _hotkeys_section(self) -> Card:
+        card = Card()
+        self._hotkeys_card = card
 
         self.ptt = KeyCapture(
             self.cfg.hotkeys.push_to_talk,
@@ -111,7 +115,7 @@ class SettingsPage(QWidget):
             on_capture_end=self._resume,
         )
         self.ptt.captured.connect(lambda k: self._set_key("push_to_talk", k))
-        self.ptt.rejected.connect(self.notice.emit)
+        self.ptt.rejected.connect(lambda m: self._reject(self._ptt_row, m))
 
         self.meeting = KeyCapture(
             self.cfg.hotkeys.meeting_toggle,
@@ -121,181 +125,196 @@ class SettingsPage(QWidget):
             on_capture_end=self._resume,
         )
         self.meeting.captured.connect(lambda k: self._set_key("meeting_toggle", k))
-        self.meeting.rejected.connect(self.notice.emit)
+        self.meeting.rejected.connect(lambda m: self._reject(self._meeting_row, m))
 
-        row = QHBoxLayout()
-        row.setSpacing(Space.LG)
-        row.addWidget(_row("Ditar (segurar)", self.ptt, "segure, fale, solte"), 1)
-        row.addWidget(
-            _row("Reunião (alternar)", self.meeting, "aperta para começar, aperta para parar"), 1
+        self._ptt_row = FormRow("", self.ptt, errorable=True)
+        self._meeting_row = FormRow("", self.meeting, errorable=True)
+        card.add(Row(self._ptt_row, self._meeting_row))
+
+        self.grab = Switch(
+            self.cfg.hotkeys.grab, on_toggle=lambda v: self._set("hotkeys", "grab", v)
         )
-        holder = QWidget()
-        holder.setLayout(row)
-        box.addWidget(holder)
-
-        self.grab = QCheckBox("Consumir a tecla (não deixa vazar para o campo de texto)")
-        self.grab.setChecked(self.cfg.hotkeys.grab)
-        self.grab.toggled.connect(lambda v: self._set("hotkeys", "grab", v))
-        box.addWidget(self.grab)
+        self._grab_row = FormRow("", self.grab, inline=True)
+        card.add(self._grab_row)
         return card
 
-    def _audio_section(self) -> QFrame:
-        card, box = _section("Microfone", self._palette)
+    def _audio_section(self) -> Card:
+        card = Card()
+        self._audio_card = card
 
-        self.device = QComboBox()
-        self.device.addItem("Padrão do sistema", "")
-        for d in devices.list_inputs():
-            self.device.addItem(d.name, d.name)
-        current = self.cfg.audio.device
-        index = self.device.findData(current) if current else 0
-        self.device.setCurrentIndex(index if index >= 0 else 0)
-        self.device.currentIndexChanged.connect(
-            lambda: self._set("audio", "device", self.device.currentData())
+        self.device = Select(
+            _devices(), on_change=lambda v: self._set("audio", "device", v)
         )
-        box.addWidget(
-            _row(
-                "Entrada",
-                self.device,
-                "guardado pelo nome, não pelo índice: o índice muda quando um USB entra ou sai",
-            )
+        self.device.set_value(self.cfg.audio.device or "")
+        self._device_row = FormRow("", self.device)
+        card.add(self._device_row)
+
+        self.alarm_sound = Switch(
+            self.cfg.audio.alerts.sound, on_toggle=lambda v: self._set_alert("sound", v)
         )
+        self._sound_row = FormRow("", self.alarm_sound, inline=True)
 
-        self.alarm_sound = QCheckBox("Tocar um som quando o microfone parar de captar")
-        self.alarm_sound.setChecked(self.cfg.audio.alerts.sound)
-        self.alarm_sound.toggled.connect(lambda v: self._set_alert("sound", v))
-        box.addWidget(self.alarm_sound)
-
-        self.alarm_notify = QCheckBox("Mostrar notificação do sistema junto")
-        self.alarm_notify.setChecked(self.cfg.audio.alerts.notify)
-        self.alarm_notify.toggled.connect(lambda v: self._set_alert("notify", v))
-        box.addWidget(self.alarm_notify)
+        self.alarm_notify = Switch(
+            self.cfg.audio.alerts.notify, on_toggle=lambda v: self._set_alert("notify", v)
+        )
+        self._notify_row = FormRow("", self.alarm_notify, inline=True)
+        card.add(self._sound_row, self._notify_row)
         return card
 
-    def _stt_section(self) -> QFrame:
-        card, box = _section("Transcrição", self._palette)
+    def _stt_section(self) -> Card:
+        card = Card()
+        self._stt_card = card
 
-        self.model = QComboBox()
-        for value, label in MODELS:
-            self.model.addItem(label, value)
-        idx = self.model.findData(self.cfg.stt.model)
-        self.model.setCurrentIndex(idx if idx >= 0 else 2)
-        self.model.currentIndexChanged.connect(
-            lambda: self._set("stt", "model", self.model.currentData())
+        self.model = Select(_models(), on_change=lambda v: self._set("stt", "model", v))
+        self.model.set_value(self.cfg.stt.model)
+        self._model_row = FormRow("", self.model)
+        card.add(self._model_row)
+
+        self.paste = Switch(
+            self.cfg.output.paste, on_toggle=lambda v: self._set("output", "paste", v)
         )
-        box.addWidget(
-            _row("Modelo", self.model, "trocar de modelo baixa os arquivos no primeiro uso")
+        self._paste_row = FormRow("", self.paste, inline=True)
+
+        self.enter = Switch(
+            self.cfg.output.enter, on_toggle=lambda v: self._set("output", "enter", v)
         )
+        self._enter_row = FormRow("", self.enter, inline=True)
+        card.add(self._paste_row, self._enter_row)
 
-        self.paste = QCheckBox("Colar o texto onde o cursor estiver")
-        self.paste.setChecked(self.cfg.output.paste)
-        self.paste.toggled.connect(lambda v: self._set("output", "paste", v))
-        box.addWidget(self.paste)
-
-        self.enter = QCheckBox("Dar Enter depois de colar")
-        self.enter.setChecked(self.cfg.output.enter)
-        self.enter.toggled.connect(lambda v: self._set("output", "enter", v))
-        box.addWidget(self.enter)
-
-        self.unload = QDoubleSpinBox()
-        self.unload.setRange(0, 240)
-        self.unload.setSuffix(" min")
+        self.unload = Spin(suffix=_(" min"), maximum=240)
         self.unload.setValue(self.cfg.stt.idle_unload_min)
-        self.unload.valueChanged.connect(lambda v: self._set("stt", "idle_unload_min", float(v)))
-        box.addWidget(
-            _row(
-                "Liberar a memória depois de",
-                self.unload,
-                "0 mantém o modelo carregado. Durante uma reunião ele nunca é liberado",
-            )
+        self.unload.valueChanged.connect(
+            lambda v: self._set("stt", "idle_unload_min", float(v))
         )
+        self._unload_row = FormRow("", self.unload)
+        card.add(self._unload_row)
         return card
 
-    def _meeting_section(self) -> QFrame:
-        card, box = _section("Reunião", self._palette)
+    def _meeting_section(self) -> Card:
+        card = Card()
+        self._meeting_card = card
 
-        note = QLabel(
-            "A reunião grava até você mandar parar — não há limite de tempo. "
-            "O Dito não resume: a nota sai com a transcrição e as seções prontas para preencher."
-        )
-        note.setProperty("role", "hint")
-        note.setWordWrap(True)
-        box.addWidget(note)
-
-        self.vault = QLineEdit(self.cfg.meeting.obsidian.vault)
+        self.vault = Field(self.cfg.meeting.obsidian.vault)
         self.vault.editingFinished.connect(
             lambda: self._set_obsidian("vault", self.vault.text().strip())
         )
-        box.addWidget(
-            _row(
-                "Cofre do Obsidian",
-                self.vault,
-                "se a pasta não existir, o Dito NÃO a cria — a nota fica na pasta da sessão",
-            )
-        )
-
-        self.save_audio = QCheckBox("Guardar o áudio da reunião")
-        self.save_audio.setChecked(self.cfg.meeting.save_audio)
-        self.save_audio.toggled.connect(lambda v: self._set("meeting", "save_audio", v))
-        box.addWidget(self.save_audio)
-
-        self.compress = QCheckBox("Comprimir para Opus quando terminar (3 h ≈ 32 MB)")
-        self.compress.setChecked(self.cfg.meeting.compress_audio)
-        self.compress.toggled.connect(lambda v: self._set("meeting", "compress_audio", v))
-        box.addWidget(self.compress)
-
-        self.copy_audio = QCheckBox("Copiar o áudio para dentro do cofre")
-        self.copy_audio.setChecked(self.cfg.meeting.obsidian.copy_audio)
-        self.copy_audio.setToolTip(
-            "Desligado por padrão: o cofre é repositório git com auto-commit, e dezenas de MB "
-            "commitados por engano são caros de tirar do histórico."
-        )
-        self.copy_audio.toggled.connect(lambda v: self._set_obsidian("copy_audio", v))
-        box.addWidget(self.copy_audio)
+        self._vault_row = FormRow("", self.vault)
+        card.add(self._vault_row)
         return card
 
-    def _library_section(self) -> QFrame:
-        card, box = _section("Onde ficam os arquivos", self._palette)
+    def _library_section(self) -> Card:
+        card = Card()
+        self._library_card = card
 
-        row = QHBoxLayout()
-        row.setSpacing(Space.SM)
-        self.library = QLineEdit(self.cfg.library.folder)
+        self.library = Field(self.cfg.library.folder)
         self.library.editingFinished.connect(
             lambda: self._set("library", "folder", self.library.text().strip())
         )
-        browse = QPushButton("Escolher…")
-        browse.clicked.connect(self._pick_library)
-        row.addWidget(self.library, 1)
-        row.addWidget(browse)
+        self._browse = Button(size=ControlSize.MD, on_click=self._pick_library)
+
         holder = QWidget()
-        holder.setLayout(row)
-        box.addWidget(_row("Pasta das transcrições", holder))
+        box = QHBoxLayout(holder)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(Space.SM)
+        box.addWidget(self.library, 1)
+        box.addWidget(self._browse)
 
-        self.theme = QComboBox()
-        for value, label in (("auto", "Seguir o sistema"), ("light", "Claro"), ("dark", "Escuro")):
-            self.theme.addItem(label, value)
-        idx = self.theme.findData(self.cfg.ui.theme)
-        self.theme.setCurrentIndex(idx if idx >= 0 else 0)
-        self.theme.currentIndexChanged.connect(
-            lambda: self._set("ui", "theme", self.theme.currentData())
-        )
-        box.addWidget(_row("Tema", self.theme))
-
-        self.autostart = QCheckBox("Iniciar junto com o sistema (sem abrir janela)")
-        self.autostart.setChecked(self.cfg.ui.autostart)
-        self.autostart.toggled.connect(lambda v: self._set("ui", "autostart", v))
-        box.addWidget(self.autostart)
+        self._library_row = FormRow("", holder)
+        card.add(self._library_row)
         return card
+
+    def _appearance_section(self) -> Card:
+        card = Card()
+        self._appearance_card = card
+
+        self.theme = Select(_themes(), on_change=self._set_theme)
+        self.theme.set_value(self.cfg.ui.theme)
+        self._theme_row = FormRow("", self.theme)
+
+        self.language = Select(_languages(), on_change=self._set_language)
+        self.language.set_value(self.cfg.ui.language)
+        self._language_row = FormRow("", self.language)
+
+        card.add(Row(self._theme_row, self._language_row))
+        return card
+
+    # ---- text ----------------------------------------------------------------------
+
+    def retranslate(self) -> None:
+        """Every visible string, re-read from the catalogue that is installed right now."""
+        self._hotkeys_card.set_heading(_("Shortcuts"))
+        self._ptt_row.set_texts(_("Dictate (hold)"), _("hold it, speak, let go"))
+        self._meeting_row.set_texts(
+            _("Meeting (toggle)"), _("press to start, press again to stop")
+        )
+        self._grab_row.set_texts(
+            _("Swallow the key"), _("keeps it from reaching the text box underneath")
+        )
+
+        self._audio_card.set_heading(_("Microphone"))
+        self._device_row.set_texts(
+            _("Input"),
+            _("kept by name, not by index: the index moves when a USB device comes or goes"),
+        )
+        self.device.set_options(_devices())
+        self._sound_row.set_texts(_("Play a sound when the microphone stops picking up"))
+        self._notify_row.set_texts(_("Show a system notification as well"))
+
+        self._stt_card.set_heading(_("Transcription"))
+        self._model_row.set_texts(
+            _("Model"), _("changing the model downloads it on first use")
+        )
+        self.model.set_options(_models())
+        self._paste_row.set_texts(_("Paste the text where the cursor is"))
+        self._enter_row.set_texts(_("Press Enter after pasting"))
+        self._unload_row.set_texts(
+            _("Free the memory after"),
+            _("0 keeps the model loaded. During a meeting it is never freed"),
+        )
+        self.unload.setSuffix(_(" min"))
+
+        self._meeting_card.set_heading(
+            _("Meeting"),
+            _(
+                "A meeting records until you stop it — there is no time limit. Dito does not "
+                "summarise: the note comes out with the transcript and empty sections to fill in."
+            ),
+        )
+        self._vault_row.set_texts(
+            _("Obsidian vault"),
+            _("if the folder does not exist Dito will NOT create it — the note stays in place"),
+        )
+
+        self._library_card.set_heading(
+            _("Where the files go"),
+            _("Only the text is kept. The audio is deleted as soon as it is transcribed."),
+        )
+        self._library_row.set_texts(_("Transcripts folder"))
+        self._browse.set_text(_("Choose…"))
+
+        self._appearance_card.set_heading(_("Appearance"))
+        self._theme_row.set_texts(_("Theme"))
+        self.theme.set_options(_themes())
+        self._language_row.set_texts(_("Language"))
+        self.language.set_options(_languages())
 
     # ---- persistence -----------------------------------------------------------------
 
     def _validate(self, key: str, owner: str) -> str | None:
         other = self._conflicts(key, owner)
+        if other == "dictation":
+            return _("that key is already the dictation one")
         if other:
-            nome = "ditar" if other == "dictation" else "reunião"
-            return f"essa tecla já é a de {nome}"
+            return _("that key is already the meeting one")
         return None
 
+    def _reject(self, row: FormRow, message: str) -> None:
+        row.set_error(message)
+        self.notice.emit(message)
+
     def _set_key(self, field: str, key: str) -> None:
+        self._ptt_row.set_error("")
+        self._meeting_row.set_error("")
         setattr(self.cfg.hotkeys, field, key)
         self._persist()
 
@@ -313,6 +332,20 @@ class SettingsPage(QWidget):
         setattr(self.cfg.meeting.obsidian, field, value)
         self._persist()
 
+    def _set_theme(self, value: str) -> None:
+        """Applied to every window already open; nobody restarts an app to see a colour."""
+        self._set("ui", "theme", value)
+        if not self._loading:
+            live.apply_theme(value)
+
+    def _set_language(self, value: str) -> None:
+        if self._loading:
+            return
+        self._set("ui", "language", value)
+        live.apply_language(value)
+        if not live.retranslates(self):
+            self.notice.emit(_("the rest of the window changes language next time it opens"))
+
     def _persist(self) -> None:
         if self._loading:
             return
@@ -321,13 +354,8 @@ class SettingsPage(QWidget):
 
     def _pick_library(self) -> None:
         chosen = QFileDialog.getExistingDirectory(
-            self, "Pasta das transcrições", self.library.text() or str(self.cfg.library_dir())
+            self, _("Transcripts folder"), self.library.text() or str(self.cfg.library_dir())
         )
         if chosen:
             self.library.setText(chosen)
             self._set("library", "folder", chosen)
-
-
-def apply_hint_style(widget: QWidget, palette: Palette) -> None:
-    widget.setStyleSheet(f"color: {palette.text_muted}; font-size: {Type.CAPTION}px;")
-    widget.setAlignment(Qt.AlignmentFlag.AlignLeft)

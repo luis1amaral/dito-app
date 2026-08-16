@@ -10,16 +10,16 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QLabel,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
+from ..i18n import _
+from .components import Button, ControlSize, HudLabel, Variant
 from .dot import StatusDot
 from .spring import Spring, SpringDriver
 from .surface import paint_floating_surface, shadow_margin
-from .theme import Motion, Palette, Radius, Size, Space, Type
+from .theme import Alpha, Motion, Palette, Radius, Size, Space, Type, hud_stylesheet
 from .waveform import Waveform
 
 ENTER_OFFSET = 24        # px below the resting spot; the spring covers this on the way in
@@ -52,6 +52,8 @@ class Overlay(QWidget):
         super().__init__(None)
         self._palette = palette
         self._state = HudState.HIDDEN
+        self._meeting = False
+        self._reason = ""
         self._started_at = 0.0
         self._pulse_t0 = time.monotonic()
         self._shake_until = 0.0
@@ -86,6 +88,8 @@ class Overlay(QWidget):
     # ---- construction ----------------------------------------------------------------
 
     def _build(self, p: Palette) -> None:
+        self.setStyleSheet(hud_stylesheet(p))
+
         pad = shadow_margin()
         outer = QVBoxLayout(self)
         # Room for the hand-painted shadow (docs/armadilhas.md 7.1); clipped, it reads as an edge.
@@ -99,40 +103,30 @@ class Overlay(QWidget):
         self._dot = StatusDot(p.hud_recording)
         row.addWidget(self._dot, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        self._title = QLabel("Gravando")
-        self._title.setStyleSheet(
-            f"color: {p.hud_text}; font-size: {Type.BODY}px; font-weight: {Type.SEMIBOLD};"
-        )
+        self._title = HudLabel(role="hud-title")
         row.addWidget(self._title, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self._wave = Waveform(p)
         row.addWidget(self._wave, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        self._clock_label = QLabel("00:00")
-        self._clock_label.setStyleSheet(
-            f"color: {p.hud_muted}; font-family: {Type.MONO}; font-size: {Type.BODY}px;"
-        )
+        self._clock_label = HudLabel(_clock(0), role="hud-clock", mono=True)
         row.addWidget(self._clock_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        self._action = QPushButton("Corrigir")
-        self._action.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._action.setStyleSheet(
-            f"QPushButton {{ background: rgba(255,255,255,0.16); color: {p.hud_text};"
-            f" border: none; border-radius: {Radius.CONTROL}px; padding: {Space.XS}px"
-            f" {Space.MD}px; font-weight: {Type.MEDIUM}; min-height: 0px; }}"
-            f"QPushButton:hover {{ background: rgba(255,255,255,0.26); }}"
-            f"QPushButton:pressed {{ background: rgba(255,255,255,0.34); }}"
+        # Solid white, not a translucent wash: this button only ever appears on the red alarm
+        # fill, where white measures 4.84 against it and a wash measures 1.5.
+        self._action = Button(
+            variant=Variant.HUD_SOLID,
+            size=ControlSize.SM,
+            palette=p,
+            on_click=self.fix_requested.emit,
         )
-        self._action.clicked.connect(self.fix_requested.emit)
         self._action.hide()
         row.addWidget(self._action, 0, Qt.AlignmentFlag.AlignVCenter)
 
         outer.addLayout(row)
 
-        self._detail = QLabel("")
-        self._detail.setStyleSheet(
-            f"color: {p.hud_muted}; font-size: {Type.CAPTION}px;"
-        )
+        self._detail = HudLabel(role="hud-hint")
+        self._detail.setWordWrap(True)
         self._detail.hide()
         outer.addWidget(self._detail)
 
@@ -146,8 +140,7 @@ class Overlay(QWidget):
             fill = QColor(self._palette.hud_danger)
         else:
             fill = QColor(self._palette.hud_surface)
-        # Near-opaque plus shadow: no reliable backdrop blur here, and fake frost reads as dirty.
-        fill.setAlphaF(0.96)
+        fill.setAlphaF(Alpha.HUD_SURFACE)
 
         pad = shadow_margin()
         card = self.rect().adjusted(pad, pad, -pad, -pad).toRectF()
@@ -198,30 +191,41 @@ class Overlay(QWidget):
 
         self._dot.configure(dot, pulsing)
 
-        title_color = p.hud_text
         # White at reduced opacity on the red fill: the muted grey has no contrast there.
-        detail_color = "rgba(255, 255, 255, 0.88)" if on_red else p.hud_muted
-        clock_color = "rgba(255, 255, 255, 0.75)" if on_red else p.hud_muted
-
-        self._title.setStyleSheet(
-            f"color: {title_color}; font-size: {Type.BODY}px; font-weight: {Type.SEMIBOLD};"
-        )
-        self._detail.setStyleSheet(f"color: {detail_color}; font-size: {Type.CAPTION}px;")
-        self._clock_label.setStyleSheet(
-            f"color: {clock_color}; font-family: {Type.MONO}; font-size: {Type.BODY}px;"
-        )
+        self._title.set_tone(p.hud_text, Type.SEMIBOLD)
+        self._detail.set_tone(p.hud_on_danger if on_red else p.hud_muted)
+        self._clock_label.set_tone(p.hud_on_danger_muted if on_red else p.hud_muted)
 
     # ---- public API ------------------------------------------------------------------
 
     def set_palette(self, palette: Palette) -> None:
+        """The pill is dark in both themes (7.3); this exists so the walk in ui/live.py finds it."""
         self._palette = palette
+        self.setStyleSheet(hud_stylesheet(palette))
         self._wave.set_palette(palette)
+        self._apply_colors(self._state is HudState.RECORDING)
         self.update()
+
+    def retranslate(self) -> None:
+        """Re-render the state we are already in, so the pill never shows two languages at once."""
+        self._title.setText(self._title_for(self._state))
+        if self._state is HudState.DEAD and not self._reason:
+            self._detail.setText(_("the microphone is not picking anything up"))
+
+    def _title_for(self, state: HudState) -> str:
+        if state is HudState.RECORDING:
+            return _("Meeting") if self._meeting else _("Recording")
+        return {
+            HudState.QUIET: _("Audio is very low"),
+            HudState.DEAD: _("NO AUDIO"),
+            HudState.WORKING: _("Transcribing…"),
+        }.get(state, self._title.text())
 
     def show_recording(self, meeting: bool = False) -> None:
         first = self._state is HudState.HIDDEN
         self._state = HudState.RECORDING
-        self._title.setText("Reunião" if meeting else "Gravando")
+        self._meeting = meeting
+        self._title.setText(self._title_for(HudState.RECORDING))
         self._detail.hide()
         self._action.hide()
         self._wave.set_flat(False)
@@ -235,7 +239,8 @@ class Overlay(QWidget):
 
     def show_quiet(self, reason: str) -> None:
         self._state = HudState.QUIET
-        self._title.setText("Áudio muito baixo")
+        self._reason = reason
+        self._title.setText(self._title_for(HudState.QUIET))
         self._detail.setText(reason)
         self._detail.show()
         self._wave.set_color(self._palette.hud_alert)
@@ -244,22 +249,24 @@ class Overlay(QWidget):
 
     def show_dead(self, reason: str | None, fix_label: str | None = None) -> None:
         self._state = HudState.DEAD
-        self._title.setText("SEM ÁUDIO")
-        self._detail.setText(reason or "o microfone não está captando nada")
+        self._reason = reason or ""
+        self._title.setText(self._title_for(HudState.DEAD))
+        self._detail.setText(reason or _("the microphone is not picking anything up"))
         self._detail.show()
         # Shape first: a flat line reads as "nothing is arriving" without relying on colour.
         self._wave.set_flat(True)
-        self._wave.set_color(self._palette.text_inverse)
+        self._wave.set_color(self._palette.hud_text)
         self._action.setVisible(bool(fix_label))
         if fix_label:
-            self._action.setText(fix_label)
+            self._action.set_text(fix_label)
         self._apply_colors()
         self._shake()
         self._nudge()
 
     def show_working(self, detail: str = "") -> None:
         self._state = HudState.WORKING
-        self._title.setText("Transcrevendo…")
+        self._reason = detail
+        self._title.setText(self._title_for(HudState.WORKING))
         self._wave.set_flat(False)
         self._action.hide()
         if detail:

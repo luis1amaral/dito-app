@@ -138,7 +138,7 @@ def test_a_microphone_that_vanishes_raises_the_alarm(cfg):
             "microfone sumiu e nenhum alarme disparou"
         )
         reason = next(e.reason for e in events if isinstance(e, ev.AudioAlarm))
-        assert "parou de responder" in reason
+        assert "stopped responding" in reason
     finally:
         session.stop()
 
@@ -191,7 +191,7 @@ def test_a_device_error_reaches_the_user(cfg):
         session._capture.deliver(0.05, count=3)
         assert wait_for(
             lambda: any(
-                isinstance(e, ev.AudioAlarm) and e.reason and "reportou um erro" in e.reason
+                isinstance(e, ev.AudioAlarm) and e.reason and "reported an error" in e.reason
                 for e in events
             )
         )
@@ -328,7 +328,7 @@ def test_a_start_that_fails_reports_instead_of_raising(cfg, monkeypatch):
     result = session.start()
 
     assert not result.ok
-    assert "indisponível" in (result.reason or "")
+    assert "unavailable" in (result.reason or "")
     assert any(isinstance(e, ev.Failed) for e in events)
 
 

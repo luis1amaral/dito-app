@@ -25,6 +25,7 @@ pytest.importorskip("PySide6", reason="PySide6 não instalado")
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from dito import i18n  # noqa: E402
 from dito.ui import theme  # noqa: E402
 from dito.ui.overlay import HudState, Overlay, _clock  # noqa: E402
 
@@ -98,21 +99,54 @@ def test_alarm_shows_the_fix_action_and_the_reason(hud, app):
     assert hud._action.isVisible()
     assert hud._action.text() == "Corrigir"
     assert "ganho" in hud._detail.text()
-    assert hud._title.text() == "SEM ÁUDIO"
+    # Source strings are English; with no catalogue installed they fall through unchanged.
+    assert hud._title.text() == "NO AUDIO"
 
 
 def test_alarm_foreground_does_not_flip_with_the_theme(app):
     """The pill floats over the user's content with a surface of its own, so its foreground has
     to be fixed too. Using `text_inverse` — which flips with the theme — put a near-black dot on
-    the red fill in dark mode."""
+    the red fill in dark mode.
+
+    It used to compare `_dot.styleSheet()`, which is empty on both sides because the dot is
+    painted, so it proved nothing. It now compares the colours that actually reach the paint
+    calls — and that is what caught the waveform still being drawn in `text_inverse`."""
     shots = {}
     for palette in (theme.LIGHT, theme.DARK):
         widget = Overlay(palette)
         widget.show_dead("nada", None)
         app.processEvents()
-        shots[palette.mode] = widget._dot.styleSheet()
+        shots[palette.mode] = (widget._dot.color, widget._wave.color)
         widget.close()
     assert shots[theme.Mode.LIGHT] == shots[theme.Mode.DARK]
+
+
+def test_every_colour_the_alarm_paints_is_legible_on_the_red_fill(app):
+    """The dot and the flat line are the alarm's two non-text signals; both sit on `hud_danger`."""
+    widget = Overlay(theme.DARK)
+    widget.show_dead("nada", None)
+    app.processEvents()
+    for painted in (widget._dot.color, widget._wave.color):
+        ratio = theme.contrast(painted, theme.DARK.hud_danger)
+        assert ratio >= theme.CONTRAST_FLOOR["control_edge"], f"{painted}: {ratio:.2f}"
+    widget.close()
+
+
+def test_the_pill_speaks_the_installed_language(app):
+    """Changing the language must not need a restart, and must not leave two languages on screen."""
+    widget = Overlay(theme.LIGHT)
+    widget.show_recording()
+    assert widget._title.text() == "Recording"
+
+    i18n.setup("pt_BR")
+    try:
+        widget.retranslate()
+        assert widget._title.text() == "Gravando"
+    finally:
+        i18n.setup("en")
+    widget.retranslate()
+    assert widget._title.text() == "Recording"
+    widget.close()
 
 
 def test_alarm_without_a_known_fix_hides_the_button(hud, app):

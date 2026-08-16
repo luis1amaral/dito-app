@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 
+from ...i18n import _
+
 _TIMEOUT = 2.0
 # See docs/armadilhas.md 9.3: HDA and USB names, and no boost control — boost at 0 is normal.
 _CAPTURE_CONTROLS = ("Capture", "Mic", "Digital", "Front Mic", "Rear Mic")
@@ -70,8 +72,10 @@ class CaptureGain:
             return None
         off = [c for c in self.controls if not c.on]
         if off:
-            return f"a captura está DESLIGADA no hardware (amixer «{off[0].name}»)"
-        return "o ganho de captura do hardware está em 0%"
+            return _("capture is switched OFF in the hardware (amixer «{control}»)").format(
+                control=off[0].name
+            )
+        return _("the hardware capture gain is at 0%")
 
     @property
     def fix_command(self) -> str | None:

@@ -32,6 +32,10 @@ class Waveform(QWidget):
         self._palette = palette
         self.update()
 
+    @property
+    def color(self) -> str:
+        return self._color.name()
+
     def set_color(self, color: str) -> None:
         self._color = QColor(color)
         self.update()

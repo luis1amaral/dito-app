@@ -6,9 +6,11 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeyEvent
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QSizePolicy
 
-from .theme import Palette, Radius, Size, Space, Type
+from ..i18n import _
+from .components import Button, ControlSize, Variant, set_prop
+from .theme import Palette
 
 # Qt key -> the canonical name shared by the config file, pynput and the X keysym lookup.
 BINDABLE: dict[Qt.Key, str] = {
@@ -37,7 +39,7 @@ def pretty(key: str) -> str:
         "print_screen": "Print Screen",
         "page_up": "Page Up",
         "page_down": "Page Down",
-        "space": "Espaço",
+        "space": _("Space"),
         "menu": "Menu",
         "insert": "Insert",
         "home": "Home",
@@ -46,8 +48,8 @@ def pretty(key: str) -> str:
     }.get(key, key.upper())
 
 
-class KeyCapture(QPushButton):
-    """A button that becomes a key recorder when clicked."""
+class KeyCapture(Button):
+    """The secondary button in one more state: `capturing`, which is where the recorder lives."""
 
     captured = Signal(str)
     rejected = Signal(str)
@@ -61,19 +63,18 @@ class KeyCapture(QPushButton):
         on_capture_end: Callable[[], None] | None = None,
         parent=None,
     ) -> None:
-        super().__init__(parent)
-        self._palette = palette
+        super().__init__(
+            variant=Variant.SECONDARY, size=ControlSize.MD, palette=palette, parent=parent
+        )
         self._key = key
         self._validate = validate or (lambda _k: None)
         self._on_start = on_capture_start or (lambda: None)
         self._on_end = on_capture_end or (lambda: None)
         self._capturing = False
 
-        self.setCheckable(False)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setMinimumHeight(Size.CONTROL_H)
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self._restyle()
+        self.setProperty("mono", "true")
+        # Reads as a field, not as a button: it holds a value you are about to replace.
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.clicked.connect(self.begin_capture)
         self._refresh()
 
@@ -87,22 +88,12 @@ class KeyCapture(QPushButton):
         self._key = key
         self._refresh()
 
-    def _refresh(self) -> None:
-        self.setText("pressione uma tecla…" if self._capturing else pretty(self._key))
-        self._restyle()
+    def retranslate(self) -> None:
+        self._refresh()
 
-    def _restyle(self) -> None:
-        p = self._palette
-        border = p.primary if self._capturing else p.border_strong
-        weight = Type.SEMIBOLD if self._capturing else Type.MEDIUM
-        self.setStyleSheet(
-            f"QPushButton {{ min-height: {Size.CONTROL_H}px; padding: 0 {Space.LG}px;"
-            f" border: {2 if self._capturing else 1}px solid {border};"
-            f" border-radius: {Radius.CONTROL}px; background: {p.surface};"
-            f" color: {p.text_primary}; font-weight: {weight};"
-            f" font-family: {Type.MONO}; }}"
-            f"QPushButton:hover {{ background: {p.surface_alt}; }}"
-        )
+    def _refresh(self) -> None:
+        self.set_text(_("press a key…") if self._capturing else pretty(self._key))
+        set_prop(self, "capturing", "true" if self._capturing else "false")
 
     # ---- capture ---------------------------------------------------------------------
 
@@ -139,8 +130,8 @@ class KeyCapture(QPushButton):
         name = BINDABLE.get(qt_key)
         if name is None:
             self.rejected.emit(
-                "essa tecla não serve como atalho global — use F1–F12, Scroll Lock, Pause, "
-                "Insert ou Espaço"
+                _("that key cannot be a global shortcut — use F1–F12, Scroll Lock, Pause, "
+                  "Insert or Space")
             )
             return
 

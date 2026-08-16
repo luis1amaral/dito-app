@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ... import paths
+from ...i18n import _
 
 # Do NOT rename: contract with the sibling `defalt` project (docs/armadilhas.md 5.1).
 LEGACY_LOCK_NAME = "defalt-voice-input"
@@ -33,7 +34,7 @@ def claim(name: str = LEGACY_LOCK_NAME) -> socket.socket:
     except OSError as exc:
         sock.close()
         raise AlreadyRunning(
-            "já existe um ditado rodando — duas instâncias colariam o texto duplicado"
+            _("dictation is already running — two instances would paste everything twice")
         ) from exc
     return sock
 

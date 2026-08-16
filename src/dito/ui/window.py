@@ -22,16 +22,21 @@ from PySide6.QtWidgets import (
 
 from .. import config as cfgmod
 from ..core import library
+from ..i18n import _
 from .settings_page import SettingsPage
 from .theme import Palette, Radius, Size, Space, Type, stylesheet
 
-STATE_LABEL = {
-    "done": ("pronto", "success"),
-    "recording": ("interrompido", "alert"),
-    "failed": ("falhou", "danger"),
-    "transcribe_failed": ("transcrição falhou", "danger"),
-    "unknown": ("desconhecido", "muted"),
-}
+
+# Built on call, never at import: a label translated before setup() would keep the wrong language.
+def state_label(state: str) -> tuple[str, str]:
+    labels = {
+        "done": (_("ready"), "success"),
+        "recording": (_("interrupted"), "alert"),
+        "failed": (_("failed"), "danger"),
+        "transcribe_failed": (_("transcription failed"), "danger"),
+        "unknown": (_("unknown"), "muted"),
+    }
+    return labels.get(state, labels["unknown"])
 
 
 def _human_size(size: int) -> str:
@@ -55,15 +60,15 @@ def _human_duration(seconds: float) -> str:
 
 def _human_when(when: datetime | None) -> str:
     if when is None:
-        return "data desconhecida"
+        return _("unknown date")
     today = datetime.now().date()
     if when.date() == today:
-        return f"hoje, {when:%H:%M}"
+        return _("today, {time}").format(time=f"{when:%H:%M}")
     delta = (today - when.date()).days
     if delta == 1:
-        return f"ontem, {when:%H:%M}"
+        return _("yesterday, {time}").format(time=f"{when:%H:%M}")
     if delta < 7:
-        return f"{delta} dias atrás, {when:%H:%M}"
+        return _("{days} days ago, {time}").format(days=delta, time=f"{when:%H:%M}")
     return f"{when:%d/%m/%Y %H:%M}"
 
 
@@ -86,7 +91,7 @@ class SessionRow(QFrame):
         when.setStyleSheet(f"font-weight: {Type.MEDIUM};")
         head.addWidget(when)
 
-        kind = QLabel("reunião" if info.mode == "meeting" else "ditado")
+        kind = QLabel(_("meeting") if info.mode == "meeting" else _("dictation"))
         # text_secondary: a chip label is content and owes the 4.5 floor; muted was a smudge.
         kind.setStyleSheet(
             f"color: {palette.text_secondary}; background: {palette.surface_alt};"
@@ -95,7 +100,7 @@ class SessionRow(QFrame):
         )
         head.addWidget(kind)
 
-        label, role = STATE_LABEL.get(info.state, STATE_LABEL["unknown"])
+        label, role = state_label(info.state)
         if info.state != "done":
             color = {"danger": palette.danger, "alert": palette.alert}.get(
                 role, palette.text_muted
@@ -113,7 +118,7 @@ class SessionRow(QFrame):
         )
         head.addWidget(meta)
 
-        open_btn = QPushButton("Abrir pasta")
+        open_btn = QPushButton(_("Open folder"))
         open_btn.setProperty("variant", "ghost")
         open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         open_btn.clicked.connect(lambda: library.open_folder(info.path))
@@ -121,7 +126,7 @@ class SessionRow(QFrame):
 
         outer.addLayout(head)
 
-        preview = QLabel(info.preview or "— sem texto —")
+        preview = QLabel(info.preview or _("— no text —"))
         preview.setWordWrap(True)
         preview.setProperty("role", "secondary")
         outer.addWidget(preview)
@@ -143,11 +148,11 @@ class SessionsPage(QWidget):
         head.addWidget(self._summary)
         head.addStretch(1)
 
-        folder_btn = QPushButton("Abrir a pasta")
+        folder_btn = QPushButton(_("Open the folder"))
         folder_btn.clicked.connect(lambda: library.open_folder(self.cfg.library_dir()))
         head.addWidget(folder_btn)
 
-        refresh = QPushButton("Atualizar")
+        refresh = QPushButton(_("Refresh"))
         refresh.setProperty("variant", "ghost")
         refresh.clicked.connect(self.reload)
         head.addWidget(refresh)
@@ -159,8 +164,8 @@ class SessionsPage(QWidget):
         root.addWidget(self._list, 1)
 
         self._empty = QLabel(
-            "Nada gravado ainda.\nSegure a tecla de ditado e fale — o texto aparece onde o "
-            "cursor estiver."
+            _("Nothing recorded yet.\nHold the dictation key and speak — the text appears "
+              "wherever the cursor is.")
         )
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty.setProperty("role", "hint")
@@ -184,9 +189,9 @@ class SessionsPage(QWidget):
 
         total = library.total_size()
         broken = [s for s in sessions if not s.done]
-        parts = [f"{len(sessions)} gravações", _human_size(total)]
+        parts = [_("{count} recordings").format(count=len(sessions)), _human_size(total)]
         if broken:
-            parts.append(f"{len(broken)} para recuperar")
+            parts.append(_("{count} to recover").format(count=len(broken)))
         self._summary.setText(" · ".join(parts))
 
 
@@ -223,7 +228,7 @@ class MainWindow(QWidget):
         title = QLabel("Dito")
         title.setProperty("role", "display")
         header.addWidget(title)
-        subtitle = QLabel("ditado por voz, offline")
+        subtitle = QLabel(_("voice dictation, offline"))
         subtitle.setProperty("role", "hint")
         header.addWidget(subtitle, 0, Qt.AlignmentFlag.AlignBottom)
         header.addStretch(1)
@@ -234,7 +239,7 @@ class MainWindow(QWidget):
 
         tabs = QTabWidget()
         self.sessions = SessionsPage(cfg, palette)
-        tabs.addTab(self._scrollable(self.sessions), "Transcrições")
+        tabs.addTab(self._scrollable(self.sessions), _("Transcriptions"))
 
         self.settings = SettingsPage(
             cfg,
@@ -245,7 +250,7 @@ class MainWindow(QWidget):
         )
         self.settings.changed.connect(self._saved)
         self.settings.notice.connect(self._notice)
-        tabs.addTab(self._scrollable(self.settings), "Configuração")
+        tabs.addTab(self._scrollable(self.settings), _("Settings"))
         root.addWidget(tabs, 1)
 
     def _scrollable(self, inner: QWidget) -> QScrollArea:
@@ -256,7 +261,7 @@ class MainWindow(QWidget):
         return area
 
     def _saved(self) -> None:
-        self._flash("configuração salva")
+        self._flash(_("settings saved"))
         self._on_config_changed()
 
     def _notice(self, message: str) -> None:

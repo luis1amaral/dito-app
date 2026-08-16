@@ -91,7 +91,7 @@ class KeyGrabber:
     def grab(self, key: str) -> None:
         code = self._state.keycode(key)
         if not code:
-            raise GrabDenied(f"tecla desconhecida: {key}")
+            raise GrabDenied(f"unknown key: {key}")
         from Xlib import error
 
         catcher = error.CatchError(error.BadAccess)
@@ -107,7 +107,7 @@ class KeyGrabber:
                 for mods in self._IGNORED:
                     self._root.ungrab_key(code, mods)
                 self._display.flush()
-                raise GrabDenied(f"«{key.upper()}» já pertence a outro programa")
+                raise GrabDenied(f"«{key.upper()}» already belongs to another program")
             self._grabbed.append(code)
 
     def ungrab_all(self) -> None:
@@ -231,7 +231,7 @@ class HotkeyManager:
                 self._grabber.grab(binding.key)
             except GrabDenied as exc:
                 # Not fatal: the key still works, it just also reaches the focused window.
-                self._log(f"[atalho] {exc} — seguindo sem consumir a tecla")
+                self._log(f"[shortcut] {exc} — continuing without consuming the key")
 
     # ---- events ---------------------------------------------------------------------
 
@@ -293,7 +293,7 @@ class HotkeyManager:
                 now = time.monotonic()
                 if state.is_down(binding.key):
                     if up_since is not None and now - up_since > 0.05:
-                        self._log("[atalho] release fantasma atravessado — a mesma gravação segue")
+                        self._log("[shortcut] ghost release swallowed — the same recording goes on")
                     up_since = None
                 elif up_since is None:
                     up_since = now

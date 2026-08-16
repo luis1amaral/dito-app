@@ -7,15 +7,15 @@ from PySide6.QtGui import QColor, QKeyEvent, QPainter
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
-    QLabel,
     QPlainTextEdit,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
+from ..i18n import _
+from .components import Button, ControlSize, HudLabel, Variant
 from .surface import paint_floating_surface, shadow_margin
-from .theme import Palette, Radius, Size, Space, Type
+from .theme import Alpha, Palette, Radius, Size, Space, hud_stylesheet
 
 MARGIN = Space.XXXL
 WIDTH = 560
@@ -66,6 +66,8 @@ class ReviewCard(QWidget):
     # ---- construction ----------------------------------------------------------------
 
     def _build(self, p: Palette) -> None:
+        self.setStyleSheet(hud_stylesheet(p))
+
         pad = shadow_margin()
         outer = QVBoxLayout(self)
         # Room for the hand-painted shadow (docs/armadilhas.md 7.1).
@@ -74,31 +76,14 @@ class ReviewCard(QWidget):
 
         head = QHBoxLayout()
         head.setSpacing(Space.SM)
-        title = QLabel("Pronto — edite ou envie")
-        title.setStyleSheet(
-            f"color: {p.hud_text}; font-size: {Type.BODY}px; font-weight: {Type.SEMIBOLD};"
-        )
-        head.addWidget(title)
+        self._title = HudLabel(role="hud-title")
+        head.addWidget(self._title)
         head.addStretch(1)
-        hint = QLabel("⏎ envia · Tab descarta")
-        hint.setStyleSheet(f"color: {p.hud_muted}; font-size: {Type.CAPTION}px;")
-        head.addWidget(hint)
+        self._hint = HudLabel(role="hud-hint")
+        head.addWidget(self._hint)
         outer.addLayout(head)
 
         self.editor = Editor()
-        self.editor.setStyleSheet(
-            f"QPlainTextEdit {{ background: rgba(255,255,255,0.06); color: {p.hud_text};"
-            f" border: 1px solid rgba(255,255,255,0.14); border-radius: {Radius.CONTROL}px;"
-            f" padding: {Space.SM}px {Space.MD}px; font-size: {Type.BODY}px;"
-            f" selection-background-color: {p.hud_recording}; }}"
-            f"QPlainTextEdit:focus {{ border: 1px solid {p.hud_text}; }}"
-            # Restyled here too: this stylesheet overrides the app's and Qt would draw its arrows.
-            f"QScrollBar:vertical {{ background: transparent; width: {Space.SM}px; margin: 0; }}"
-            f"QScrollBar::handle:vertical {{ background: rgba(255,255,255,0.28);"
-            f" border-radius: {Space.XS}px; min-height: {Space.XXL}px; }}"
-            f"QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}"
-            f"QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}"
-        )
         self.editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.editor.textChanged.connect(self._grow)
         self.editor.submit.connect(self._do_send)
@@ -109,50 +94,39 @@ class ReviewCard(QWidget):
         row.setSpacing(Space.SM)
         row.addStretch(1)
 
-        self._discard_btn = self._chip("Descartar", primary=False)
-        self._discard_btn.clicked.connect(self._do_discard)
+        # Primary rightmost, the order the platform's own dialogs use.
+        self._discard_btn = Button(
+            variant=Variant.HUD_OUTLINE, size=ControlSize.MD, palette=p, on_click=self._do_discard
+        )
         row.addWidget(self._discard_btn)
 
-        self._send_btn = self._chip("Enviar", primary=True)
-        self._send_btn.clicked.connect(self._do_send)
+        self._send_btn = Button(
+            variant=Variant.HUD_SOLID, size=ControlSize.MD, palette=p, on_click=self._do_send
+        )
         row.addWidget(self._send_btn)
         outer.addLayout(row)
 
+        self.retranslate()
 
-    def _chip(self, label: str, primary: bool) -> QPushButton:
-        p = self._palette
-        button = QPushButton(label)
-        button.setCursor(Qt.CursorShape.PointingHandCursor)
-        # Primary rightmost, the order the platform's own dialogs use.
-        if primary:
-            style = (
-                f"QPushButton {{ background: {p.hud_text}; color: {p.hud_surface};"
-                f" border: none; font-weight: {Type.SEMIBOLD};"
-            )
-            hover = "rgba(255,255,255,0.86)"
-            pressed = "rgba(255,255,255,0.74)"
-        else:
-            # Outlined, not filled: WCAG 1.4.11 applies to the outline, and a light fill vanishes.
-            style = (
-                f"QPushButton {{ background: transparent; color: {p.hud_text};"
-                f" border: 1px solid rgba(255,255,255,0.35); font-weight: {Type.MEDIUM};"
-            )
-            hover = "rgba(255,255,255,0.10)"
-            pressed = "rgba(255,255,255,0.18)"
-        button.setStyleSheet(
-            style
-            + f" border-radius: {Radius.CONTROL}px; padding: {Space.SM}px {Space.LG}px;"
-            f" min-height: {Size.CONTROL_H}px; }}"
-            f"QPushButton:hover {{ background: {hover}; }}"
-            f"QPushButton:pressed {{ background: {pressed}; }}"
-        )
-        return button
+    # ---- text and palette --------------------------------------------------------------
+
+    def retranslate(self) -> None:
+        self._title.setText(_("Ready — edit it or send it"))
+        self._hint.setText(_("⏎ sends · Tab discards"))
+        self._discard_btn.set_text(_("Discard"))
+        self._send_btn.set_text(_("Send"))
+
+    def set_palette(self, palette: Palette) -> None:
+        """The card is dark in both themes (7.3), so this only ever repaints the same values."""
+        self._palette = palette
+        self.setStyleSheet(hud_stylesheet(palette))
+        self.update()
 
     # ---- painting --------------------------------------------------------------------
 
     def paintEvent(self, _event) -> None:  # noqa: N802 - Qt override
         fill = QColor(self._palette.hud_surface)
-        fill.setAlphaF(0.97)
+        fill.setAlphaF(Alpha.REVIEW_SURFACE)
         pad = shadow_margin()
         card = self.rect().adjusted(pad, pad, -pad, -pad).toRectF()
         paint_floating_surface(QPainter(self), card, Radius.OVERLAY, fill)
@@ -160,7 +134,7 @@ class ReviewCard(QWidget):
     # ---- behaviour -------------------------------------------------------------------
 
     # Computed, not read from the widget, because sizing happens before layout — armadilhas 7.5.
-    _TEXT_WIDTH = WIDTH - 2 * Space.XL - 2 * Space.MD - 2
+    _TEXT_WIDTH = WIDTH - 2 * Space.XL - 2 * Space.MD - 2 * Size.HAIRLINE
 
     def _grow(self) -> None:
         """Grows to fit the whole text; the only ceiling is the screen — armadilhas 7.5."""
@@ -179,7 +153,7 @@ class ReviewCard(QWidget):
 
         # Self-correcting: the estimate and the widget's own layout can differ by a line, and a
         # scrollbar is exactly what the owner asked never to see. Ask the realised widget.
-        for _ in range(3):
+        for _attempt in range(3):
             document = self.editor.document().size().height() * metrics.lineSpacing()
             if document <= self.editor.viewport().height() or lines >= ceiling:
                 break
