@@ -56,10 +56,28 @@ forçado que antes levantava `RuntimeError`.
 restante a `ensure_ui_or_hint` está em `packaging/deb/build/`, que o `make-deb.sh` regenera do zero.
 O import `Callable` que ficou órfão em `app.py` foi junto.
 
+### Medido, na GTX 1650 com o `small`
+Prova de que a GPU está de fato em uso: o processo do Dito aparece em
+`nvidia-smi --query-compute-apps`, o que antes não acontecia.
+
+Com o sintético de 60 s do `tools/bench_stt.py`, **`beam=5`** (o `beam_dictation`, o uso principal):
+
+| | CPU `int8` | GPU `float16` |
+|---|---|---|
+| tempo de parede | 23,86 s | ~11,4 s |
+| **CPU consumida** | **53,40 s** | **11,7 s** |
+
+**4,6× menos CPU** e 2,1× mais rápido. O número que importa é o segundo: na CPU eram 53 s de
+processador espalhados por ~2,2 núcleos — a máquina inteira sentia. Na GPU é um núcleo alimentando
+a placa.
+
 ### Em aberto
-O ganho de velocidade **ainda não foi medido de forma confiável**: os clipes disponíveis somavam
-11,6 s e rendiam 1 palavra depois do VAD, então a comparação mediu overhead, não transcrição.
-Falta refazer com ~1 min de fala real antes de afirmar qualquer número.
+**`beam=1` (reunião) não tem número confiável.** Na GPU ele mede *mais lento* que `beam=5`
+(19,4 s e 18,1 s contra 12,6 s e 10,3 s, reprodutível) — e isso é defeito do método, não da placa:
+áudio sintético com VAD desligado faz o decodificador alucinar, e *quanto* ele alucina depende da
+quantização, que difere entre os devices (`int8` na CPU, `float16` na GPU). O mesmo ruído gera
+quantidades diferentes de token. Comparar beams entre devices exige **fala real**, como o docstring
+do `bench_stt.py` já avisava.
 
 ## 2026-08-16 — o alarme acaba junto com a gravação, e a notificação não faz mais som
 
