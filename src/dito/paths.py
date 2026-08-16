@@ -71,14 +71,6 @@ def selftest_audio() -> Path:
     return state_dir() / "selftest.wav"
 
 
-def log_file() -> Path:
-    return state_dir() / "dito.log"
-
-
-def history_file() -> Path:
-    return state_dir() / "history.jsonl"
-
-
 def control_socket() -> Path:
     return runtime_dir() / "dito.sock"
 

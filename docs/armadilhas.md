@@ -391,6 +391,31 @@ definição, não-ocioso: desistir é a resposta certa, esperar não é.
 **Regra geral:** nada chamado de dentro do loop do Qt pode adquirir um lock que uma thread de
 trabalho segura por segundos.
 
+### 3.8 Linux: driver de vídeo instalado não é GPU disponível
+
+**Sintoma medido:** `ctranslate2.get_cuda_device_count()` devolve **1**, o `nvidia-smi` responde,
+e mesmo assim o `WhisperModel(device="cuda")` levanta
+`RuntimeError: Library libcublas.so.12 is not found or cannot be loaded`. Como o `engine.py` trata
+isso no `except` e cai para CPU, **nada aparece para o usuário** — o Dito só fica lento para sempre.
+
+**Causa:** são duas camadas independentes. O *driver* faz o sistema enxergar a placa; o cuBLAS e o
+cuDNN são bibliotecas de cálculo separadas, que o driver não traz. O `pip` as instala em
+`site-packages/nvidia/*/lib`, e o linker dinâmico do Linux **não procura ali** — não está no
+`ld.so.conf` nem no `LD_LIBRARY_PATH`.
+
+**Correção:** `platform/linux_x11/cuda_libs.py` pré-carrega cada `.so` com
+`ctypes.CDLL(path, mode=RTLD_GLOBAL)` antes de construir o modelo. `RTLD_GLOBAL` é o que importa:
+o cuDNN depende do cuBLAS e ambos das suas metades (`libcublasLt`, `libcudnn_ops`), e só com os
+símbolos globais um resolve o outro. Carregadas no processo, o `dlopen` do ctranslate2 as encontra
+pelo soname.
+
+**Por que não `LD_LIBRARY_PATH`:** teria de estar no ambiente **antes** do Python começar, o que
+obriga a um wrapper de shell no `.desktop` — o `ctypes` resolve dentro do processo, sem isso.
+
+**Custo:** ~1,5 GB. Por isso o `bootstrap.py` só baixa quando `has_nvidia_gpu()` é verdadeiro, e
+numa etapa que pode falhar sozinha: perder a aceleração nunca pode custar uma instalação que
+funcionaria em CPU.
+
 ---
 
 ## 4. Colagem e clipboard

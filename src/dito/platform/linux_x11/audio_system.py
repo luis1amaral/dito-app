@@ -102,19 +102,3 @@ def health(source: str = DEFAULT_SOURCE) -> SourceHealth:
         volume=volume_pct(source),
         name=default_source_name(),
     )
-
-
-def subscribe_events() -> subprocess.Popen[str] | None:
-    """One stdout line per event: how a mute or an unplug MID-RECORDING gets noticed."""
-    if not available():
-        return None
-    try:
-        return subprocess.Popen(
-            ["pactl", "subscribe"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            bufsize=1,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None

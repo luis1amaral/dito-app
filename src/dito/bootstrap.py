@@ -17,9 +17,23 @@ VENV_DIR = Path(
 ) / "dito" / "venv"
 LOCK = APP_DIR / "requirements.lock"
 
+# ctranslate2 loads these at runtime; the driver alone is not enough — see docs/armadilhas.md 3.8.
+CUDA_PACKAGES = ("nvidia-cublas-cu12", "nvidia-cudnn-cu12")
+
 
 def venv_python() -> Path:
     return VENV_DIR / "bin" / "python"
+
+
+def has_nvidia_gpu() -> bool:
+    """True when an NVIDIA GPU is actually usable, so the CUDA libraries are worth the download."""
+    if Path("/dev/nvidia0").exists():
+        return True
+    try:
+        subprocess.run(["nvidia-smi", "-L"], check=True, capture_output=True, timeout=15)
+    except (subprocess.SubprocessError, OSError):
+        return False
+    return True
 
 
 def ready() -> bool:
@@ -80,7 +94,30 @@ def install(progress=None) -> tuple[bool, str]:
 
     if not ready():
         return False, _("the environment was created but the components do not load")
+
+    _install_gpu_extras(say)
     return True, _("ready")
+
+
+def _install_gpu_extras(say) -> None:
+    """Acceleration is a bonus: losing it must never cost the user a working CPU install."""
+    if not has_nvidia_gpu():
+        return
+
+    say(_("enabling GPU acceleration…"))
+    try:
+        done = subprocess.run(
+            [str(venv_python()), "-m", "pip", "install", "--upgrade", *CUDA_PACKAGES],
+            capture_output=True,
+            text=True,
+            timeout=3600,
+        )
+    except (subprocess.SubprocessError, OSError):
+        say(_("GPU acceleration unavailable — Dito will use the CPU."))
+        return
+
+    if done.returncode != 0:
+        say(_("GPU acceleration unavailable — Dito will use the CPU."))
 
 
 def _run_with_window() -> int:

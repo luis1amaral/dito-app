@@ -33,8 +33,11 @@ class Transcription:
 
 
 def register_cuda_dlls() -> None:
-    """Windows adapter owns the fix (docs/armadilhas.md 3.3); this name keeps engine.py flat."""
-    from ..platform.windows.cuda_dlls import register
+    """Each platform adapter owns its fix (docs/armadilhas.md 3.3 and 3.8); engine.py stays flat."""
+    if sys.platform == "win32":
+        from ..platform.windows.cuda_dlls import register
+    else:
+        from ..platform.linux_x11.cuda_libs import register
 
     register()
 

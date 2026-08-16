@@ -1,5 +1,51 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — a GPU no Linux deixou de ser promessa: o caminho existia e nunca era percorrido
+
+### O quê
+1. **`platform/linux_x11/cuda_libs.py`** (novo) — pré-carrega cuBLAS/cuDNN com
+   `ctypes.CDLL(..., RTLD_GLOBAL)`, espelhando o que `platform/windows/cuda_dlls.py` já fazia lá.
+2. **`stt/engine.py`** — `register_cuda_dlls()` passou a escolher o adaptador por plataforma. Antes
+   importava o de Windows **sempre**, inclusive no Linux.
+3. **`bootstrap.py`** — `has_nvidia_gpu()` e instalação de `nvidia-cublas-cu12` / `nvidia-cudnn-cu12`
+   numa etapa própria, só quando há placa.
+
+### Por quê
+Numa máquina com GTX 1650 e driver 550 funcionando, o Dito rodava **em CPU e não dizia nada**. O
+diagnóstico: `ctranslate2.get_cuda_device_count()` devolvia `1`, o `nvidia-smi` respondia, e o
+`WhisperModel(device="cuda")` morria com `Library libcublas.so.12 is not found or cannot be loaded`.
+
+São duas camadas que se confundem facilmente: o **driver** faz o sistema enxergar a placa; **cuBLAS
+e cuDNN** são bibliotecas de cálculo à parte, que o driver não traz. Faltavam as segundas — e, mesmo
+depois de instaladas, o `pip` as põe em `site-packages/nvidia/*/lib`, onde o linker do Linux não
+procura. Detalhe em `docs/armadilhas.md` 3.8.
+
+O `except` do `engine.py:108` capturava tudo isso e caía para CPU em silêncio. Funcionava — só que
+lento, para sempre, sem sintoma. É a falha silenciosa que originou este projeto, em outro recurso.
+
+### A regra que não foi enfraquecida
+**Aceleração é bônus e falha sozinha.** O download de ~1,5 GB acontece *depois* do `ready()`, em
+`_install_gpu_extras`, e um erro ali só emite "GPU acceleration unavailable — Dito will use the CPU":
+quem não tem placa, não tem rede ou não tem disco continua com uma instalação de CPU que funciona.
+Por isso os pacotes CUDA **não** entram no `requirements.lock`, que é obrigatório para todos.
+
+### Como foi verificado
+`ruff check` limpo nos arquivos tocados e `pytest -m "not x11"` com **245 passando**. Prova de ponta
+a ponta com o venv real do Dito: `register()` carregou **17 bibliotecas**, e o
+`WhisperModel('small', device='cuda', compute_type='float16')` subiu e transcreveu — o mesmo encode
+forçado que antes levantava `RuntimeError`.
+
+### Também: código morto removido
+`log_file()` e `history_file()` (`paths.py`), `subscribe_events()` (`audio_system.py`) e
+`ensure_ui_or_hint()` (`app.py`) saíram — 27 linhas, nenhuma com chamador. A única referência
+restante a `ensure_ui_or_hint` está em `packaging/deb/build/`, que o `make-deb.sh` regenera do zero.
+O import `Callable` que ficou órfão em `app.py` foi junto.
+
+### Em aberto
+O ganho de velocidade **ainda não foi medido de forma confiável**: os clipes disponíveis somavam
+11,6 s e rendiam 1 palavra depois do VAD, então a comparação mediu overhead, não transcrição.
+Falta refazer com ~1 min de fala real antes de afirmar qualquer número.
+
 ## 2026-08-16 — o alarme acaba junto com a gravação, e a notificação não faz mais som
 
 ### O quê

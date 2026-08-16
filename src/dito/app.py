@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import threading
 import time
-from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -571,6 +570,3 @@ class DitoApp:
 def run(show_window: bool = False, cfg: cfgmod.Config | None = None) -> int:
     return DitoApp(cfg=cfg, show_window=show_window).run()
 
-
-def ensure_ui_or_hint() -> Callable[[], int]:
-    return lambda: run(show_window=True)
