@@ -330,6 +330,48 @@ def test_a_start_that_fails_reports_instead_of_raising(cfg, monkeypatch):
     assert not result.ok
     assert "unavailable" in (result.reason or "")
     assert any(isinstance(e, ev.Failed) for e in events)
+    # The metadata is written before the microphone opens; a session that captured nothing and
+    # holds no audio is not a session, and it was being offered for retry in the library.
+    assert not session.meta_path.exists()
+    assert not session.wav_path.exists()
+
+
+def test_preflight_refuses_a_microphone_that_cannot_do_the_sample_rate(monkeypatch):
+    """The bug: `hw:` cards exist, so `missing()` said fine, and every F9 died inside PortAudio
+    with «Invalid sample rate». See docs/armadilhas.md 1.12."""
+    monkeypatch.setattr(sessionmod.devices, "missing", lambda _s: False)
+    monkeypatch.setattr(sessionmod.devices, "resolve", lambda _s: 5)
+    monkeypatch.setattr(sessionmod.devices, "supports_rate", lambda _d: False)
+
+    result = sessionmod.preflight("ALC887-VD Alt Analog (hw:1,2)")
+
+    assert not result.ok
+    assert "16000" in (result.reason or "")
+    assert result.fix_hint
+
+
+def test_preflight_does_not_probe_the_default_device(monkeypatch):
+    """Probing costs 18 ms and preflight runs on the keypress path — the default never pays it."""
+    probed = []
+    monkeypatch.setattr(sessionmod.devices, "missing", lambda _s: False)
+    monkeypatch.setattr(
+        sessionmod.devices, "supports_rate", lambda _d: probed.append(_d) or True
+    )
+    monkeypatch.setattr(
+        sessionmod.audio_system, "health", lambda: SimpleNamespace(
+            blocks_recording=False, reason=None, name=None
+        )
+    )
+    monkeypatch.setattr(
+        sessionmod.alsa_mixer, "card_of_source", lambda _n: None
+    )
+    monkeypatch.setattr(
+        sessionmod.alsa_mixer, "capture_gain",
+        lambda _c: SimpleNamespace(silent=False, reason=None, fix_command=None),
+    )
+
+    assert sessionmod.preflight("").ok
+    assert probed == []
 
 
 # ---- one file per session, and the audio that goes with the text ------------------------

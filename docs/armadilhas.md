@@ -142,6 +142,32 @@ de chamar o callback**. Nenhum bloco chega, e o watchdog só era alimentado por 
 com zero. Do ponto de vista de quem fala, "chegou silêncio" e "não chegou nada" são o mesmo fato.
 A mensagem diferencia: *"o microfone parou de responder"* em vez de *"não está captando"*.
 
+### 1.12 A lista de entradas oferecia aparelho que a captura a 16 kHz nunca abre
+
+**Sintoma:** F9 respondia *"microfone indisponível: Invalid sample rate"* em toda tentativa, com o
+microfone perfeito no resto do sistema — o mesmo mic gravava normalmente no navegador.
+
+**Causa:** `list_inputs()` devolvia todo aparelho com canal de entrada, e a tela oferecia todos.
+Nesta máquina eram quatro: `ALC887-VD Analog (hw:1,0)`, `ALC887-VD Alt Analog (hw:1,2)`, `pipewire`
+e `default`. Os dois primeiros são acesso ALSA cru (1.7) e **não fazem 16 kHz** — a taxa fixa do
+Whisper. Medido: `check_input_settings(samplerate=16000)` responde `PaErrorCode -9997` nos dois.
+Ou seja, metade das opções oferecidas era impossível, e eram justamente as com nome de microfone;
+`pipewire` e `default` parecem opção genérica e são as únicas que funcionam. Pior: o headset USB
+que o dono realmente usa **não aparece na lista** — nesta máquina ele só existe atrás do PipeWire.
+
+O `preflight` passava porque só perguntava se o aparelho *existe* (`missing()`), e ele existe. A
+recusa vinha depois, do `Capture.start()`, com o texto cru do PortAudio.
+
+**Correção:** três camadas.
+
+1. `supports_rate()` pergunta ao PortAudio se o aparelho abre em `SAMPLE_RATE` — 0,1 ms quando a
+   resposta é não, 18 ms quando é sim.
+2. A tela só oferece o que abre (`list_usable_inputs()`). O aparelho fixado que **não** abre
+   continua listado, rotulado *"não grava a 16 kHz"*: sumir com ele em silêncio reescreveria a
+   configuração do dono no instante em que a tela abre.
+3. O `preflight` sonda **só quando há aparelho fixado** — o caminho padrão custa 30 ms e não pode
+   pagar mais 18 por tecla. A recusa passa a ter motivo e conserto, não `errno` de biblioteca.
+
 ---
 
 ## 2. Teclado no X11
@@ -683,6 +709,21 @@ comportamento fica no lugar onde a tecla chega, e o cartão continua sem saber d
 
 `Shift+Enter` cai no `super()` de propósito: é a quebra de linha. Sem essa exceção, texto de mais
 de um parágrafo vira impossível de editar — e editar é a razão de o cartão existir.
+
+### 7.12 A roda do mouse edita o controle por onde passa
+
+**Sintoma:** rolar a tela de configuração trocava o valor de um `Select` no caminho — o modelo, o
+microfone ou o idioma mudavam sozinhos, sem clique, e ninguém liga uma coisa à outra depois.
+
+**Causa:** `QComboBox` e `QAbstractSpinBox` tratam a roda como "próximo item". Dentro de um
+`QScrollArea` isso é destrutivo por desenho: o gesto de rolar a página é o mesmo gesto que altera o
+que está sob o cursor, e o controle come o evento antes de a área rolar.
+
+**Correção:** `Select` **nunca** aceita a roda — `event.ignore()` sempre, e o Qt propaga para a
+área rolar. "Só quando tem foco" não resolve aqui: o combo *mantém* o foco depois de escolher, e a
+próxima rolagem por cima dele reescreveria a escolha recém-feita. O valor muda por clique ou pelas
+setas. O `Spin` aceita a roda **apenas com foco**, porque nele o passo é a interação esperada e o
+foco é sempre deliberado.
 
 ---
 

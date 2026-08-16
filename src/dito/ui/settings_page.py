@@ -48,9 +48,15 @@ def _languages() -> list[tuple[str, str]]:
     return [(AUTO, _("Follow the system")), (DEFAULT, "English"), ("pt_BR", "Português")]
 
 
-def _devices() -> list[tuple[str, str]]:
+def _devices(current: str = "") -> list[tuple[str, str]]:
+    """A pinned input the app cannot open stays listed, labelled — silently dropping it rewrites
+    the setting the moment the screen opens. See docs/armadilhas.md 1.12."""
     found = [("", _("System default"))]
-    found += [(d.name, d.name) for d in devices.list_inputs()]
+    for d in devices.list_inputs():
+        if devices.supports_rate(d.index):
+            found.append((d.name, d.name))
+        elif d.name == current:
+            found.append((d.name, _("{device} — does not record at 16 kHz").format(device=d.name)))
     return found
 
 
@@ -143,7 +149,8 @@ class SettingsPage(QWidget):
         self._audio_card = card
 
         self.device = Select(
-            _devices(), on_change=lambda v: self._set("audio", "device", v)
+            _devices(self.cfg.audio.device or ""),
+            on_change=lambda v: self._set("audio", "device", v),
         )
         self.device.set_value(self.cfg.audio.device or "")
         self._device_row = FormRow("", self.device)
@@ -256,7 +263,7 @@ class SettingsPage(QWidget):
             _("Input"),
             _("kept by name, not by index: the index moves when a USB device comes or goes"),
         )
-        self.device.set_options(_devices())
+        self.device.set_options(_devices(self.cfg.audio.device or ""))
         self._sound_row.set_texts(_("Play a sound when the microphone stops picking up"))
         self._notify_row.set_texts(_("Show a system notification as well"))
 

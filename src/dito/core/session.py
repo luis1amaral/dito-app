@@ -45,6 +45,17 @@ def preflight(device_setting: str) -> Preflight:
             False, _("the microphone «{device}» is not connected").format(device=device_setting)
         )
 
+    # Only for a pinned device: probing the default costs 18 ms on every keypress, and buys nothing.
+    pinned = (device_setting or "").strip()
+    if pinned and not devices.supports_rate(devices.resolve(pinned)):
+        return Preflight(
+            False,
+            _("the microphone «{device}» does not record at {rate} Hz").format(
+                device=device_setting, rate=devices.SAMPLE_RATE
+            ),
+            _("choose «System default» under Settings › Audio"),
+        )
+
     health = audio_system.health()
     if health.blocks_recording:
         return Preflight(False, health.reason, _("unmute"))
@@ -121,7 +132,8 @@ class Session:
             self._capture.start()
         except CaptureError as exc:
             self._error = str(exc)
-            self._write_meta("failed")
+            # Nothing was captured and the writer does not exist yet: this session has no content.
+            self.meta_path.unlink(missing_ok=True)
             unavailable = _("microphone unavailable: {error}").format(error=exc)
             self.emit(ev.Failed(self.session_id, unavailable, str(self.folder)))
             return Preflight(False, unavailable)

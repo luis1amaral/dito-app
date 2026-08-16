@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dito\n"
 "Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
-"POT-Creation-Date: 2026-08-15 23:58-0300\n"
+"POT-Creation-Date: 2026-08-16 06:33-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,12 +17,16 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:184
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:274
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:191
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:281
 msgid " min"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:272
+#: /home/luis/Desktop/Projetos/dito/src/dito/audio/devices.py:20
+msgid "(default)"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:279
 msgid "0 keeps the model loaded. During a meeting it is never freed"
 msgstr ""
 
@@ -32,11 +36,11 @@ msgid ""
 "About 50 MB, once."
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:279
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:286
 msgid "A meeting records until you stop it — there is no time limit. Dito does not summarise: the note comes out with the transcript and empty sections to fill in."
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:228
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:226
 msgid "AUDIO TOO LOW"
 msgstr ""
 
@@ -44,7 +48,7 @@ msgstr ""
 msgid "All set. Opening Dito…"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:295
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:302
 msgid "Appearance"
 msgstr ""
 
@@ -52,7 +56,7 @@ msgstr ""
 msgid "Audio is very low"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:293
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:300
 msgid "Choose…"
 msgstr ""
 
@@ -72,7 +76,7 @@ msgstr ""
 msgid "Could not paste"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:360
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:358
 msgid "Ctrl+C exits."
 msgstr ""
 
@@ -80,7 +84,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:246
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:253
 msgid "Dictate (hold)"
 msgstr ""
 
@@ -96,7 +100,7 @@ msgstr ""
 msgid "Dito — NO AUDIO"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:45
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:44
 msgid "Dito — diagnosis"
 msgstr ""
 
@@ -123,15 +127,15 @@ msgstr ""
 msgid "Follow the system"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:271
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:278
 msgid "Free the memory after"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:256
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:263
 msgid "Input"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:298
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:305
 msgid "Language"
 msgstr ""
 
@@ -139,13 +143,13 @@ msgstr ""
 msgid "Light"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:277
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:284
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/overlay.py:217
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:383
 msgid "Meeting"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:248
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:255
 msgid "Meeting (toggle)"
 msgstr ""
 
@@ -161,11 +165,11 @@ msgstr ""
 msgid "Meeting subject:"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:254
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:261
 msgid "Microphone"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:265
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:272
 msgid "Model"
 msgstr ""
 
@@ -174,11 +178,11 @@ msgstr ""
 msgid "NO AUDIO"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:229
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:227
 msgid "NO AUDIO — the microphone is not picking up"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:292
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:290
 #, python-brace-format
 msgid "NO AUDIO — {reason}"
 msgstr ""
@@ -193,15 +197,15 @@ msgid ""
 "Hold the dictation key and speak — the text appears wherever the cursor is."
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:284
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:291
 msgid "Obsidian vault"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:402
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:400
 msgid "Offline voice dictation."
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:290
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:297
 msgid "Only the text is kept. The audio is deleted as soon as it is transcribed."
 msgstr ""
 
@@ -217,7 +221,7 @@ msgstr ""
 msgid "Open the folder"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:268
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:275
 msgid "Paste the text where the cursor is"
 msgstr ""
 
@@ -225,11 +229,11 @@ msgstr ""
 msgid "Pause dictation"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:260
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:267
 msgid "Play a sound when the microphone stops picking up"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:269
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:276
 msgid "Press Enter after pasting"
 msgstr ""
 
@@ -262,11 +266,11 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:245
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:252
 msgid "Shortcuts"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:261
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:268
 msgid "Show a system notification as well"
 msgstr ""
 
@@ -274,15 +278,15 @@ msgstr ""
 msgid "Space"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:251
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:258
 msgid "Swallow the key"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:52
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:54
 msgid "System default"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:296
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:303
 msgid "Theme"
 msgstr ""
 
@@ -290,7 +294,7 @@ msgstr ""
 msgid "Transcribing…"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:263
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:270
 msgid "Transcription"
 msgstr ""
 
@@ -298,8 +302,8 @@ msgstr ""
 msgid "Transcriptions"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:292
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:357
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:299
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:364
 msgid "Transcripts folder"
 msgstr ""
 
@@ -311,33 +315,33 @@ msgstr ""
 msgid "Try again"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:289
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:296
 msgid "Where the files go"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:79
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:78
 msgid "YES"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:202
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:200
 msgid "alarm at"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:121
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:120
 msgid "all set."
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:227
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:300
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:225
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:298
 msgid "audio is back"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:72
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:71
 msgid "audio server"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:316
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:298
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:296
 msgid "audio too low"
 msgstr ""
 
@@ -345,17 +349,17 @@ msgstr ""
 msgid "base"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:199
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:197
 msgid "blocks"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:112
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:111
 #, python-brace-format
 msgid "cached ({size} MB)"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:79
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:82
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:78
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:81
 msgid "can't tell"
 msgstr ""
 
@@ -364,28 +368,32 @@ msgstr ""
 msgid "capture is switched OFF in the hardware (amixer «{control}»)"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:99
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:98
 #, python-brace-format
 msgid "card {card} — {controls}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:265
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:272
 msgid "changing the model downloads it on first use"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:407
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:405
 msgid "checks microphone, mute, volume, model and configuration"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:47
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:56
+msgid "choose «System default» under Settings › Audio"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:46
 msgid "configuration"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:67
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:66
 msgid "configured"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:91
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:90
 msgid "could not be checked"
 msgstr ""
 
@@ -435,7 +443,7 @@ msgstr ""
 msgid "creating the environment…"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:77
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:76
 msgid "default source"
 msgstr ""
 
@@ -451,11 +459,11 @@ msgstr ""
 msgid "dictation is already running."
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:53
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:52
 msgid "dictation key"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:202
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:200
 msgid "did not fire"
 msgstr ""
 
@@ -467,73 +475,73 @@ msgstr ""
 msgid "failed"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:49
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:48
 msgid "file"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:201
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:199
 msgid "final state"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:368
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:366
 msgid "finished."
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:94
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:295
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:93
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:293
 #, python-brace-format
 msgid "fix: {command}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:91
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:93
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:98
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:90
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:92
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:97
 msgid "hardware gain"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:200
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:198
 msgid "highest peak"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:246
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:253
 msgid "hold it, speak, let go"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:356
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:354
 #, python-brace-format
 msgid "hold {key} and speak; release to transcribe"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:285
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:292
 msgid "if the folder does not exist Dito will NOT create it — the note stays in place"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:70
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:69
 msgid "in use"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:64
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:63
 msgid "input"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:60
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:59
 msgid "inputs"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/window.py:34
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:192
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:190
 msgid "interrupted"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:395
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:393
 msgid "it was already stopped"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:251
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:258
 msgid "keeps it from reaching the text box underneath"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:257
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:264
 msgid "kept by name, not by index: the index moves when a USB device comes or goes"
 msgstr ""
 
@@ -541,12 +549,12 @@ msgstr ""
 msgid "large-v3 — the best, heavy"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:55
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:54
 msgid "library"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:525
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:387
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:385
 msgid "listening"
 msgstr ""
 
@@ -555,11 +563,11 @@ msgid "medium — better, ~3× slower on the CPU"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/window.py:94
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:315
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:313
 msgid "meeting"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:54
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:53
 msgid "meeting key"
 msgstr ""
 
@@ -567,7 +575,7 @@ msgstr ""
 msgid "meeting saved"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:57
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:56
 msgid "microphone"
 msgstr ""
 
@@ -575,37 +583,41 @@ msgstr ""
 msgid "microphone unavailable"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:125
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:161
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:137
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:159
 #, python-brace-format
 msgid "microphone unavailable: {error}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:101
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:100
 msgid "model"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:79
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:78
 msgid "muted"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:79
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:78
 msgid "no"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:423
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:421
 msgid "no Qt: terminal only, to debug the chain without the interface"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:60
+#: /home/luis/Desktop/Projetos/dito/src/dito/audio/devices.py:96
+msgid "no input found"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:59
 msgid "none found"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:114
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:113
 msgid "not downloaded — downloads on first use"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:74
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:73
 msgid "not installed — no mute detection"
 msgstr ""
 
@@ -617,11 +629,11 @@ msgstr ""
 msgid "note next to the recording"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:331
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:329
 msgid "nothing recognized"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:330
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:328
 msgid "nothing recognized — and the microphone picked nothing up"
 msgstr ""
 
@@ -629,23 +641,23 @@ msgstr ""
 msgid "nothing was picked up — the audio is saved, you can try again"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:426
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:424
 msgid "only prints, does not paste"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:418
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:416
 msgid "opens the Dito window"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:424
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:422
 msgid "overrides the dictation key (e.g. f7)"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:425
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:423
 msgid "overrides the meeting key"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:427
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:425
 msgid "pastes without pressing Enter"
 msgstr ""
 
@@ -662,7 +674,7 @@ msgstr ""
 msgid "press a key…"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:248
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:255
 msgid "press to start, press again to stop"
 msgstr ""
 
@@ -672,12 +684,12 @@ msgstr ""
 msgid "ready"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:355
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:353
 msgid "ready."
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/tray.py:81
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:315
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:313
 msgid "recording"
 msgstr ""
 
@@ -685,16 +697,16 @@ msgstr ""
 msgid "recording the meeting"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:152
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:150
 #, python-brace-format
 msgid "recording to {path}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:411
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:409
 msgid "records a few seconds and proves the audio alarm"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:198
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:196
 msgid "result"
 msgstr ""
 
@@ -702,11 +714,11 @@ msgstr ""
 msgid "saving the meeting…"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:430
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:428
 msgid "says whether dictation is listening, right now"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:150
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:148
 #, python-brace-format
 msgid "selftest — source «{source}», {seconds}s"
 msgstr ""
@@ -715,11 +727,11 @@ msgstr ""
 msgid "settings saved"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:433
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:431
 msgid "shuts down the dictation that is running"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:93
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:92
 msgid "silent"
 msgstr ""
 
@@ -731,15 +743,15 @@ msgstr ""
 msgid "speak again to check"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:421
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:419
 msgid "starts dictation in the tray, with no window"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:385
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:383
 msgid "stopped"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:397
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:395
 msgid "stopped."
 msgstr ""
 
@@ -747,24 +759,24 @@ msgstr ""
 msgid "that key cannot be a global shortcut — use F1–F12, Scroll Lock, Pause, Insert or Space"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:306
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:313
 msgid "that key is already the dictation one"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:308
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:315
 msgid "that key is already the meeting one"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:305
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:303
 #, python-brace-format
 msgid "the audio is in {folder}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:283
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:295
 msgid "the audio is too low"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:333
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:331
 #, python-brace-format
 msgid "the audio was kept in {folder}"
 msgstr ""
@@ -791,7 +803,7 @@ msgstr ""
 msgid "the microphone is muted in the system"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:281
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:293
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/overlay.py:213
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/overlay.py:254
 #: /home/luis/Desktop/Projetos/dito/src/dito/app.py:336
@@ -802,13 +814,18 @@ msgstr ""
 msgid "the microphone is not picking up"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:244
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:256
 #, python-brace-format
 msgid "the microphone reported an error: {error}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:280
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:292
 msgid "the microphone stopped responding — the device may have dropped"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:53
+#, python-brace-format
+msgid "the microphone «{device}» does not record at {rate} Hz"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:45
@@ -816,11 +833,11 @@ msgstr ""
 msgid "the microphone «{device}» is not connected"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:347
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:354
 msgid "the rest of the window changes language next time it opens"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:165
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:177
 #, python-brace-format
 msgid "the transcription failed: {error}"
 msgstr ""
@@ -840,7 +857,7 @@ msgid "today, {time}"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/tray.py:83
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:325
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:323
 msgid "transcribing…"
 msgstr ""
 
@@ -849,7 +866,7 @@ msgid "transcription failed"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/window.py:37
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:77
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:76
 msgid "unknown"
 msgstr ""
 
@@ -857,7 +874,7 @@ msgstr ""
 msgid "unknown date"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:50
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:61
 msgid "unmute"
 msgstr ""
 
@@ -865,7 +882,7 @@ msgstr ""
 msgid "voice dictation, offline"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:82
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:81
 msgid "volume"
 msgstr ""
 
@@ -873,7 +890,7 @@ msgstr ""
 msgid "warning"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:270
+#: /home/luis/Desktop/Projetos/dito/src/dito/core/session.py:282
 #, python-brace-format
 msgid "writing to disk failed: {error}"
 msgstr ""
@@ -883,7 +900,7 @@ msgstr ""
 msgid "yesterday, {time}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:118
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:117
 #, python-brace-format
 msgid "{count} problem(s) preventing or hurting dictation."
 msgstr ""
@@ -903,7 +920,12 @@ msgstr ""
 msgid "{days} days ago, {time}"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:358
+#: /home/luis/Desktop/Projetos/dito/src/dito/ui/settings_page.py:59
+#, python-brace-format
+msgid "{device} — does not record at 16 kHz"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:356
 #, python-brace-format
 msgid "{key} starts and stops the meeting (no time limit)"
 msgstr ""
@@ -918,7 +940,7 @@ msgstr ""
 msgid "{minutes} min · {words} words"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:51
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:50
 #, python-brace-format
 msgid "{path} (does not exist yet)"
 msgstr ""
@@ -928,8 +950,13 @@ msgstr ""
 msgid "{state} · {dictation_key} dictates, {meeting_key} meeting · model {model} ({backend})"
 msgstr ""
 
-#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:414
+#: /home/luis/Desktop/Projetos/dito/src/dito/cli.py:412
 msgid "«zeros» simulates a muted microphone with no microphone needed"
+msgstr ""
+
+#: /home/luis/Desktop/Projetos/dito/src/dito/audio/devices.py:92
+#, python-brace-format
+msgid "«{device}» is not connected"
 msgstr ""
 
 #: /home/luis/Desktop/Projetos/dito/src/dito/ui/window.py:129

@@ -294,6 +294,13 @@ class Spin(QDoubleSpinBox):
     def set_invalid(self, invalid: bool) -> None:
         set_prop(self, "invalid", "true" if invalid else "false")
 
+    def wheelEvent(self, event) -> None:  # noqa: N802 - Qt override
+        # See docs/armadilhas.md 7.12: the wheel edits the value of whatever it passes over.
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
         super().paintEvent(event)
         if self.hasFocus():
@@ -353,6 +360,11 @@ class Select(QComboBox):
             return
         _spin_to(self._spin, loading)
         set_prop(self, "loading", "true" if loading else "false")
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 - Qt override
+        # See docs/armadilhas.md 7.12: a combo keeps focus after choosing, so "only when focused"
+        # still lets the wheel rewrite the setting on the way past. It never takes the wheel.
+        event.ignore()
 
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
         super().paintEvent(event)

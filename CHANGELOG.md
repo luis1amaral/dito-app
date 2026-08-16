@@ -1,5 +1,73 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o microfone que a tela oferecia e nunca abria, a roda que editava sozinha
+
+### O quê
+1. **A lista de entradas só oferece o que a captura consegue abrir.** `supports_rate()` pergunta
+   ao PortAudio se o aparelho aceita 16 kHz; `list_usable_inputs()` filtra. O aparelho fixado que
+   **não** abre continua listado, rotulado *"não grava a 16 kHz"*.
+2. **O `preflight` recusa com motivo e conserto**, não com `errno` de biblioteca. Sonda **só**
+   quando há aparelho fixado — o caminho padrão custa 30 ms e não pode pagar mais 18 por tecla.
+3. **A roda do mouse não edita mais o controle por onde passa.** `Select` nunca aceita a roda;
+   `Spin` aceita só com foco.
+4. **Falha de captura não deixa sessão salva.** O JSON escrito antes de abrir o microfone é
+   removido quando o `Capture.start()` levanta.
+5. `devices.py` passou pelo `gettext` — tinha três textos em português cravados que escaparam da
+   migração de idioma.
+
+### Por quê
+F9 respondia *"microfone indisponível: Invalid sample rate"* em toda tentativa, com o microfone
+perfeito no resto do sistema. A configuração apontava para `ALC887-VD Alt Analog (hw:1,2)` —
+oferecido pela **própria tela do app**. Medido nesta máquina: das 4 entradas listadas, **2 não
+abrem a 16 kHz**, e são justamente as com nome de microfone; `pipewire` e `default` parecem opção
+genérica e são as únicas que funcionam. O headset USB que o dono usa nem aparece na lista — aqui
+ele só existe atrás do PipeWire. Oferecer uma opção impossível é o defeito; o `preflight` passava
+porque só perguntava se o aparelho *existe*, e ele existe.
+
+A roda do mouse é a mesma classe de defeito: passa por typecheck, por lint e por leitura do fonte,
+e só aparece quando alguém rola a tela e uma configuração muda sozinha.
+
+### A regra que não foi enfraquecida
+A recusa continua fechada e barulhenta — o alarme dispara igual, agora com texto que diz o que
+fazer. E o JSON removido é de uma sessão que **não tem áudio nem texto**: o `Capture` levantou
+antes de o `WavWriter` existir, então não há gravação para perder.
+
+### Como foi verificado
+253 testes verdes, `ruff` limpo, catálogo pt-BR com 0 sem tradução e 0 duvidosa. Provas rodadas
+nesta máquina: `check_input_settings(16000)` devolve `-9997` nos dois `hw:`; o `preflight` com a
+configuração antiga recusa com *"o microfone «…» não grava a 16000 Hz"* + *"escolha «Padrão do
+sistema»"*; com a nova, passa; e o `Capture` real entregou **50 blocos em 2,5 s** sem erro.
+
+### Documentação
+`docs/armadilhas.md` **1.12** (a lista que oferecia o impossível) e **7.12** (a roda que edita).
+
+---
+
+## 2026-08-16 — interface componentizada, tema ao vivo e inglês como língua-fonte
+
+Registro do que entrou no commit `548aa1c` e não tinha passado por aqui.
+
+### O quê
+1. **Conjunto de componentes** (`ui/components.py`): botão, campo, `select`, `switch`, cartão,
+   linha de formulário e etiqueta, cada um com os seis estados, todos lendo de `theme.py`. As
+   telas usam eles em vez de escrever folha de estilo por widget.
+2. **Tema e idioma trocam sem reiniciar**, aplicando nas janelas já abertas.
+3. **As strings-fonte são inglês** e o catálogo é `gettext` — idioma virou configuração, não
+   recompilação. 214 entradas em pt-BR.
+4. A pílula ganhou tokens próprios de controle (`hud_edge`, `hud_field`, `hud_solid_*`).
+5. O `selftest` parou de escrever em `sessions/` — é diagnóstico, não gravação, e sete deles
+   apareciam na janela como "a recuperar".
+
+### Por quê
+Branco com alfa escolhido a olho sobre fundo escuro é o jeito fácil de desenhar um controle
+invisível: 0,14 de branco mede **1,51** contra `hud_surface`, metade dos 3,0 que uma borda
+operável deve. E configuração que exige reiniciar é configuração que todo mundo acha quebrada.
+
+### Como foi verificado
+Um teste percorre todo módulo sob `ui/` e reprova quem escrever cor ou pixel numa tela.
+
+---
+
 ## 2026-08-15 — sessão vira um JSON de 238 bytes, e o áudio não fica
 
 ### O quê

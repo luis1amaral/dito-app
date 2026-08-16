@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..i18n import _
+
 SAMPLE_RATE = 16000   # what Whisper expects; resampling anything else is wasted work
 
 
@@ -15,7 +17,7 @@ class Device:
     default: bool
 
     def __str__(self) -> str:
-        marca = " (padrão)" if self.default else ""
+        marca = " " + _("(default)") if self.default else ""
         return f"{self.index}: {self.name}{marca}"
 
 
@@ -47,6 +49,22 @@ def list_inputs() -> list[Device]:
     return found
 
 
+def supports_rate(device: int | str | None, rate: int = SAMPLE_RATE) -> bool:
+    """See docs/armadilhas.md 1.12: a raw `hw:` card refuses 16 kHz, and only fails at F9."""
+    import sounddevice as sd
+
+    try:
+        sd.check_input_settings(device=device, channels=1, samplerate=rate, dtype="int16")
+    except Exception:
+        return False
+    return True
+
+
+def list_usable_inputs() -> list[Device]:
+    """What the picker may offer: an input the app cannot open is not a choice, it is a trap."""
+    return [d for d in list_inputs() if supports_rate(d.index)]
+
+
 def resolve(setting: str) -> int | str | None:
     """Config value -> device for sounddevice; None is "default" or gone, see `missing()`."""
     setting = (setting or "").strip()
@@ -71,10 +89,10 @@ def missing(setting: str) -> bool:
 def describe(setting: str) -> str:
     resolved = resolve(setting)
     if resolved is None and (setting or "").strip():
-        return f"«{setting}» não está conectado"
+        return _("«{device}» is not connected").format(device=setting)
     inputs = list_inputs()
     if resolved is None:
         padrao = next((d for d in inputs if d.default), None)
-        return padrao.name if padrao else "nenhuma entrada encontrada"
+        return padrao.name if padrao else _("no input found")
     match = next((d for d in inputs if d.index == resolved), None)
     return match.name if match else str(resolved)
