@@ -44,13 +44,25 @@ class _Pip:
         self.killed = True
 
 
-def test_the_marker_decides_not_the_file(venv, monkeypatch):
+def test_the_marker_decides_between_files_that_exist(venv, monkeypatch):
     """A .so truncated by two concurrent pips passes an existence test and never retries."""
+    _cublas_where_pip_puts_it(venv).write_bytes(b"truncated")
     monkeypatch.setattr(bootstrap, "_adopt_preexisting", lambda: False)
     assert bootstrap.gpu_extras_ready() is False
 
     bootstrap.GPU_MARK.write_text("ok\n")
     assert bootstrap.gpu_extras_ready() is True
+
+
+def test_a_marker_that_outlived_its_venv_does_not_pin_the_cpu(venv):
+    """Uninstalling keeps the state directory — that is where the recordings are — so the marker
+    survived the venv it described. It answered "GPU ready" with no cuBLAS anywhere, the install
+    was never retried, and every dictation fell back to the CPU in silence. Seen for real while
+    testing a clean reinstall on Windows. See docs/armadilhas.md 3.10."""
+    bootstrap.GPU_MARK.write_text("ok\n")
+
+    assert bootstrap.gpu_extras_ready() is False
+    assert not bootstrap.GPU_MARK.exists(), "o marcador vencido tem que sair, senão mente de novo"
 
 
 def _cublas_where_pip_puts_it(venv_root):
@@ -91,6 +103,8 @@ def test_a_library_that_does_not_load_is_not_adopted(venv, monkeypatch):
 
 def test_a_ready_install_never_asks_the_card(venv, monkeypatch):
     """nvidia-smi wakes a sleeping dGPU on Optimus: asking it needlessly costs seconds at login."""
+    # Ready means both halves: the library on disk AND the marker that says it loaded (3.10).
+    _cublas_where_pip_puts_it(venv).write_bytes(b"")
     bootstrap.GPU_MARK.write_text("ok\n")
     asked = []
     monkeypatch.setattr(bootstrap, "has_nvidia_gpu", lambda: asked.append(1) or True)

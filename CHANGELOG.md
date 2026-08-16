@@ -86,6 +86,14 @@ Windows 10 Pro 19045, Python 3.13.3, PySide6 6.11.1, GTX 1650.
   `%LOCALAPPDATA%\dito\state\gpu-ready`, então não rebaixa 1,5 GB na próxima subida.
 - Catálogos conferidos carregando o `.mo` compilado, não pelo `check` — como manda a armadilha 7.15.
 
+11. **O marcador `gpu-ready` sobrevivia à venv que ele descrevia**, e aí mentia: respondia
+    "GPU pronta" sem nenhuma DLL de cuBLAS no disco, a instalação nunca era refeita e todo ditado
+    caía para a CPU **em silêncio**. Apareceu ao testar um reinstall limpo — o desinstalador
+    preserva o diretório de estado de propósito (é onde ficam as gravações), e o marcador mora lá.
+    Agora o marcador decide **entre bibliotecas que existem**: sem cuBLAS no disco ele é apagado e
+    o ciclo se conserta sozinho. Vale nos dois sistemas — no Linux a estrutura é a mesma, só não
+    tinha sido exercitada. Ver `docs/armadilhas.md` 3.10.
+
 ### O que NÃO foi verificado
 
 A cadeia com **fala humana** de ponta a ponta (F9 → falar → texto colado): as peças foram provadas

@@ -492,6 +492,35 @@ sobre silêncio: medido, **166x mais CPU**. `cpu_threads` do CTranslate2 também
 **O que sobra é intrínseco:** ~14% de launches do CT2, tokenizer e Python, mais 960 ms de encoder
 por janela de 30 s — a GTX 1650 (TU117, sem tensor cores) no limite dela, a 97% e 1965 MHz.
 
+### 3.10 O marcador `gpu-ready` sobrevive à venv que ele descrevia — e prende a CPU em silêncio
+
+**Sintoma, visto num reinstall limpo no Windows:** depois de desinstalar e instalar de novo, o
+`gpu_extras_ready()` respondia `True` sem **nenhuma** DLL de cuBLAS no disco. Consequência:
+`gpu_extras_missing()` dava `False`, a instalação da GPU nunca era refeita, o `WhisperModel` com
+`device="cuda"` falhava, e o `engine.py` caía para a CPU — **sem dizer nada, para sempre.**
+
+**Causa:** o desinstalador preserva o diretório de estado de propósito, porque é onde moram as
+gravações (o `postrm` do `.deb` faz o mesmo no Linux). O marcador mora lá. A venv, não. Então o
+marcador passou a descrever uma venv que não existia mais.
+
+Medido logo depois do reinstall:
+
+| | |
+|---|---|
+| marcador `gpu-ready` existe | **sim** |
+| DLL de cuBLAS no disco | **não** |
+| `gpu_extras_ready()` | **`True`** — mentira |
+| `gpu_extras_missing()` | `False` — nunca reinstala |
+
+**Correção:** o marcador decide **entre bibliotecas que existem**, não no lugar delas. Sem cuBLAS
+no disco, o marcador é vencido: ele é apagado e a resposta é `False`, então o ciclo se conserta
+sozinho na próxima subida. O motivo original dele continua valendo — um `.so` truncado por dois
+`pip` concorrentes passa num teste de existência, e é por isso que a presença sozinha também não
+basta. São as duas condições, não uma.
+
+Vale nos dois sistemas: no Linux a estrutura é a mesma (marcador em `VENV_DIR.parent`, venv
+refeita pelo `.deb` num upgrade), só não tinha sido exercitada.
+
 ---
 
 ## 4. Colagem e clipboard

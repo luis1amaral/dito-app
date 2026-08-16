@@ -127,8 +127,16 @@ def install(progress=None) -> tuple[bool, str]:
     return True, _("ready")
 
 
+def _cublas_on_disk() -> bool:
+    return next(VENV_DIR.glob(CUBLAS_GLOB), None) is not None
+
+
 def gpu_extras_ready() -> bool:
-    """The marker, not the .so: a half-written file passes an existence test and never retries."""
+    """The marker decides among libraries that EXIST — see docs/armadilhas.md 3.10."""
+    if not _cublas_on_disk():
+        # The venv it described is gone; keeping it would pin the CPU forever, in silence.
+        GPU_MARK.unlink(missing_ok=True)
+        return False
     return GPU_MARK.exists() or _adopt_preexisting()
 
 
