@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dito"
-version = "0.2.0"
+version = "0.2.1"
 description = "Ditado por voz offline: fale, e o texto aparece onde o cursor está"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }

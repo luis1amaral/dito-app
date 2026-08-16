@@ -21,6 +21,7 @@ passo "Conferindo que a árvore está sã antes de empacotar"
 passo "Gerando o pacote"
 bash packaging/deb/make-deb.sh >/dev/null
 DEB=$(ls -t dist/dito_*.deb | head -1)
+VER_DEB=$(dpkg-deb -f "$DEB" Version)
 ok "$(basename "$DEB") — $(du -h "$DEB" | cut -f1)"
 
 if [ "${1:-}" = "--sem-sudo" ]; then
@@ -58,8 +59,12 @@ if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dito/dito.sock" ] \
 fi
 
 passo "Instalando"
-sudo apt install -y "$RAIZ/$DEB"
+# Rodar de novo sem bump é normal aqui, e o apt trata "mesma versão" como downgrade e recusa.
+sudo apt install -y --allow-downgrades --reinstall "$RAIZ/$DEB"
+INSTALADA=$(dpkg-query -W -f='${Version}' dito 2>/dev/null || echo '?')
 ok "instalado: $(dito --version 2>/dev/null || echo '?')"
+# O apt resolve o caminho para o nome do pacote e pode preferir a versão do repositório.
+[ "$INSTALADA" = "$VER_DEB" ] || aviso "instalou $INSTALADA, e o pacote gerado é $VER_DEB"
 
 passo "Tirando o provisório que eu tinha deixado"
 # O .deb traz o autostart em /etc/xdg e o .desktop em /usr/share; os de usuário apontavam para a
