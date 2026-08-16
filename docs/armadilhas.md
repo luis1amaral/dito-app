@@ -412,9 +412,16 @@ pelo soname.
 **Por que não `LD_LIBRARY_PATH`:** teria de estar no ambiente **antes** do Python começar, o que
 obriga a um wrapper de shell no `.desktop` — o `ctypes` resolve dentro do processo, sem isso.
 
-**Custo:** ~1,5 GB. Por isso o `bootstrap.py` só baixa quando `has_nvidia_gpu()` é verdadeiro, e
-numa etapa que pode falhar sozinha: perder a aceleração nunca pode custar uma instalação que
-funcionaria em CPU.
+**Custo:** ~1,5 GB. Por isso só baixa quando `has_nvidia_gpu()` é verdadeiro, e numa etapa que pode
+falhar sozinha: perder a aceleração nunca pode custar uma instalação que funcionaria em CPU.
+
+**Onde o download acontece, e por que não se pergunta.** Na instalação nova, dentro do `install()`
+— a pessoa já está parada na janela de setup, que passa a declarar 1,5 GB em vez de 50 MB quando há
+placa. Numa máquina que já tinha o Dito, `install()` nunca mais roda, e esse caso é de
+`DitoApp._catch_up_on_gpu()`: thread daemon, sem janela, que ao terminar chama `engine.unload()` —
+o modelo em memória é o da CPU e ficaria lá até o descarregamento por ociosidade. Não há pergunta
+ao usuário: autorizar algo que só melhora o app é atrito, e a resposta é sempre sim. Quem quer CPU
+diz isso em `stt.device`, que é respeitado.
 
 ---
 

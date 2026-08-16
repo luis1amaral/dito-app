@@ -21,8 +21,8 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
+from . import bootstrap, paths
 from . import config as cfgmod
-from . import paths
 from .audio.level import State as AudioState
 from .core import events as ev
 from .core import library, publish
@@ -121,6 +121,7 @@ class DitoApp:
             idle_unload_min=self.cfg.stt.idle_unload_min,
             on_log=lambda m: print(m, flush=True),
         )
+        self._catch_up_on_gpu()
 
         self.hotkeys = HotkeyManager(
             on_start=self._begin,
@@ -161,6 +162,25 @@ class DitoApp:
             return self.qt.exec()
         finally:
             self._shutdown()
+
+    def _catch_up_on_gpu(self) -> None:
+        """An upgrade never runs install(), so the card would sit idle — see armadilhas 3.8."""
+        if self.cfg.stt.device == "cpu" or not bootstrap.gpu_extras_missing():
+            return
+
+        def work() -> None:
+            ok, message = bootstrap.install_gpu_extras(lambda m: print(f"[gpu] {m}", flush=True))
+            if not ok:
+                print(f"[gpu] {message}", flush=True)
+                return
+            # The model already in memory is the CPU one: drop it so the next load takes the card.
+            self.engine.unload()
+            notify.notify(
+                _("Dito — now using your graphics card"),
+                _("Transcription moved off the CPU."),
+            )
+
+        threading.Thread(target=work, daemon=True, name="dito-gpu").start()
 
     def _sweep_old_sessions(self) -> None:
         """Off the startup path: a slow or sleeping disk must not delay the tray icon."""

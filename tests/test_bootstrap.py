@@ -1,9 +1,10 @@
-"""The GPU offer, and the gap it closes: an install that already works never runs install().
+"""When the CUDA libraries get downloaded, and when downloading them would be wrong.
 
-A venv that passes `ready()` returns from `main()` before `install()` is ever called — so the
-machine that had Dito working in CPU would keep working in CPU forever after an upgrade, with the
-graphics card sitting idle and nothing on screen saying so. The offer is the only path those
-installs have, and every guard below exists so it does not become a window on every launch.
+The driver being installed is not the same as the GPU being usable: cuBLAS and cuDNN are separate
+libraries, ~1.5 GB, and without them `device="cuda"` raises and the engine falls back to the CPU
+without telling anyone (docs/armadilhas.md 3.8). So the download is not optional — it is what makes
+the card real. What it must never be is a surprise on a machine that has no card, or a repeat on a
+machine that already has the libraries.
 """
 
 from __future__ import annotations
@@ -18,7 +19,6 @@ def venv(tmp_path, monkeypatch):
     """A venv of our own: the real one may or may not have the libraries installed."""
     root = tmp_path / "dito"
     monkeypatch.setattr(bootstrap, "VENV_DIR", root / "venv")
-    monkeypatch.setattr(bootstrap, "DECLINED", root / "gpu-declined")
     return root
 
 
@@ -34,49 +34,43 @@ def test_extras_are_missing_until_cublas_is_there(venv):
     assert bootstrap.gpu_extras_ready() is True
 
 
-def test_no_offer_without_a_card(venv, monkeypatch):
+def test_nothing_to_download_without_a_card(venv, monkeypatch):
     monkeypatch.setattr(bootstrap, "has_nvidia_gpu", lambda: False)
-    assert bootstrap.gpu_offer_pending() is False
+    assert bootstrap.gpu_extras_missing() is False
 
 
-def test_offer_when_the_card_is_there_and_the_libraries_are_not(venv, monkeypatch):
+def test_download_is_due_when_the_card_is_there_and_the_libraries_are_not(venv, monkeypatch):
     monkeypatch.setattr(bootstrap, "has_nvidia_gpu", lambda: True)
-    assert bootstrap.gpu_offer_pending() is True
+    assert bootstrap.gpu_extras_missing() is True
 
 
-def test_nothing_to_offer_once_the_libraries_are_installed(venv, monkeypatch):
+def test_nothing_to_download_once_installed(venv, monkeypatch):
+    """1.5 GB is worth downloading once; downloading it every launch is not."""
     monkeypatch.setattr(bootstrap, "has_nvidia_gpu", lambda: True)
     _with_cublas(venv)
-    assert bootstrap.gpu_offer_pending() is False
+    assert bootstrap.gpu_extras_missing() is False
 
 
-def test_a_no_is_remembered(venv, monkeypatch):
-    monkeypatch.setattr(bootstrap, "has_nvidia_gpu", lambda: True)
-    assert bootstrap.gpu_offer_pending() is True
+def test_a_failed_download_reports_instead_of_raising(venv, monkeypatch):
+    """Losing acceleration must never cost the user an install that works on the CPU."""
+    class Failed:
+        returncode = 1
 
-    bootstrap.decline_gpu()
+    monkeypatch.setattr(bootstrap.subprocess, "run", lambda *a, **k: Failed())
 
-    assert bootstrap.DECLINED.exists()
-    assert bootstrap.gpu_offer_pending() is False
+    ok, message = bootstrap.install_gpu_extras(lambda _m: None)
 
-
-def test_headless_never_offers(venv, monkeypatch):
-    """1.5 GB needs an answer, and a session with no screen has nobody to give one."""
-    monkeypatch.setattr(bootstrap, "has_nvidia_gpu", lambda: True)
-    called = []
-    monkeypatch.setattr(bootstrap, "_run_with_window", lambda *a, **k: called.append(1))
-
-    assert bootstrap._offer_gpu(headless=True) == 0
-    assert called == []
+    assert ok is False
+    assert "CPU" in message
 
 
-def test_a_failing_offer_still_lets_the_app_open(venv, monkeypatch):
-    """The offer is a bonus; it must never be what stops Dito from starting."""
-    monkeypatch.setattr(bootstrap, "has_nvidia_gpu", lambda: True)
-
+def test_a_download_that_explodes_is_still_only_a_message(venv, monkeypatch):
     def boom(*_a, **_k):
-        raise RuntimeError("no Qt here")
+        raise OSError("no network")
 
-    monkeypatch.setattr(bootstrap, "_run_with_window", boom)
+    monkeypatch.setattr(bootstrap.subprocess, "run", boom)
 
-    assert bootstrap._offer_gpu(headless=False) == 0
+    ok, message = bootstrap.install_gpu_extras(lambda _m: None)
+
+    assert ok is False
+    assert "CPU" in message

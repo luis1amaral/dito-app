@@ -23,16 +23,27 @@ procura. Detalhe em `docs/armadilhas.md` 3.8.
 O `except` do `engine.py:108` capturava tudo isso e caía para CPU em silêncio. Funcionava — só que
 lento, para sempre, sem sintoma. É a falha silenciosa que originou este projeto, em outro recurso.
 
-### A oferta, para quem já tinha o Dito instalado
-Instalar as bibliotecas dentro do `install()` só resolvia **instalação nova**: uma venv que passa no
-`ready()` faz o `main()` retornar antes, então a máquina que já rodava o Dito continuaria em CPU
-para sempre depois do `apt upgrade`, com a placa parada e nada na tela dizendo isso.
+### Sem perguntar: a GPU não é preferência, é o jeito certo de rodar
+Uma versão intermediária perguntava, numa janela com "Ativar" e "Agora não". Foi descartada pelo
+dono, e com razão: **autorizar algo que só melhora o app é atrito à toa**, e a resposta certa é
+sempre sim. Quem tem a placa quer usá-la; a CPU é que trava a máquina inteira enquanto transcreve.
 
-Agora `main()` chama `_offer_gpu()` nesse caminho. A oferta obedece às duas regras da casa: **não
-aparece no login** (o autostart exporta `DITO_BOOTSTRAP=never` e retorna antes) e **não baixa nada
-sem uma janela** — pergunta primeiro, com "Ativar" e "Agora não". O "não" fica gravado em
-`~/.local/share/dito/gpu-declined`, senão a oferta viraria uma janela a cada abertura. Sessão sem
-tela (`--headless` ou sem `DISPLAY`) nunca oferece: 1,5 GB pede uma resposta e ali não há quem dê.
+O download pesado passou para **onde a pessoa já está esperando**: o setup da primeira execução. A
+janela agora diz o tamanho real quando há placa (1,5 GB, não 50 MB) — a única honestidade que
+faltava. Sem placa, o texto e o download seguem os de antes.
+
+Para quem **já tinha o Dito** e só atualizou, `install()` nunca roda de novo. Esse caso é atendido
+por `DitoApp._catch_up_on_gpu()`: uma thread daemon (`dito-gpu`, o mesmo padrão do `dito-sweep`)
+que baixa em segundo plano, sem janela e sem travar nada, e ao terminar descarrega o modelo que
+estava na memória — o da CPU — para que a próxima transcrição já pegue a placa. Só então notifica,
+uma vez: "agora usando a sua placa de vídeo". Respeita `stt.device = "cpu"` de quem escolheu CPU
+de propósito.
+
+**A regra do login mudou, e de propósito.** Era "um login nunca inicia download grande sem janela".
+Agora inicia — mas em thread de fundo, sem janela, sem bloquear a bandeja e sem pedir nada. O que
+a regra protegia (o login não travar, nada piscar na frente do usuário) continua de pé; o que ela
+proibia por precaução deixou de fazer sentido quando a alternativa é a placa ficar parada para
+sempre.
 
 ### A regra que não foi enfraquecida
 **Aceleração é bônus e falha sozinha.** O download de ~1,5 GB acontece *depois* do `ready()` e um

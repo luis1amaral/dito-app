@@ -16,7 +16,6 @@ VENV_DIR = Path(
     os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
 ) / "dito" / "venv"
 LOCK = APP_DIR / "requirements.lock"
-DECLINED = VENV_DIR.parent / "gpu-declined"
 
 # ctranslate2 loads these at runtime; the driver alone is not enough — see docs/armadilhas.md 3.8.
 CUDA_PACKAGES = ("nvidia-cublas-cu12", "nvidia-cudnn-cu12")
@@ -108,18 +107,9 @@ def gpu_extras_ready() -> bool:
     return any(VENV_DIR.glob("lib/python*/site-packages/nvidia/cublas/lib/libcublas.so*"))
 
 
-def gpu_offer_pending() -> bool:
-    """A ready venv never reaches install(), so an existing install needs its own offer."""
-    return has_nvidia_gpu() and not gpu_extras_ready() and not DECLINED.exists()
-
-
-def decline_gpu() -> None:
-    """Remembering the "no" is what keeps the offer from becoming a window on every launch."""
-    try:
-        DECLINED.parent.mkdir(parents=True, exist_ok=True)
-        DECLINED.touch()
-    except OSError:
-        pass
+def gpu_extras_missing() -> bool:
+    """There is a card and nothing to drive it with: the one case worth downloading for."""
+    return has_nvidia_gpu() and not gpu_extras_ready()
 
 
 def install_gpu_extras(say) -> tuple[bool, str]:
@@ -140,9 +130,7 @@ def install_gpu_extras(say) -> tuple[bool, str]:
     return True, _("ready")
 
 
-def _run_with_window(
-    title: str, text: str, action, ask_first: bool = False, on_decline=None
-) -> int:
+def _run_with_window() -> int:
     from PySide6.QtCore import QObject, Qt, QTimer, Signal
     from PySide6.QtWidgets import (
         QApplication,
@@ -162,17 +150,23 @@ def _run_with_window(
     signals = Signals()
 
     window = QWidget()
-    window.setWindowTitle(title)
+    window.setWindowTitle(_("Setting up Dito"))
     window.resize(460, 0)
     layout = QVBoxLayout(window)
     layout.setContentsMargins(28, 24, 28, 24)
     layout.setSpacing(12)
 
-    heading = QLabel(title)
+    heading = QLabel(_("Setting up Dito"))
     heading.setStyleSheet("font-size: 20px; font-weight: 600;")
     layout.addWidget(heading)
 
-    body = QLabel(text)
+    body = QLabel(
+        _("A few components are missing that Debian does not package. About 1.5 GB, once — "
+          "most of it is what puts transcription on your NVIDIA card instead of the CPU.")
+        if gpu_extras_missing()
+        else _("A few components are missing that Debian does not package.\n"
+               "About 50 MB, once.")
+    )
     body.setWordWrap(True)
     layout.addWidget(body)
 
@@ -186,8 +180,8 @@ def _run_with_window(
 
     buttons = QHBoxLayout()
     buttons.addStretch(1)
-    go = QPushButton(_("Enable") if ask_first else _("Try again"))
-    dismiss = QPushButton(_("Not now") if ask_first else _("Close"))
+    go = QPushButton(_("Try again"))
+    dismiss = QPushButton(_("Close"))
     buttons.addWidget(go)
     buttons.addWidget(dismiss)
     layout.addLayout(buttons)
@@ -195,7 +189,7 @@ def _run_with_window(
     state = {"code": 1}
 
     def work() -> None:
-        ok, message = action(signals.step.emit)
+        ok, message = install(progress=signals.step.emit)
         signals.done.emit(ok, message)
 
     def start() -> None:
@@ -219,45 +213,17 @@ def _run_with_window(
         go.show()
         dismiss.show()
 
-    def leave() -> None:
-        if on_decline is not None:
-            on_decline()
-        app.quit()
-
     signals.step.connect(status.setText, Qt.ConnectionType.QueuedConnection)
     signals.done.connect(finished, Qt.ConnectionType.QueuedConnection)
     go.clicked.connect(start)
-    dismiss.clicked.connect(leave)
+    dismiss.clicked.connect(app.quit)
 
     window.show()
-    if ask_first:
-        bar.hide()
-        state["code"] = 0       # turning the offer down is an answer, not a failure
-    else:
-        go.hide()
-        dismiss.hide()
-        start()
+    go.hide()
+    dismiss.hide()
+    start()
     app.exec()
     return state["code"]
-
-
-def _offer_gpu(headless: bool) -> int:
-    """Always returns 0: an offer that fails must never be what keeps Dito from opening."""
-    if headless or not gpu_offer_pending():
-        return 0
-
-    try:
-        _run_with_window(
-            _("Use your graphics card?"),
-            _("Dito found an NVIDIA card. Moving transcription onto it needs about 1.5 GB of\n"
-              "libraries, downloaded once. Without them Dito keeps working on the CPU."),
-            install_gpu_extras,
-            ask_first=True,
-            on_decline=decline_gpu,
-        )
-    except Exception as exc:      # noqa: BLE001 - the app opens either way
-        print(f"[{_('warning')}] {type(exc).__name__}", flush=True)
-    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -268,24 +234,16 @@ def main(argv: list[str] | None = None) -> int:
     if os.environ.get("DITO_BOOTSTRAP") == "never":
         return 0
 
-    headless = "--headless" in argv or not os.environ.get("DISPLAY")
-
-    # A ready venv skips install(), so this is the only place an existing install hears the offer.
     if ready():
-        return _offer_gpu(headless)
+        return 0
 
-    if headless:
+    if "--headless" in argv or not os.environ.get("DISPLAY"):
         ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
         print(message)
         return 0 if ok else 1
 
     try:
-        return _run_with_window(
-            _("Setting up Dito"),
-            _("A few components are missing that Debian does not package.\n"
-              "About 50 MB, once."),
-            lambda say: install(progress=say),
-        )
+        return _run_with_window()
     except Exception as exc:      # noqa: BLE001 - last resort, the install still has to happen
         print(f"[{_('warning')}] {type(exc).__name__}", flush=True)
         ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
