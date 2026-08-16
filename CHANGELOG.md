@@ -1,5 +1,38 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — encostar no F9 sem querer não deixa mais rastro nem alarme preso
+
+### O quê
+1. Gravação com **menos de 0,6 s e sem texto** é descartada inteira — JSON, WAV e parciais — e não
+   dispara alarme nenhum.
+2. O alarme *"nada foi captado"* **se dispensa sozinho** depois de 8 s.
+
+### Por quê
+Apertar e soltar o F9 na hora, sem falar, deixava uma sessão no disco que não era gravação, e a
+pílula vermelha presa na tela até reiniciar o app.
+
+O alarme estava certo pelo motivo errado: `ever_heard` sai falso quando nada foi ouvido, e num toque
+de 200 ms **não houve janela para ouvir** — o watchdog ignora os primeiros 300 ms de propósito,
+porque o PipeWire acorda uma fonte suspensa preguiçosamente. Gravação mais curta que a grace
+**sempre** termina com `ever_heard` falso, por construção; alarmar ali é falso positivo garantido.
+
+E, diferente de 9.5, aqui a sessão existiu — mas **já tinha acabado**. A pílula relatava um fato
+passado como condição em curso, e alarme que não sai ensina a ignorar alarme (9.6).
+
+### A regra que não foi enfraquecida
+Segurar a tecla e falar no vazio continua sendo a falha central do projeto. O limiar é sobre
+**quanto tempo a tecla ficou apertada**, não sobre quanto áudio chegou — microfone morto com a tecla
+segurada por 10 s alarma exatamente como antes, e o áudio fica, porque sem texto não há substituição.
+
+### Como foi verificado
+274 testes verdes, `ruff` limpo. Dois testes novos prendem os dois lados: toque acidental não deixa
+sessão no disco, e gravação longa sem texto **continua** registrada com o áudio preservado.
+
+### Documentação
+`docs/armadilhas.md` **9.7**.
+
+---
+
 ## 2026-08-16 — segurar o F10 ligava e desligava a gravação sem parar
 
 ### O quê

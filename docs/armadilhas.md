@@ -1200,3 +1200,30 @@ Duas coisas caíram junto, por dependerem do layout antigo:
 Quando o cofre não existe, a nota continua caindo ao lado da gravação (10.4) — agora dentro da
 pasta do dia. Ela é `.md`, e a varredura só remove o que o app escreve como sessão, então uma nota
 salva sobrevive à limpeza de propósito: ela é o que o dono pediu para guardar.
+
+### 9.7 Toque acidental virava gravação registrada e alarme vermelho que não saía
+
+**Sintoma:** encostar no F9 sem querer — apertar e soltar na hora, sem falar — deixava duas coisas:
+uma sessão no disco que não era gravação nenhuma, e a pílula vermelha *"nada foi captado"* presa na
+tela até o app reiniciar.
+
+**Causa, em duas metades.**
+
+1. **O alarme era certo pelo motivo errado.** `ever_heard` sai falso quando nada foi ouvido, e o app
+   trata isso como *a* falha do projeto — os 99 segundos. Só que num toque de 200 ms **não houve
+   janela para ouvir**: o watchdog ignora os primeiros 300 ms de propósito, porque o PipeWire
+   acorda uma fonte suspensa preguiçosamente (1.x, a grace). Ou seja, gravação mais curta que a
+   grace **sempre** termina com `ever_heard` falso, por construção. Alarmar ali é falso positivo
+   garantido.
+2. **O alarme não tinha fim.** Diferente do 9.5, aqui a sessão *existiu* — mas ela **já acabou**. A
+   pílula estava relatando um fato passado como se fosse condição em curso, e um alarme que não sai
+   ensina a pessoa a ignorar alarme (9.6).
+
+**Correção:** `MIS_TAP_S = 0.6`. Abaixo disso **e** sem texto, a sessão é descartada inteira — JSON,
+WAV e parciais — e nenhum alarme aparece. Acima disso, o alarme dispara igual, e agora se dispensa
+sozinho depois de 8 s.
+
+**O que NÃO mudou, e é o ponto:** segurar a tecla e falar no vazio continua sendo a falha central do
+projeto. O limiar é sobre **quanto tempo a tecla ficou apertada**, não sobre quanto áudio chegou —
+então microfone morto com a tecla segurada por 10 s alarma exatamente como antes, e o áudio fica,
+porque sem texto não existe substituição para ele.

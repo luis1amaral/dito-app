@@ -534,3 +534,34 @@ def test_audio_delivered_at_real_pace_still_counts_as_heard(cfg):
     assert isinstance(result, ev.Finished) and result.ever_heard_audio
     assert not session.wav_path.exists(), "o WAV sobreviveu a uma transcrição bem-sucedida"
     assert session.meta_path.is_file()
+
+
+def test_a_brushed_key_leaves_no_session_behind(cfg):
+    """Tapping F9 by accident used to file a recording that is not one — and then put a red alarm
+    on screen that never left. Nothing was said, and the watchdog's 300 ms grace means there was
+    no window to hear anything either. See docs/armadilhas.md 9.7."""
+    session, events = make(cfg, engine=FakeEngine(text=""))
+    assert session.start().ok
+
+    result = session.stop()
+
+    assert isinstance(result, ev.Finished)
+    assert result.seconds < sessionmod.MIS_TAP_S
+    assert not session.meta_path.exists(), "toque acidental deixou sessão no disco"
+    assert not session.wav_path.exists()
+
+
+def test_a_long_silence_is_still_filed_and_still_alarms(cfg):
+    """The other side: holding the key and saying nothing IS the failure this project exists for.
+    The audio stays, because with no text there is no replacement for it."""
+    session, events = make(cfg, engine=FakeEngine(text=""))
+    assert session.start().ok
+    session._capture.deliver(0.0, count=20)
+    time.sleep(sessionmod.MIS_TAP_S + 0.2)
+
+    result = session.stop()
+
+    assert isinstance(result, ev.Finished)
+    assert result.seconds >= sessionmod.MIS_TAP_S
+    assert session.meta_path.is_file(), "gravação longa sem texto tem que ficar registrada"
+    assert session.wav_path.is_file(), "sem texto não há substituição: o áudio fica"

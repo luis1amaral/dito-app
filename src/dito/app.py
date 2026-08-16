@@ -27,7 +27,7 @@ from . import paths
 from .audio.level import State as AudioState
 from .core import events as ev
 from .core import library, publish
-from .core.session import Mode, Session
+from .core.session import MIS_TAP_S, Mode, Session
 from .i18n import _
 from .i18n import setup as setup_language
 from .output import notes
@@ -46,6 +46,9 @@ from .ui.window import MainWindow
 
 DICTATION = "dictation"
 MEETING = "meeting"
+
+# Long enough to read from across the room, short enough to never need dismissing by hand.
+ALARM_LINGER_MS = 8_000
 
 
 class Bridge(QObject):
@@ -369,11 +372,18 @@ class DitoApp:
                 # Both keys end the same way: you read the text, and decide there whether it goes
                 # to the vault. Without the card there is nowhere to decide, so nothing is sent.
                 self.review.present(event.text)
+        elif event.seconds < MIS_TAP_S:
+            # A key brushed by accident. The watchdog ignores the first 300 ms because PipeWire
+            # wakes a suspended source lazily, so there was never a window to hear anything —
+            # alarming here is a false positive by construction. See armadilhas 9.7.
+            self.overlay.dismiss()
         elif not event.ever_heard_audio:
             # The exact failure this project exists for. Never a silent no-op.
             self.overlay.show_dead(
                 _("nothing was picked up — the audio is saved, you can try again"), None
             )
+            # The recording is over: this reports the past, it is not a condition still going on.
+            self.overlay.dismiss_alarm_after(ALARM_LINGER_MS)
             notify.notify(
                 _("Dito — nothing was picked up"),
                 _("the microphone delivered no audio. The recording is in {folder}").format(

@@ -23,6 +23,9 @@ from ..platform.linux_x11 import alsa_mixer, audio_system
 from ..stt.chunker import Chunker
 from . import events as ev
 
+# Held for less than this with nothing said is a brushed key — see docs/armadilhas.md 9.7.
+MIS_TAP_S = 0.6
+
 
 class Mode(StrEnum):
     # See docs/armadilhas.md 3.5: a meeting is chunked as it goes, a dictation waits for the end.
@@ -195,7 +198,13 @@ class Session:
                 pass
 
         seconds = self._writer.seconds if self._writer else 0.0
-        if self._write_meta("done", text=text, seconds=seconds):
+        if not text.strip() and seconds < MIS_TAP_S:
+            # A brushed key: nothing was said, and the watchdog's grace means there was no window
+            # to hear anything either. Filing this would file a recording that is not one.
+            self._unlink(self.transcript_path)
+            self._unlink(self.wav_path)
+            self._unlink(self.meta_path)
+        elif self._write_meta("done", text=text, seconds=seconds):
             self._discard_scratch(text)
         done = ev.Finished(
             session_id=self.session_id,
