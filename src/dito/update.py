@@ -23,7 +23,9 @@ from . import __version__, paths
 from .i18n import _
 
 REPO = "luis1amaral/dito-app"
-API = "https://api.github.com/repos/{repo}/releases/latest"
+# O manifesto vem do dito-api, nao do GitHub: o dito-app e privado e um app distribuido nao
+# pode carregar token. O worker devolve o MESMO formato, entao o parsing abaixo nao muda.
+API = "https://dito-api.defaltm.com/api/app/latest"
 
 INSTALLER_SUFFIX = ".exe"
 CHECKSUMS_ASSET = "SHA256SUMS.txt"
@@ -108,7 +110,7 @@ def _open(url: str, opener: Opener | None = None, accept: str = "application/vnd
 
 
 def latest(repo: str = REPO, opener: Opener | None = None) -> Release:
-    with _open(API.format(repo=repo), opener) as response:
+    with _open(API, opener) as response:
         body = response.read(1 << 20)
     try:
         return parse_release(json.loads(body))
