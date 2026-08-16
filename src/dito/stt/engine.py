@@ -48,27 +48,11 @@ class Transcription:
 
 
 def register_cuda_dlls() -> None:
-    """Windows only: pip ships cuBLAS/cuDNN under site-packages/nvidia/*/bin, which Windows never
-    searches. `add_dll_directory` alone is not enough — it only covers LoadLibraryEx with the
-    search-dir flags, and ctranslate2 resolves cuBLAS with a plain LoadLibrary that reads PATH."""
-    import os
+    """Delegates to the Windows adapter, which owns the explanation and the fix. Kept as a name
+    here so `engine.py` reads the same on both platforms."""
+    from ..platform.windows.cuda_dlls import register
 
-    if not hasattr(os, "add_dll_directory"):
-        return
-    import glob
-    import site
-
-    roots = list(site.getsitepackages()) + [site.getusersitepackages()]
-    found = []
-    for root in roots:
-        for path in glob.glob(os.path.join(root, "nvidia", "*", "bin")):
-            found.append(path)
-            try:
-                os.add_dll_directory(path)
-            except OSError:
-                pass
-    if found:
-        os.environ["PATH"] = os.pathsep.join(found) + os.pathsep + os.environ.get("PATH", "")
+    register()
 
 
 class WhisperEngine:
