@@ -25,16 +25,42 @@ Daí as duas garantias do Dito:
    carregar, se a colagem falhar — o `.wav` está lá, íntegro e tocável, inclusive depois de um
    `kill -9`.
 
-## Estado
-
-Em construção. O que já está de pé e provado:
+## Como se usa
 
 | | |
 |---|---|
-| `dito doctor` | microfone, mute e volume via `pactl`, modelo em cache, configuração |
-| `dito selftest` | grava e prova o alarme — `--source zeros` simula o mic mudo sem microfone |
-| Watchdog de nível | 16 testes, sem hardware |
-| Gravação em disco | WAV válido a qualquer instante, tamanho corrigido a cada fsync |
+| **F9** | segure, fale, solte — o texto é colado onde o cursor estiver |
+| **F10** | aperta para começar a reunião, aperta de novo para parar. **Sem limite de tempo** |
+| Bandeja | única coisa que aparece. **Nada abre no login** |
+| Janela | pelo menu ou pela bandeja: transcrições de um lado, configuração do outro |
+
+As teclas são trocadas na tela, sem reiniciar. Ao parar uma reunião, ele pergunta o assunto e
+salva texto + áudio Opus em `~/Documentos/Dito`, mais uma nota no cofre do Obsidian.
+
+## Comandos
+
+```bash
+dito              # abre a janela
+dito listen       # sobe na bandeja, sem janela (é o que o autostart usa)
+dito status       # responde na hora: ouvindo/parado, teclas, modelo e backend
+dito stop
+dito doctor       # microfone, mute, ganho de hardware, modelo — diz a causa e a correção
+dito selftest --source zeros   # prova o alarme sem precisar de microfone
+```
+
+## Instalar
+
+```bash
+sudo apt install dito          # repositório apt.defaltm.com, já configurado nesta máquina
+```
+
+O `.deb` tem 111 KB. Ele **não** carrega Python nem Qt: declara como dependência o que o Debian
+já empacota, e na primeira execução monta uma venv de usuário com os ~50 MB que faltam, numa tela
+com barra de progresso e botão de tentar de novo. O modelo (464 MB) baixa no primeiro uso.
+
+Por que assim, e não um pacote auto-contido: o repositório apt roda em Cloudflare Pages, que
+**não serve arquivo acima de 25 MiB**. E `pip install` dentro do `postinst`, como root, escreve
+fora do controle do dpkg e trava o apt quando falha — sem nenhuma janela para explicar.
 
 ## Usar em desenvolvimento
 
@@ -71,6 +97,23 @@ Nada aqui é chute — tudo foi medido nesta máquina (Ryzen 5 3500X, 6 núcleos
 
 O RTF abaixo de 0,5 é o que torna possível transcrever uma reunião **enquanto** ela é gravada,
 em vez de esperar ~25 minutos no fim de uma reunião de uma hora.
+
+## Como é verificado
+
+152 testes, e os que valem alguma coisa provam algo que não daria para afirmar de outro jeito:
+
+- o alarme dispara em **1,03 s** contra os 99 s que a versão anterior levou;
+- o áudio vai para disco desde o primeiro bloco, e o WAV abre mesmo depois de `kill -9`;
+- o chunker recebe **3 horas** de fala contínua sem nunca segurar mais que 45 s, e cada sample
+  que entra sai exatamente uma vez;
+- os três ícones de bandeja se distinguem **só pela silhueta a 22 px** — cor não é acessível;
+- o compressor nunca apaga áudio que não conseguiu decodificar de volta;
+- contraste medido **por papel** nos dois temas, com o piso escrito ao lado do motivo.
+
+Os testes de atalho injetam teclas de verdade num servidor X de verdade, porque auto-repeat e
+release fantasma só existem lá — um mock testaria o mock. `pytest -m "not x11"` pula esses.
+
+Ver o desenho renderizado sem abrir o app: `python tools/render_ui.py`.
 
 ## Histórico
 
