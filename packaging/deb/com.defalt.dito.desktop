@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Dito
+GenericName=Ditado por voz
+Comment=Ditado por voz offline: segure a tecla, fale, e o texto aparece onde o cursor está
+# The menu entry opens the WINDOW. It is also the only place the first-run bootstrap is allowed
+# to happen, which is why it does not set DITO_BOOTSTRAP -- see the autostart file.
+Exec=/usr/bin/dito ui
+Icon=com.defalt.dito
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=ditado;voz;fala;transcrição;whisper;microfone;dictation;speech;
+StartupNotify=true
+# Qt derives WM_CLASS from the application name; without this the launcher and the running
+# window are two separate items in the taskbar.
+StartupWMClass=dito

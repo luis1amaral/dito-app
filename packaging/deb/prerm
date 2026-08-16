@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  remove)
+    # A daemon that is already running survives this removal: its interpreter imported the
+    # modules long ago and keeps running from deleted inodes, still holding the X11 grab on the
+    # dictation key and still pasting text. Nothing here can stop it -- maintainer scripts run as
+    # root, the daemon is the user's own process, and killing processes in someone else's session
+    # from a package script is out of bounds. Saying so is what is left.
+    echo "dito: se o ditado já estiver rodando, ele continua até você encerrar a sessão."
+    echo "      para parar agora:  pkill -f 'dito listen'"
+    ;;
+esac
+
+exit 0

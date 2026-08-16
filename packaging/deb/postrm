@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  remove|purge)
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+      gtk-update-icon-cache -q -f -t /usr/share/icons/hicolor 2>/dev/null || true
+    fi
+    if command -v update-desktop-database >/dev/null 2>&1; then
+      update-desktop-database -q /usr/share/applications 2>/dev/null || true
+    fi
+    ;;
+esac
+
+if [ "$1" = "purge" ]; then
+  # The user's data is deliberately left behind. ~/.local/share/dito holds every recorded WAV and
+  # transcript -- the whole reason audio is written to disk from the first block -- plus the venv
+  # built on first run. On top of that, a maintainer script cannot know which users have one:
+  # walking /home as root to delete data would be a worse bug than leaving files around.
+  echo "dito: os seus dados NÃO foram apagados."
+  echo "      configuração: ~/.config/dito"
+  echo "      gravações e venv: ~/.local/share/dito"
+  echo "      log e histórico: ~/.local/state/dito"
+  echo "      para apagar tudo:  rm -rf ~/.config/dito ~/.local/share/dito ~/.local/state/dito"
+fi
+
+exit 0
