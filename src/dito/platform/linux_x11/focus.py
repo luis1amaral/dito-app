@@ -1,17 +1,4 @@
-"""Borrowing keyboard focus and giving it back.
-
-The review card needs the keyboard, so it has to take focus. But the text it holds is going to be
-pasted into whatever the user was typing in — so focus must go back to that window *before* the
-paste, or the text lands in Dito's own card.
-
-This runs on a dedicated thread with its own X connection, and that is not tidiness. Reading who
-currently owns focus is a round-trip, and a round-trip on the UI thread is what froze the badge
-in the previous version — bisected at the time: 120 state cycles pass without the focus grab and
-hang with it. If X ever wedges this connection, this thread strands; the interface and the
-recording do not.
-
-Xlib is also not thread-safe, so this connection is used by this thread and nothing else.
-"""
+"""Focus grab/restore on a private thread with its own X connection (armadilhas 2.3, 2.4)."""
 
 from __future__ import annotations
 
@@ -41,6 +28,7 @@ class FocusBroker:
         self._queue.put((_GRAB, window_id))
 
     def give_back(self) -> None:
+        """Must land before the paste, or the text goes into Dito's own review card."""
         if self._thread is not None:
             self._queue.put((_RESTORE, 0))
 
@@ -60,8 +48,7 @@ class FocusBroker:
             try:
                 if op == _GRAB:
                     owner = dsp.get_input_focus().focus
-                    # Only remember the previous owner if it is not us: taking focus twice in a
-                    # row would otherwise record Dito's own card as the place to return to.
+                    # Never remember ourselves: two grabs in a row would return focus to us.
                     if getattr(owner, "id", None) != window_id:
                         self._previous = owner
                     dsp.create_resource_object("window", window_id).set_input_focus(
@@ -74,7 +61,5 @@ class FocusBroker:
                         previous.set_input_focus(X.RevertToParent, X.CurrentTime)
                         dsp.flush()
             except Exception:
-                # A window that closed while we held its handle raises here. Losing focus
-                # restoration is a small annoyance; taking the thread down would mean every later
-                # dictation pastes into the wrong place.
+                # A window closed under us: losing one restore beats losing the thread forever.
                 continue

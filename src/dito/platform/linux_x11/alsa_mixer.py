@@ -1,19 +1,4 @@
-"""ALSA capture gain — the blind spot that `pactl` alone cannot see.
-
-PipeWire's volume and the ALSA capture gain underneath it are different knobs. This machine has
-already been caught with the server reporting 94% while the hardware control read
-`Capture 0 [0%]`: every reading `pactl` gives back looks healthy, and the microphone delivers
-silence anyway. It is one of the plausible causes of the 99-second loss that started this project.
-
-So the mute/volume story needs three layers, not two:
-
-    pactl        the software mute and volume   -> a friendly, fixable message
-    amixer       the hardware capture gain      -> the blind spot this module covers
-    level.py     the samples themselves         -> the only thing that never lies
-
-Nothing here raises: a machine without `amixer` simply has no such layer.
-User-facing strings stay in Portuguese; they are shown in the UI.
-"""
+"""ALSA hardware capture gain — the blind spot `pactl` cannot see (docs/armadilhas.md 1.2)."""
 
 from __future__ import annotations
 
@@ -23,9 +8,7 @@ import subprocess
 from dataclasses import dataclass
 
 _TIMEOUT = 2.0
-# 'Capture' covers the built-in HDA codecs, 'Mic' the USB headsets. Both appear as simple
-# controls with a capture channel; the boost controls are deliberately left out, since a boost
-# at zero is normal and not a fault.
+# See docs/armadilhas.md 9.3: HDA and USB names, and no boost control — boost at 0 is normal.
 _CAPTURE_CONTROLS = ("Capture", "Mic", "Digital", "Front Mic", "Rear Mic")
 
 _PCT = re.compile(r"Capture\s+\d+\s+\[(\d+)%\].*?\[(on|off)\]", re.IGNORECASE)
@@ -46,11 +29,7 @@ def _run(*args: str) -> str | None:
 
 
 def card_of_source(source_name: str | None) -> int | None:
-    """Map a PulseAudio source to its ALSA card index, via the `alsa.card` property.
-
-    Guessing the card would be worse than not checking: reporting the gain of the motherboard
-    codec while the user records on a USB headset is a confident wrong answer.
-    """
+    """Source -> ALSA card via `alsa.card`; armadilhas 1.2: guessing is worse than not checking."""
     if not source_name or not shutil.which("pactl"):
         return None
     out = _run("pactl", "list", "sources")
@@ -82,9 +61,7 @@ class CaptureGain:
 
     @property
     def silent(self) -> bool:
-        """True when every capture control is either switched off or sitting at zero. Requiring
-        *all* of them avoids a false alarm on a codec that exposes several inputs and has only
-        the one in use turned up."""
+        """Only when ALL controls are off or at zero — armadilhas 9.3: less cries wolf."""
         return self.checked and all((not c.on) or c.pct == 0 for c in self.controls)
 
     @property

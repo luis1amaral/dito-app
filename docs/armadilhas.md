@@ -61,6 +61,16 @@ Isso destrói a razão de ser da gravação em disco. Por isso `audio/writer.py`
 cabeçalho RIFF na mão e corrige os dois campos de tamanho (offsets 4 e 40) a cada flush — o arquivo
 é válido **a qualquer instante**, inclusive depois de `kill -9`.
 
+**Os tamanhos são corrigidos a CADA BLOCO, não a cada `fsync`.** Com o patch só no intervalo de
+`fsync` (5 s), toda gravação mais curta que isso continuava com `RIFF=0`/`data=0` no disco: um
+`kill -9` aos 4 s produzia arquivo que nenhum player abre. Um ditado dura tipicamente **2 a 5
+segundos** — ou seja, a garantia era falsa justamente no caso comum. O custo de corrigir por bloco
+é duas escritas de 4 bytes na page cache; o caro é o `fsync`, e esse continua no intervalo.
+
+Vale lembrar de onde vem a regra: a versão antiga guardava a gravação inteira numa lista Python e
+só tocava o disco **depois** que a transcrição dava certo. Quando ela não devolvia nada, o áudio
+saía de escopo e sumia (ver 1.1).
+
 ### 1.5 A flag `status` do callback estava sendo descartada
 
 `def cb(indata, frames, t, status)` com `status` ignorado: todo overflow de buffer e todo erro de
@@ -93,6 +103,55 @@ vazio.
 A entrada da placa-mãe em vez do headset. Sintoma no log: `pico=0.0000`. Correção: configurar o
 dispositivo por **pedaço do nome** (`H510`), não por índice — índice muda quando um USB entra ou
 sai.
+
+### 1.9 Um transiente de 100 ms travava `ever_heard` e desarmava o alarme âmbar
+
+**Sintoma:** gravação inteira sem nada reportado e nada transcrito — o alarme âmbar, que deveria
+ter gritado, ficou calado.
+
+**Causa:** `ever_heard` era ligado no **primeiro** bloco acima do limiar. Uma tecla batendo no
+instante em que a hotkey desce já passa de 8e-3, e como o alarme âmbar é condicionado a "nunca ter
+chegado som" (1.6), esse único bloco desarmava o aviso pelo resto da sessão.
+
+**Número medido, numa gravação real:** 2 blocos de 40 acima do limiar (**0,019** e **0,0098**),
+pico mediano **0,00069** — piso de ruído puro.
+
+**Correção:** só conta som **sustentado**. São necessários `clear_ms = 200 ms` contínuos acima do
+limiar para ligar `ever_heard` e limpar o estado.
+
+### 1.10 int16 no disco e Opus na reunião — os números que decidem
+
+**Gravação:** 16 kHz mono int16 = 32 kB/s = **115 MB/h** (345 MB numa reunião de 3 h). float32
+dobraria isso e nenhum player abre sem conversão; o Whisper é alimentado pelos blocos float32 que
+já estão em memória, então o disco não precisa deles.
+
+**Compressão, medido em 3 min de áudio com forma de fala:**
+
+- Opus a 24 kbps saiu a **23,1 kbps**: 31 MB pelas mesmas 3 h, **11x** menos que o WAV.
+- **VBR `constrained`, não o VBR padrão.** Em fala os dois empatam, mas o VBR simples estourou o
+  alvo em **43% (34,3 kbps)** num sinal tonal. O `constrained` mantém a promessa de tamanho.
+- **PyAV, nunca o binário `ffmpeg`.** Não existe ffmpeg nesta máquina e o `.deb` não instala; o
+  PyAV já entra pelo faster-whisper. Sair para o shell falharia no pior momento: logo depois de
+  uma reunião de três horas.
+- **O WAV só é apagado depois de o Opus ser decodificado inteiro** — todo pacote decodificado e a
+  contagem de amostras comparada com a origem. Custo: **0,2 s por 3 min**, ~12 s numa reunião de
+  3 h, sobre os ~97 s do próprio encode.
+- **Tolerância de duração de 0,5 s.** O Opus completa o último pacote num quadro de 20 ms e carrega
+  pre-skip: drift medido de **13 ms em 60 s**. Meio segundo é 30x isso e ainda pega encode
+  truncado.
+- O temporário é `.opus.part`, então o muxer vem de `format="ogg"` — a extensão não resolve.
+
+### 1.11 Microfone que SOME não entrega nada — e o watchdog só era alimentado por bloco
+
+**Sintoma:** pílula verde "Gravando", cronômetro correndo, nada gravado, nenhum alarme. É a falha
+dos 99 segundos (1.1) por outra porta.
+
+**Causa:** quando o nó do PipeWire cai (1.7) ou o USB é arrancado, o PortAudio simplesmente **para
+de chamar o callback**. Nenhum bloco chega, e o watchdog só era alimentado por bloco recebido.
+
+**Correção:** o consumidor tem timeout curto (50 ms) e, ao não receber nada, alimenta o watchdog
+com zero. Do ponto de vista de quem fala, "chegou silêncio" e "não chegou nada" são o mesmo fato.
+A mensagem diferencia: *"o microfone parou de responder"* em vez de *"não está captando"*.
 
 ---
 
@@ -171,6 +230,55 @@ CPU já não roda mais.
 As DLLs ficam em `site-packages/nvidia/*/bin`. E `os.add_dll_directory` **não basta**: ele só cobre
 `LoadLibraryEx` com as flags de diretório de busca, e o ctranslate2 resolve cuBLAS com um
 `LoadLibrary` simples, que lê o `PATH` e nada mais. É preciso prefixar o `PATH` também.
+
+---
+
+### 3.4 faster-whisper não é seguro para chamada concorrente
+
+Um preview ao vivo e o passe final sobre o mesmo `WhisperModel` corrompem os dois resultados. Não
+há trava interna na biblioteca: o `RLock` de `stt/engine.py` é **toda** a proteção, e por isso ele
+cobre `load`, `transcribe` e `unload` inteiros.
+
+### 3.5 Reunião é transcrita em pedaços de 20-45 s cortados no silêncio
+
+Duas coisas obrigam o corte:
+
+- **Memória plana.** A versão antiga acumulava cada bloco numa lista e concatenava no fim: 3 h de
+  float32 a 16 kHz seriam gigabytes de RAM.
+- **A espera no fim tem que sumir.** Medido: `small` em CPU int8 roda a **RTF 0,35-0,45**.
+  Transcrever só no fim custa **~25 min para 1 h** de reunião; transcrevendo durante sobra **2,2x**.
+
+**Onde cortar importa.** O encoder do Whisper trabalha em janelas de 30 s, então 20 a 45 s
+amortizam bem. O corte cai no silêncio: de preferência numa pausa real (600 ms abaixo de 0,01) e,
+ao bater o teto, no ponto mais quieto dos últimos 5 s.
+
+### 3.6 A contrapressão não pode bloquear a thread que escreve o disco
+
+**Sintoma medido:** com a transcrição travada, o WAV parou de crescer aos 2 s enquanto o usuário
+falou mais 18 s.
+
+**Causa:** `_submit` chamava `put` com timeout e depois um `put` sem teto — **de dentro do
+consumidor que escreve o WAV**. Fila cheia, consumidor parado, gravação parada.
+
+**Correção:** `put_nowait`; o que não couber vai para um backlog em memória e é transcrito no fim.
+Texto atrasado é aceitável, áudio perdido não.
+
+### 3.7 Nada chamado do loop do Qt pode esperar um lock de thread de trabalho
+
+**Sintoma medido:** `unload_if_idle`, que roda num `QTimer` de 60 s na thread do Qt, bloqueou
+**1,90 s** num teste — e numa reunião real o `transcribe` segura o mesmo lock por **16 a 20 s**
+por trecho (45 s de áudio a RTF 0,35–0,45).
+
+**Consequência:** a pílula, a onda, o cronômetro e a bandeja congelam nesse tempo. Pior: o
+`AudioAlarm` é entregue por `QueuedConnection` e desenhado nessa mesma thread — o alarme de
+**SEM ÁUDIO, que o produto promete em ~1 s, ficava na fila atrás de uma transcrição.** É a
+armadilha 2.4 (round-trip na thread da interface) reencarnada em outro recurso.
+
+**Correção:** checar **antes** de travar, e usar `acquire(blocking=False)`. Ocupado é, por
+definição, não-ocioso: desistir é a resposta certa, esperar não é.
+
+**Regra geral:** nada chamado de dentro do loop do Qt pode adquirir um lock que uma thread de
+trabalho segura por segundos.
 
 ---
 

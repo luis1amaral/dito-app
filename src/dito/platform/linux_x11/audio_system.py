@@ -1,15 +1,4 @@
-"""What PulseAudio/PipeWire knows about the microphone, read through `pactl`.
-
-This is the detector that produces the RIGHT MESSAGE ("your mic is muted in the system", with a
-button that unmutes it). It is not the detector that produces the TRUTH: a wireless headset can
-mute inside its own dongle while the server still reports `Mute: no` and hands over zeros —
-exactly the case that cost 99 seconds of speech. Truth comes from signal level (`audio/level.py`).
-
-Nothing here raises. A machine without `pactl` simply has no such layer, and the level watchdog
-still covers it alone.
-
-User-facing strings stay in Portuguese: they are shown in the UI.
-"""
+"""What `pactl` knows about the mic — the right message, not the truth (armadilhas 1.2, 1.3)."""
 
 from __future__ import annotations
 
@@ -55,8 +44,7 @@ def is_muted(source: str = DEFAULT_SOURCE) -> bool | None:
 
 
 def volume_pct(source: str = DEFAULT_SOURCE) -> int | None:
-    """Loudest channel, as a percentage. `pactl` prints something like
-    `Volume: front-left: 65536 / 100% / 0,00 dB,   front-right: ...`"""
+    """Loudest channel, from `Volume: front-left: 65536 / 100% / 0,00 dB, front-right: ...`."""
     out = _pactl("get-source-volume", source)
     if not out:
         return None
@@ -92,8 +80,7 @@ class SourceHealth:
 
     @property
     def blocks_recording(self) -> bool:
-        """Only blocks on CERTAIN trouble. `None` (don't know) never blocks: the level watchdog
-        covers the rest, and refusing to record for lack of information is worse than recording."""
+        """Only CERTAIN trouble blocks; `None` records anyway, since the watchdog covers it."""
         if self.muted is True:
             return True
         return self.volume is not None and self.volume < 5
@@ -116,8 +103,7 @@ def health(source: str = DEFAULT_SOURCE) -> SourceHealth:
 
 
 def subscribe_events() -> subprocess.Popen[str] | None:
-    """`pactl subscribe` in a subprocess, one line per event: this is how a mute that appears
-    MID-RECORDING, or a device that is unplugged, gets noticed. Caller reads stdout line by line."""
+    """One stdout line per event: how a mute or an unplug MID-RECORDING gets noticed."""
     if not available():
         return None
     try:

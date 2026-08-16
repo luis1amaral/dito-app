@@ -50,8 +50,7 @@ class ControlServer:
 
     def start(self) -> bool:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        # A socket left behind by a killed process would block bind(); the exclusion lock has
-        # already established that no other Dito is alive, so removing it here is safe.
+        # The exclusion lock already proved no other Dito is alive, so a leftover node can go.
         try:
             self._path.unlink()
         except FileNotFoundError:

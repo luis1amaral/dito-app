@@ -1,13 +1,4 @@
-"""Making cuBLAS/cuDNN findable on Windows.
-
-pip installs them under `site-packages/nvidia/*/bin`, a directory Windows never searches. And
-`os.add_dll_directory` alone does not fix it: that only affects `LoadLibraryEx` calls made with
-the search-directory flags, while ctranslate2 resolves cuBLAS with a plain `LoadLibrary`, which
-reads `PATH` and nothing else. Both are therefore required.
-
-Kept in its own module so the Linux side never imports it, and so the reason survives — this took
-a while to find, and the failure it prevents is a GPU that silently is not used.
-"""
+"""cuBLAS findable on Windows (armadilhas 3.3); own module so the Linux side never imports it."""
 
 from __future__ import annotations
 
@@ -17,8 +8,7 @@ import site
 
 
 def register() -> list[str]:
-    """Returns the directories that were added, for logging. Safe to call anywhere: on a platform
-    without `add_dll_directory` it does nothing."""
+    """Returns the directories added, for logging; a no-op without `add_dll_directory`."""
     if not hasattr(os, "add_dll_directory"):
         return []
 

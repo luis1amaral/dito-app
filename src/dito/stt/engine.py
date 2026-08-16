@@ -132,12 +132,20 @@ class WhisperEngine:
             self._log(f"[modelo] descarregado ({self.idle_unload_min:g} min ocioso)")
 
     def unload_if_idle(self, now: float | None = None) -> bool:
+        """Called from the Qt thread every minute — see docs/armadilhas.md 3.7: never blocks."""
         now = now if now is not None else time.monotonic()
-        with self._lock:
-            if self._model is None or self._pinned or self.idle_unload_min <= 0:
+        if self._model is None or self._pinned or self.idle_unload_min <= 0:
+            return False
+        if now - self._last_use < self.idle_unload_min * 60:
+            return False
+        # Busy IS not idle, so give up rather than wait: a chunk holds the lock for 16-20 s.
+        if not self._lock.acquire(blocking=False):
+            return False
+        try:
+            if self._model is None or self._pinned:
                 return False
-            if now - self._last_use < self.idle_unload_min * 60:
-                return False
+        finally:
+            self._lock.release()
         self.unload()
         return True
 

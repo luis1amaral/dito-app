@@ -50,6 +50,7 @@ class Bridge(QObject):
 
     event = Signal(object)
     log = Signal(str)
+    command = Signal(str)
 
 
 class DitoApp:
@@ -94,6 +95,7 @@ class DitoApp:
 
         self.bridge = Bridge()
         self.bridge.event.connect(self._on_event, Qt.ConnectionType.QueuedConnection)
+        self.bridge.command.connect(self._run_command, Qt.ConnectionType.QueuedConnection)
 
         self.overlay = Overlay(self.palette)
         self.overlay.fix_requested.connect(self._fix_audio)
@@ -494,8 +496,14 @@ class DitoApp:
         self.tray.set_ready(self.cfg.hotkeys.push_to_talk, self.cfg.hotkeys.meeting_toggle)
 
     def _on_command(self, command: str) -> str:
-        if command == instance.SHOW:
-            QTimer.singleShot(0, self.open_window)
+        """Runs on the control socket's thread, so acting happens via the bridge.
+
+        QTimer.singleShot from a thread with no Qt event loop silently does nothing — which is
+        why `dito stop` answered "stopped." and stopped nothing, and `dito ui` never raised the
+        window. See docs/armadilhas.md 5.7.
+        """
+        if command in (instance.SHOW, instance.QUIT):
+            self.bridge.command.emit(command)
             return "ok"
         if command == instance.PING:
             return "ok"
@@ -506,12 +514,14 @@ class DitoApp:
                 f"{self.cfg.hotkeys.meeting_toggle.upper()} reunião · "
                 f"modelo {self.cfg.stt.model} ({self.engine.backend})"
             )
-        if command == instance.QUIT:
-            # Answer before quitting, or the caller sees a closed socket and reports failure for
-            # something that worked.
-            QTimer.singleShot(50, self._quit)
-            return "ok"
         return "?"
+
+    def _run_command(self, command: str) -> None:
+        """On the Qt thread, where touching widgets and quitting are legal."""
+        if command == instance.SHOW:
+            self.open_window()
+        elif command == instance.QUIT:
+            self._quit()
 
     def _preflight_warning(self) -> None:
         """Say it before the first key press, not after 99 seconds of speech."""

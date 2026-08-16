@@ -23,7 +23,7 @@ from . import events as ev
 
 
 class Mode(StrEnum):
-    # See docs/armadilhas.md 3.4: a meeting is chunked as it goes, a dictation waits for the end.
+    # See docs/armadilhas.md 3.5: a meeting is chunked as it goes, a dictation waits for the end.
     DICTATION = "dictation"
     MEETING = "meeting"
 
@@ -160,7 +160,7 @@ class Session:
             self.emit(failed)
             return failed
         finally:
-            # See docs/armadilhas.md 1.12: neither of these may raise out of the finally.
+            # See docs/armadilhas.md 9.2: neither of these may raise out of the finally.
             try:
                 if self._writer is not None:
                     self._writer.close()
@@ -211,7 +211,7 @@ class Session:
                 break
             self._stalled = False
 
-            # Disk first — and docs/armadilhas.md 1.10: this except stays broad on purpose.
+            # Disk first — and docs/armadilhas.md 9.1: this except stays broad on purpose.
             try:
                 writer.write(block.audio)
             except Exception as exc:
@@ -225,7 +225,7 @@ class Session:
                 self.emit(ev.Level(block.reading.peak, block.reading.rms, writer.seconds))
 
             if capture.error and not self._device_error:
-                # See docs/armadilhas.md 1.11: this field used to be written and never read.
+                # A PortAudio device error was recorded here and never surfaced (armadilhas 1.5).
                 self._device_error = capture.error
                 self._log(f"[erro] dispositivo: {self._device_error}")
                 self.emit(
@@ -272,7 +272,7 @@ class Session:
     # ---- transcription ---------------------------------------------------------------
 
     def _submit(self, chunk) -> None:
-        """Never blocks the audio thread (armadilhas 1.9): late text beats stopped audio."""
+        """Never blocks the audio thread (armadilhas 3.6): late text beats stopped audio."""
         try:
             self._jobs.put_nowait(chunk)
             return
@@ -331,7 +331,7 @@ class Session:
             self._jobs.put(None)
             if self._stt_thread is not None:
                 self._stt_thread.join(timeout=600.0)
-            # The backlog `_submit` deferred, in order: late, never lost (armadilhas 1.9).
+            # The backlog `_submit` deferred, in order: late, never lost (armadilhas 3.6).
             if self._backlog:
                 self._log(f"[reunião] {len(self._backlog)} trecho(s) atrasado(s) — transcrevendo")
                 for chunk in self._backlog:
