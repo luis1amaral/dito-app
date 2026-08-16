@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ctypes
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -16,9 +18,14 @@ VENV_DIR = Path(
     os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
 ) / "dito" / "venv"
 LOCK = APP_DIR / "requirements.lock"
+GPU_MARK = VENV_DIR.parent / "gpu-ready"
+GPU_LOCK = VENV_DIR.parent / "gpu-install.lock"
 
 # ctranslate2 loads these at runtime; the driver alone is not enough — see docs/armadilhas.md 3.8.
-CUDA_PACKAGES = ("nvidia-cublas-cu12", "nvidia-cudnn-cu12")
+# Pinned by major: a future cuDNN 10 against this ctranslate2 fails as a swallowed RuntimeError.
+CUDA_PACKAGES = ("nvidia-cublas-cu12>=12,<13", "nvidia-cudnn-cu12>=9,<10")
+GPU_DISK_FLOOR_GB = 5          # ~1.5 GB downloaded unpacks to ~2.3 GB, and pip needs room to work
+GPU_INSTALL_TIMEOUT_S = 1800
 
 
 def venv_python() -> Path:
@@ -30,6 +37,7 @@ def has_nvidia_gpu() -> bool:
     if Path("/dev/nvidia0").exists():
         return True
     try:
+        # Never call this before the tray is up: on Optimus it wakes a sleeping dGPU, which is slow.
         subprocess.run(["nvidia-smi", "-L"], check=True, capture_output=True, timeout=15)
     except (subprocess.SubprocessError, OSError):
         return False
@@ -95,7 +103,7 @@ def install(progress=None) -> tuple[bool, str]:
     if not ready():
         return False, _("the environment was created but the components do not load")
 
-    if has_nvidia_gpu():
+    if gpu_extras_missing():
         ok, message = install_gpu_extras(say)
         if not ok:
             say(message)
@@ -103,30 +111,80 @@ def install(progress=None) -> tuple[bool, str]:
 
 
 def gpu_extras_ready() -> bool:
-    """True when cuBLAS is already in the venv, which is what the GPU path fails without."""
-    return any(VENV_DIR.glob("lib/python*/site-packages/nvidia/cublas/lib/libcublas.so*"))
+    """The marker, not the .so: a half-written file passes an existence test and never retries."""
+    return GPU_MARK.exists() or _adopt_preexisting()
+
+
+def _adopt_preexisting() -> bool:
+    """Installed before the marker existed: prove it loads, record it, skip a second download."""
+    found = sorted(VENV_DIR.glob("lib/python*/site-packages/nvidia/cublas/lib/libcublas.so*"))
+    if not found:
+        return False
+    try:
+        ctypes.CDLL(str(found[0]))
+    except OSError:
+        return False
+    try:
+        GPU_MARK.parent.mkdir(parents=True, exist_ok=True)
+        GPU_MARK.write_text("ok\n", encoding="utf-8")
+    except OSError:
+        pass
+    return True
 
 
 def gpu_extras_missing() -> bool:
-    """There is a card and nothing to drive it with: the one case worth downloading for."""
-    return has_nvidia_gpu() and not gpu_extras_ready()
+    """Cheap test first: has_nvidia_gpu() may wake a sleeping dGPU, so never ask it needlessly."""
+    return not gpu_extras_ready() and has_nvidia_gpu()
 
 
-def install_gpu_extras(say) -> tuple[bool, str]:
-    """Acceleration is a bonus: losing it must never cost the user a working CPU install."""
-    say(_("enabling GPU acceleration…"))
+def _enough_disk() -> bool:
     try:
-        done = subprocess.run(
-            [str(venv_python()), "-m", "pip", "install", "--upgrade", *CUDA_PACKAGES],
-            capture_output=True,
-            text=True,
-            timeout=3600,
-        )
-    except (subprocess.SubprocessError, OSError):
+        free = shutil.disk_usage(VENV_DIR.parent if VENV_DIR.parent.exists() else Path.home()).free
+    except OSError:
+        return True
+    return free >= GPU_DISK_FLOOR_GB * 1_000_000_000
+
+
+def install_gpu_extras(say, on_process=None) -> tuple[bool, str]:
+    """Acceleration is a bonus: losing it must never cost the user a working CPU install."""
+    if not _enough_disk():
+        return False, _("Not enough free disk space for GPU acceleration — Dito will use the CPU.")
+
+    try:
+        GPU_LOCK.parent.mkdir(parents=True, exist_ok=True)
+        # Exclusive create is the whole point: two pips in one venv can truncate a .so.
+        handle = os.open(GPU_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return False, _("GPU acceleration is already being set up.")
+    except OSError:
         return False, _("GPU acceleration unavailable — Dito will use the CPU.")
 
-    if done.returncode != 0:
-        return False, _("GPU acceleration unavailable — Dito will use the CPU.")
+    say(_("enabling GPU acceleration…"))
+    failed = _("GPU acceleration unavailable — Dito will use the CPU.")
+    try:
+        proc = subprocess.Popen(
+            [str(venv_python()), "-m", "pip", "install", "--no-cache-dir", *CUDA_PACKAGES],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        if on_process is not None:
+            on_process(proc)
+        try:
+            proc.communicate(timeout=GPU_INSTALL_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            return False, failed
+        if proc.returncode != 0:
+            return False, failed
+        GPU_MARK.write_text("ok\n", encoding="utf-8")
+    except (subprocess.SubprocessError, OSError):
+        return False, failed
+    finally:
+        os.close(handle)
+        GPU_LOCK.unlink(missing_ok=True)
+
     return True, _("ready")
 
 
@@ -161,8 +219,9 @@ def _run_with_window() -> int:
     layout.addWidget(heading)
 
     body = QLabel(
-        _("A few components are missing that Debian does not package. About 1.5 GB, once — "
-          "most of it is what puts transcription on your NVIDIA card instead of the CPU.")
+        _("A few components are missing that Debian does not package. About 1.5 GB to download "
+          "and 2.5 GB on disk, once — most of it is what puts transcription on your NVIDIA card "
+          "instead of the CPU.")
         if gpu_extras_missing()
         else _("A few components are missing that Debian does not package.\n"
                "About 50 MB, once.")

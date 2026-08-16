@@ -32,14 +32,21 @@ class Transcription:
         return self.seconds_spent / self.seconds_of_audio if self.seconds_of_audio else 0.0
 
 
-def register_cuda_dlls() -> None:
+def register_cuda_dlls(log=None) -> None:
     """Each platform adapter owns its fix (docs/armadilhas.md 3.3 and 3.8); engine.py stays flat."""
     if sys.platform == "win32":
         from ..platform.windows.cuda_dlls import register
-    else:
-        from ..platform.linux_x11.cuda_libs import register
 
-    register()
+        register()
+        return
+
+    from ..platform.linux_x11.cuda_libs import register
+
+    loaded, failed = register()
+    if log is not None:
+        # Zero loaded is the silent-CPU case: without this line nobody can tell why.
+        log(f"[cuda] {len(loaded)} biblioteca(s) carregada(s)"
+            + (f", {len(failed)} falhou/falharam: {', '.join(failed)}" if failed else ""))
 
 
 class WhisperEngine:
@@ -74,6 +81,11 @@ class WhisperEngine:
     def loaded(self) -> bool:
         return self._model is not None
 
+    @property
+    def pinned(self) -> bool:
+        """A meeting is holding the model: swapping it out costs the chunk being transcribed."""
+        return self._pinned > 0
+
     def pin(self) -> None:
         """Hold the model in memory: unloading mid-meeting stalls the first chunk after a pause."""
         with self._lock:
@@ -92,7 +104,7 @@ class WhisperEngine:
             from faster_whisper import WhisperModel
 
             if self.device_pref in ("auto", "cuda"):
-                register_cuda_dlls()
+                register_cuda_dlls(self._log)
                 try:
                     import numpy as np
 

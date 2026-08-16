@@ -13,6 +13,7 @@ next key press is missed entirely.
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 from datetime import datetime, timedelta
@@ -69,6 +70,8 @@ class DitoApp:
         self._alarm_ringing = False
         self._last_alarm_sound = 0.0
         self._pending: ev.Finished | None = None
+        # A daemon thread dies with the app; the pip it spawned does not — see armadilhas 3.8.
+        self._gpu_install: list = []
 
     # ---- lifecycle -------------------------------------------------------------------
 
@@ -165,16 +168,27 @@ class DitoApp:
 
     def _catch_up_on_gpu(self) -> None:
         """An upgrade never runs install(), so the card would sit idle — see armadilhas 3.8."""
-        if self.cfg.stt.device == "cpu" or not bootstrap.gpu_extras_missing():
+        # The autostart entry sets this, and it is the only switch the user has against a login
+        # download — packaging/deb/README.md promises it works.
+        if os.environ.get("DITO_BOOTSTRAP") == "never" or self.cfg.stt.device == "cpu":
             return
 
         def work() -> None:
-            ok, message = bootstrap.install_gpu_extras(lambda m: print(f"[gpu] {m}", flush=True))
+            # Asked inside the thread: has_nvidia_gpu() can wake a sleeping dGPU, and on this path
+            # the tray and the hotkeys come first.
+            if not bootstrap.gpu_extras_missing():
+                return
+            ok, message = bootstrap.install_gpu_extras(
+                lambda m: print(f"[gpu] {m}", flush=True),
+                on_process=self._gpu_install.append,
+            )
             if not ok:
                 print(f"[gpu] {message}", flush=True)
                 return
-            # The model already in memory is the CPU one: drop it so the next load takes the card.
-            self.engine.unload()
+            # The model in memory is the CPU one, but a pinned meeting keeps the one it has:
+            # swapping mid-meeting costs the chunk being transcribed (armadilhas 3.8).
+            if not self.engine.pinned:
+                self.engine.unload()
             notify.notify(
                 _("Dito — now using your graphics card"),
                 _("Transcription moved off the CPU."),
@@ -209,6 +223,12 @@ class DitoApp:
         no publish, session.json frozen at "recording". Now every live session is finished
         properly first, and only then does the rest come down.
         """
+        # Before the sessions: an orphaned pip keeps writing into the venv after we are gone, and a
+        # half-written .so is what makes the GPU fail silently forever (armadilhas 3.8).
+        for proc in self._gpu_install:
+            if proc.poll() is None:
+                proc.terminate()
+
         with self._sessions_lock:
             live = list(self._sessions.values())
             self._sessions.clear()

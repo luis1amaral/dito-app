@@ -1,5 +1,78 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o que a revisão adversarial achou depois de a GPU já estar funcionando
+
+Revisão de produção sobre os três commits anteriores. Devolveu `REQUEST CHANGES`, e os achados eram
+todos sobre **a máquina dos outros**, não sobre esta — que é exatamente onde um app distribuído por
+apt quebra. Nenhum deles apareceria testando aqui.
+
+### O que estava errado
+
+1. **O `DITO_BOOTSTRAP=never` tinha parado de funcionar.** `_catch_up_on_gpu()` não o consultava. O
+   lançador só honra a variável quando a venv **não existe** — e o caso-alvo do recurso é
+   justamente quando ela existe. O único botão de desligar que o usuário tem, documentado no
+   `packaging/deb/README.md`, estava furado: notebook em 4G puxaria 1,5 GB no primeiro login depois
+   do `apt upgrade`. Agora é a primeira linha da função.
+
+2. **Dois `pip` no mesmo venv eram alcançáveis** (dois cliques no ícone; ou o pip órfão que
+   sobrevive ao app, já que a thread é daemon mas o subprocesso não). Dois unpacks simultâneos
+   truncam um `.so` — que **passava** no teste de "instalado", porque ele era `glob` de existência
+   de arquivo. Resultado: `CDLL` falha, cai para CPU, e `gpu_extras_missing()` retorna False para
+   sempre. A falha silenciosa que este ciclo inteiro existe para matar, reentrando por outra porta.
+   Agora há lock `O_CREAT|O_EXCL`, marcador `gpu-ready` escrito **só** quando o pip retorna 0, e
+   `_shutdown()` mata o pip antes de sair.
+
+3. **`engine.unload()` ignorava o `_pinned`** e podia derrubar o modelo no meio de uma reunião. O
+   `session.py` faz `pin()` com o comentário "unloading mid-meeting stalls the first chunk after a
+   pause"; com `device="cuda"` explícito, um `load()` que levanta é engolido por chunk e **o texto
+   daquele trecho some**. Encosta na garantia nº 1. Agora há `engine.pinned` e a thread respeita:
+   ganhar a placa 12 minutos depois não custa nada, perder um trecho de reunião custa.
+
+4. **`has_nvidia_gpu()` corria antes da bandeja**, e o `and` estava na ordem errada — o teste caro
+   primeiro. Em híbrido Optimus com a dGPU dormindo, `nvidia-smi -L` **acorda a placa**, segundos,
+   em todo login. Invertido para `not gpu_extras_ready() and has_nvidia_gpu()`, e a checagem inteira
+   mudou para dentro da thread.
+
+5. **O tamanho anunciado estava errado por ~2,5x** (1,5 GB é o *download*; em disco dá ~2,3 GB, mais
+   1,7 GB de cache do pip). Agora: `--no-cache-dir`, texto honesto, e recusa começar com menos de
+   5 GB livres — encher o disco durante uma reunião custa áudio.
+
+6. **`pip install --upgrade` sem teto de versão.** No dia em que sair cuDNN 10, a máquina instalada
+   amanhã recebe uma combinação que ninguém testou, e o modo de falha é `RuntimeError` engolido.
+   Fixado por major: `>=12,<13` e `>=9,<10`.
+
+7. **`timeout=3600` sem cancelamento** virou 30 min com `Popen` guardado e `terminate()` no
+   encerramento.
+
+8. **`register()` descartava o retorno** — zero bibliotecas carregadas era indistinguível de
+   sucesso. Agora devolve `(loaded, failed)` e o engine loga a contagem.
+
+9. **O glob `*.so*` carregava `libnvblas`** com `RTLD_GLOBAL` — biblioteca que exporta `sgemm_` e
+   existe para sequestrar BLAS via `LD_PRELOAD`. Na prática inofensivo (numpy e ctranslate2 já
+   estão carregados quando `register()` roda), mas é uma classe de problema que sai de graça com
+   uma allowlist.
+
+10. **O bug original não tinha teste.** Nada em `tests/` mencionava `register_cuda_dlls` — quem
+    mexesse no `if sys.platform` reintroduziria tudo em silêncio. Agora `tests/test_cuda_dispatch.py`
+    cobre o dispatch por plataforma, a allowlist e o relato de falhas.
+
+### Migração
+`gpu_extras_ready()` passou a decidir por marcador, e uma venv que já tinha as bibliotecas não teria
+marcador nenhum — baixaria 1,5 GB de novo. `_adopt_preexisting()` resolve: **carrega o `libcublas`
+para provar que serve** e só então grava o marcador. Mais robusto que o teste antigo, que só olhava
+se o arquivo existia.
+
+### Duas suspeitas que a revisão derrubou
+`RTLD_GLOBAL` **não** causa conflito de símbolos aqui (as wheels trazem `RUNPATH=$ORIGIN` e se
+resolvem sozinhas; medido no venv real: 17 candidatos, 17 carregados, 0 pulados, 65 ms), e **não há
+import circular** em `app.py` → `bootstrap`. Ficam registradas para ninguém "consertar" o que está
+certo.
+
+### Como foi verificado
+`ruff check` limpo, **261 testes passando** (eram 251), `i18n.sh check` sem pendências. A migração
+foi exercitada na máquina real: marcador ausente → `gpu_extras_ready()` adotou as bibliotecas
+existentes → `gpu_extras_missing()` virou False, sem baixar nada.
+
 ## 2026-08-16 — a GPU no Linux deixou de ser promessa: o caminho existia e nunca era percorrido
 
 ### O quê
@@ -46,20 +119,19 @@ proibia por precaução deixou de fazer sentido quando a alternativa é a placa 
 sempre.
 
 ### A regra que não foi enfraquecida
-**Aceleração é bônus e falha sozinha.** O download de ~1,5 GB acontece *depois* do `ready()` e um
-erro ali só emite "Aceleração por GPU indisponível — o Dito vai usar a CPU": quem não tem placa,
-rede ou disco continua com uma instalação de CPU que funciona. Por isso os pacotes CUDA **não**
-entram no `requirements.lock`, que vale para todo mundo. `_offer_gpu()` devolve `0` mesmo quando
-levanta exceção — uma oferta que quebra não pode ser o que impede o Dito de abrir, e há teste para
-isso (`test_a_failing_offer_still_lets_the_app_open`).
+**Aceleração é bônus e falha sozinha.** O download acontece *depois* do `ready()` e um erro ali só
+emite "Aceleração por GPU indisponível — o Dito vai usar a CPU": quem não tem placa, rede ou disco
+continua com uma instalação de CPU que funciona. Por isso os pacotes CUDA **não** entram no
+`requirements.lock`, que vale para todo mundo.
 
 ### Como foi verificado
-`ruff check` limpo no projeto inteiro e `pytest -m "not x11"` com **252 passando** — 7 deles novos,
-em `tests/test_bootstrap.py`, cobrindo cada guarda da oferta (sem placa, libs já instaladas, "não"
-lembrado, headless, e oferta que explode sem derrubar o app). Prova de ponta a ponta com o venv real
+`ruff check` limpo no projeto inteiro e `pytest -m "not x11"` com **261 passando** — 16 deles novos,
+em `tests/test_bootstrap.py` e `tests/test_cuda_dispatch.py`. Prova de ponta a ponta com o venv real
 do Dito: `register()` carregou **17 bibliotecas**, e o
 `WhisperModel('small', device='cuda', compute_type='float16')` subiu e transcreveu — o mesmo encode
-forçado que antes levantava `RuntimeError`.
+forçado que antes levantava `RuntimeError`. Na máquina do dono, `nvidia-smi --query-compute-apps`
+passou a listar o processo do Dito com ~670 MiB de VRAM, e o `/proc/<pid>/maps` mostra 84
+mapeamentos de bibliotecas CUDA onde antes havia zero.
 
 ### Também: código morto removido
 `log_file()` e `history_file()` (`paths.py`), `subscribe_events()` (`audio_system.py`) e
