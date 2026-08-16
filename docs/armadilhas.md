@@ -521,6 +521,53 @@ basta. São as duas condições, não uma.
 Vale nos dois sistemas: no Linux a estrutura é a mesma (marcador em `VENV_DIR.parent`, venv
 refeita pelo `.deb` num upgrade), só não tinha sido exercitada.
 
+### 3.11 O `.exe` é CPU-only por construção, e nenhum build melhor conserta isso
+
+**Sintoma:** quem instalou pelo `.exe` transcrevia sempre na CPU, mesmo com placa NVIDIA e driver
+instalados. Nada falhava — o `engine.py` cai para a CPU sozinho (3.8), então o defeito era só
+lentidão.
+
+**Causa raiz, verificada no bundle:** `_internal/nvidia` não existe **e** não há `pip` dentro do
+bundle. O `bootstrap.install_gpu_extras()`, que na instalação por venv baixa
+`nvidia-cublas-cu12`/`nvidia-cudnn-cu12` no primeiro uso, chama `venv_python() -m pip` — e no
+congelado `sys.prefix` aponta para a pasta extraída do PyInstaller, onde não há interpretador para
+chamar nem lugar legítimo para escrever. **Não é um empacotamento mal feito: é a natureza de um
+bundle.** Embutir os 1,9 GB resolveria e transformaria um instalador de 101 MB em 1,4 GB para todo
+mundo, inclusive quem não tem placa.
+
+Custo medido da diferença nesta máquina: **RTF 0,26 na GPU × 0,94 na CPU** — 3,6×.
+
+**Correção: a GPU virou escolha na hora de instalar.** Uma tarefa do Inno Setup, desmarcada por
+padrão, roda `ditow.exe gpu --install --window` e o próprio Dito baixa os wheels do PyPI e extrai
+só `nvidia/*/bin` — o wheel é um zip, e sem `pip` isso é feito na mão por
+`platform/windows/cuda_pack.py`.
+
+Números medidos lendo o índice central dos wheels por Range HTTP, sem baixar 1,3 GB:
+
+| | baixado | extraído (só `bin/`) |
+|---|---|---|
+| `nvidia_cublas_cu12` win_amd64 | 553 MB | 772 MB (3 DLL) |
+| `nvidia_cudnn_cu12` win_amd64 | 732 MB | 1117 MB (10 DLL) |
+| **total** | **1,3 GB** | **1,9 GB** |
+
+Três decisões que não são óbvias e que valem quando alguém mexer nisso:
+
+1. **A pasta é `%LOCALAPPDATA%\dito\cuda`, ao lado do `state`** — nunca dentro de `{app}`. A
+   instalação é sem UAC, e o `{app}` é substituído no upgrade seguinte: baixar 1,3 GB de novo a
+   cada versão seria a consequência.
+2. **O layout `nvidia/<lib>/bin` é copiado do que o pip faz**, porque é exatamente o que o
+   `cuda_dlls.register()` varre. Achatar a árvore aqui apagaria a aceleração em silêncio.
+3. **O marcador `gpu-ready` continua sendo um só**, dividido com a instalação por venv, e por isso
+   `gpu_extras_ready()` ganhou uma guarda: rodando congelado ele **não apaga** o marcador quando
+   não acha cuBLAS. Sem ela o `.exe` apagaria o marcador que descreve a venv com quem divide a
+   pasta de estado — a armadilha 3.10 ao contrário.
+
+E uma armadilha de Windows que só aparece no caminho de erro: **não dá para `unlink()` um arquivo
+com o handle ainda aberto.** O corte de tamanho do download apagava o `.part` de dentro do `with
+open(...)`, então o usuário via `PermissionError` em vez da mensagem, e o arquivo recusado ficava
+no disco. O mesmo defeito estava no `update.py` desde sempre. A forma correta é levantar de
+**dentro** e apagar de **fora**, num `except BaseException`.
+
 ---
 
 ## 4. Colagem e clipboard

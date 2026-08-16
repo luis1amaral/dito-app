@@ -445,9 +445,9 @@ msgid "could not paste — the text is on the clipboard"
 msgstr "não consegui colar — o texto está na área de transferência"
 
 #: src/dito/update.py:107
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "could not reach GitHub: {error}"
-msgstr "não consegui escrever a nota: {error}"
+msgstr "não consegui alcançar o GitHub: {error}"
 
 #: src/dito/app.py:466
 #, python-brace-format
@@ -460,9 +460,9 @@ msgid "could not start recording: {error}"
 msgstr "não consegui começar a gravar: {error}"
 
 #: src/dito/update.py:215
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "could not start the installer: {error}"
-msgstr "não consegui escrever a nota: {error}"
+msgstr "não consegui iniciar o instalador: {error}"
 
 #: src/dito/platform/windows/instance.py:55
 msgid "could not take the single-instance lock"
@@ -512,9 +512,9 @@ msgid "downloading the components…"
 msgstr "baixando os componentes…"
 
 #: src/dito/cli.py:425
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "downloading {name}…"
-msgstr "baixando os componentes…"
+msgstr "baixando {name}…"
 
 #: src/dito/bootstrap.py:193
 msgid "enabling GPU acceleration…"
@@ -1044,6 +1044,115 @@ msgstr "— sem texto —"
 #: src/dito/ui/review.py:122
 msgid "⏎ sends · Tab discards"
 msgstr "⏎ envia · Tab descarta"
+
+#: src/dito/platform/windows/cuda_pack.py:88
+#, python-brace-format
+msgid "could not reach PyPI: {error}"
+msgstr "não consegui alcançar o PyPI: {error}"
+
+#: src/dito/platform/windows/cuda_pack.py:97
+msgid "PyPI answered something that is not an index"
+msgstr "o PyPI respondeu algo que não é um índice"
+
+#: src/dito/platform/windows/cuda_pack.py:102
+#, python-brace-format
+msgid "PyPI has no Windows build of {package} {major}.x"
+msgstr "o PyPI não tem versão de Windows do {package} {major}.x"
+
+#: src/dito/platform/windows/cuda_pack.py:129
+msgid "the download is far bigger than the wheel — stopped"
+msgstr "o download está muito maior que o pacote — parei"
+
+#: src/dito/platform/windows/cuda_pack.py:152
+msgid "the wheel names a file outside the folder — stopped"
+msgstr "o pacote aponta um arquivo fora da pasta — parei"
+
+#: src/dito/platform/windows/cuda_pack.py:160
+msgid "the wheel carries no DLL — nothing was installed"
+msgstr "o pacote não traz nenhuma DLL — nada foi instalado"
+
+#: src/dito/platform/windows/cuda_pack.py:199
+msgid "asking PyPI which build to take…"
+msgstr "perguntando ao PyPI qual versão pegar…"
+
+#: src/dito/platform/windows/cuda_pack.py:211
+#, python-brace-format
+msgid "unpacking {name}…"
+msgstr "descompactando {name}…"
+
+#: src/dito/platform/windows/cuda_pack.py:219
+msgid "the libraries were installed but do not load — Dito will use the CPU"
+msgstr "as bibliotecas foram instaladas mas não carregam — o Dito vai usar a CPU"
+
+#: src/dito/gpu_setup.py:36
+msgid "this command is for Windows; on Linux the packages come from apt"
+msgstr "este comando é do Windows; no Linux os pacotes vêm do apt"
+
+#: src/dito/gpu_setup.py:38
+msgid "GPU acceleration is already installed."
+msgstr "a aceleração por placa de vídeo já está instalada."
+
+#: src/dito/gpu_setup.py:41
+msgid "No NVIDIA card found — nothing was downloaded. Dito will use the processor."
+msgstr "Nenhuma placa NVIDIA encontrada — nada foi baixado. O Dito vai usar o processador."
+
+#: src/dito/gpu_setup.py:48
+msgid "GPU acceleration removed."
+msgstr "aceleração por placa de vídeo removida."
+
+#: src/dito/gpu_setup.py:48
+msgid "there was nothing to remove"
+msgstr "não havia nada para remover"
+
+#: src/dito/gpu_setup.py:53
+#, python-brace-format
+msgid "GPU acceleration is installed: {path}"
+msgstr "a aceleração por placa de vídeo está instalada: {path}"
+
+#: src/dito/gpu_setup.py:55
+msgid "GPU acceleration is not installed. Run «dito gpu --install»."
+msgstr "a aceleração por placa de vídeo não está instalada. Rode «dito gpu --install»."
+
+#: src/dito/gpu_setup.py:86 src/dito/gpu_setup.py:134
+msgid "GPU acceleration"
+msgstr "Aceleração por placa de vídeo"
+
+#: src/dito/gpu_setup.py:148
+msgid "Enabling GPU acceleration"
+msgstr "Ligando a aceleração por placa de vídeo"
+
+#: src/dito/gpu_setup.py:153
+msgid "Downloading the NVIDIA libraries that put transcription on the graphics card instead of the processor — about 1.3 GB, once. Dito works either way; this only makes it roughly three times faster."
+msgstr "Baixando as bibliotecas da NVIDIA que põem a transcrição na placa de vídeo em vez do processador — cerca de 1,3 GB, uma vez só. O Dito funciona dos dois jeitos; isto só o deixa umas três vezes mais rápido."
+
+#: src/dito/gpu_setup.py:193
+#, python-brace-format
+msgid "{done} MB of {total} MB"
+msgstr "{done} MB de {total} MB"
+
+#: src/dito/gpu_setup.py:208
+msgid "All set. Dictation will run on the graphics card."
+msgstr "Pronto. O ditado vai rodar na placa de vídeo."
+
+#: src/dito/cli.py:485
+msgid "GPU acceleration: says how it is, downloads it, drops it"
+msgstr "aceleração por placa de vídeo: diz como está, baixa, remove"
+
+#: src/dito/cli.py:487
+msgid "downloads the NVIDIA libraries (~1.3 GB) and unpacks them"
+msgstr "baixa as bibliotecas da NVIDIA (~1,3 GB) e as descompacta"
+
+#: src/dito/cli.py:489
+msgid "shows the progress in a window instead of the terminal"
+msgstr "mostra o progresso numa janela em vez do terminal"
+
+#: src/dito/cli.py:491
+msgid "downloads even with no NVIDIA card detected"
+msgstr "baixa mesmo sem detectar placa NVIDIA"
+
+#: src/dito/cli.py:493
+msgid "deletes the downloaded libraries and gives the 1.9 GB back"
+msgstr "apaga as bibliotecas baixadas e devolve os 1,9 GB"
 
 #~ msgid "could not download the components."
 #~ msgstr "não consegui baixar os componentes."

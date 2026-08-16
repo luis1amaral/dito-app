@@ -11,6 +11,7 @@ app's identity, and uninstalling never takes a recording with it.
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -117,6 +118,45 @@ def test_starting_with_windows_comes_checked():
     startup = [t for t in _iss_section("Tasks") if t.startswith("Name: \"startup\"")]
     assert len(startup) == 1, "a tarefa «startup» sumiu do instalador"
     assert "unchecked" not in startup[0]
+
+
+def test_the_gpu_download_is_offered_but_never_assumed():
+    """1,3 GB não se baixa por padrão: quem não tem placa NVIDIA não ganha nada com eles, e o
+    .exe é CPU-only por construção — o download é a ÚNICA forma de ter GPU (armadilhas 3.11)."""
+    gpu = [t for t in _iss_section("Tasks") if t.startswith('Name: "gpu"')]
+
+    assert len(gpu) == 1, "a tarefa «gpu» sumiu do instalador"
+    assert "unchecked" in gpu[0], "a tarefa da GPU vem marcada: 1,3 GB para quem não pediu"
+    assert "NVIDIA" in gpu[0], "a caixa não diz para quem serve"
+
+
+def test_the_download_happens_while_the_wizard_is_still_on_screen():
+    """Sem `waituntilterminated` o assistente fecha e o download morre junto, sem avisar ninguém."""
+    runs = [r for r in _iss_section("Run") if "gpu --install" in r]
+
+    assert len(runs) == 1, "o instalador não chama «dito gpu --install»"
+    assert "waituntilterminated" in runs[0]
+    assert "Tasks: gpu" in runs[0], "o download roda mesmo para quem não marcou a caixa"
+    # ditow, não dito: um console piscando no meio da instalação é defeito, não diagnóstico.
+    assert "ditow.exe" in runs[0]
+
+
+def test_the_wizard_wears_the_brand():
+    """A promessa mais barata de quebrar: renomear um BMP e só descobrir no instalador publicado."""
+    text = ISS.read_text(encoding="utf-8-sig")
+
+    assert "WizardImageFile=" in text and "WizardSmallImageFile=" in text
+    art = re.findall(r"wizard\\[\w.-]+\.bmp", text)
+    assert art, "o .iss não aponta nenhuma imagem de assistente"
+    for name in art:
+        assert (ISS.parent / name.replace("\\", "/")).exists(), (
+            f"{name} não existe — rode python tools/gen_icons.py"
+        )
+
+
+def test_the_wizard_art_stays_out_of_the_bundle():
+    """`ui/assets` é copiada inteira para dentro do .exe: um BMP sem compressão lá é peso morto."""
+    assert not list((ROOT / "src" / "dito" / "ui" / "assets").rglob("*.bmp"))
 
 
 def test_the_uninstaller_cannot_delete_a_recording():

@@ -434,6 +434,12 @@ def cmd_update(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_gpu(args) -> int:
+    from . import gpu_setup
+
+    return gpu_setup.run(args.install, args.window, args.force, args.remove)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="dito", description=_("Offline voice dictation."))
     p.add_argument("--version", action="version", version=f"dito {__version__}")
@@ -474,6 +480,18 @@ def build_parser() -> argparse.ArgumentParser:
                                                            "nothing"))
     up.add_argument("--silent", action="store_true", help=_("installs without a single window"))
     up.set_defaults(func=cmd_update)
+
+    # The installer's «placa de vídeo» box calls this: `ditow gpu --install --window`.
+    gpu = subs.add_parser("gpu", help=_("GPU acceleration: says how it is, downloads it, drops it"))
+    gpu.add_argument("--install", action="store_true",
+                     help=_("downloads the NVIDIA libraries (~1.3 GB) and unpacks them"))
+    gpu.add_argument("--window", action="store_true",
+                     help=_("shows the progress in a window instead of the terminal"))
+    gpu.add_argument("--force", action="store_true",
+                     help=_("downloads even with no NVIDIA card detected"))
+    gpu.add_argument("--remove", action="store_true",
+                     help=_("deletes the downloaded libraries and gives the 1.9 GB back"))
+    gpu.set_defaults(func=cmd_gpu)
 
     return p
 

@@ -1,7 +1,8 @@
 # Windows — como se instala
 
-Hoje existe **instalação por script**, que funciona e está em uso. O **instalador de distribuição**
-(um `.exe` para quem não tem Python) ainda não existe — é o que falta, e está desenhado no fim.
+São dois caminhos, e os dois estão em uso: **instalação por script** (`instalar.ps1`, para quem tem
+Python e o repositório) e o **instalador de distribuição** (`dito-<versão>-setup.exe`, para máquina
+sem Python) — montado por `construir.ps1` e descrito no fim.
 
 ## Instalar nesta máquina
 
@@ -43,29 +44,60 @@ lê como ANSI e todo acento vira lixo na tela — o `pwsh` 7 não mostra o probl
 As gravações em `%LOCALAPPDATA%\dito\state` e a biblioteca em `Documents\Dito`, igual ao que o
 `postrm` do `.deb` faz questão de preservar no Linux.
 
-## O instalador de distribuição, que falta
+## O instalador de distribuição
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\windows\construir.ps1
+```
+
+Sai em `build\windows\installer\dito-<versão>-setup.exe`, com o `SHA256SUMS.txt` ao lado — esse
+arquivo **não é enfeite**: `src/dito/update.py` se recusa a rodar um instalador sem hash publicado.
+`-SemPortao` pula `ruff`/`pytest`, `-SoBundle` para no PyInstaller.
 
 Aqui o raciocínio se inverte em relação ao Linux. No `.deb` o pacote é fino porque o apt entrega o
-Qt e o teto do Cloudflare Pages é de 25 MiB. No Windows não há apt: o instalador carrega tudo, fica
-na casa das centenas de MB e é distribuído fora do repositório apt — então o teto do Pages não se
-aplica, e reproduzir o bootstrap de venv seria complicar de graça.
+Qt e o teto do Cloudflare Pages é de 25 MiB. No Windows não há apt: o instalador carrega tudo — mas
+**não CUDA**, ver abaixo.
 
-**PyInstaller** — o que não sai de graça:
+**PyInstaller** (`dito.spec`) — o que não sai de graça:
 
-- `--noconsole` (o app é gráfico), `--name dito`, ícone `.ico` de verdade (não um `.png` renomeado);
-- *hidden imports*: `faster_whisper`, `ctranslate2` e `av` carregam coisa por nome em tempo de
-  execução; conte com `--collect-all faster_whisper` e `--collect-binaries ctranslate2`;
+- dois `.exe` sobre a MESMA análise: `dito.exe` com console (para o terminal) e `ditow.exe` sem
+  (para o atalho e o autostart), com ícone `.ico` de verdade (não um `.png` renomeado);
+- *hidden imports*: `faster_whisper`, `ctranslate2`, `av` e `onnxruntime` carregam coisa por nome em
+  tempo de execução — `onnxruntime` é importado **dentro de uma função** e a análise estática não
+  acha. `PySide6.QtSvg` também: sem o plugin não há ícone de bandeja nenhum (armadilha 6.5);
 - *data files*: `tokenizers` e `huggingface_hub` levam arquivos que não são `.py`. **E os `.mo` de
   `src/dito/locales`** — ver a armadilha do `package-data` abaixo;
-- **o modelo NÃO entra no bundle**: são ~486 MB no `small`, baixado no primeiro uso;
-- teste o `.exe` numa máquina **sem Python** — é o único teste que vale.
+- **o modelo NÃO entra no bundle**: são ~486 MB no `small`, baixado no primeiro uso.
 
-**Inno Setup** — o instalador:
+**Inno Setup** (`dito.iss`):
 
-- atalho no Menu Iniciar e (opcional) na Área de Trabalho;
-- **"iniciar com o Windows" desmarcado por padrão**, como atalho na pasta `Startup` chamando
-  `dito.exe listen`: sobe o daemon **calado**, sem janela. É requisito explícito do dono;
-- desinstalador que **não** apague `%LOCALAPPDATA%\dito` nem `Documents\Dito`.
+- atalho no Menu Iniciar e (opcional) na Área de Trabalho, cada um com `AppUserModelID` — sem ele a
+  notificação do Windows se apresenta como "Python";
+- **"iniciar com o Windows" MARCADO** aqui, ao contrário do `instalar.ps1`: quem roda este `.exe` é
+  o dono da máquina, e um login tem que chegar já ditando;
+- **a caixa da GPU, desmarcada** — ver a seção seguinte;
+- imagens do assistente (`WizardImageFile`) em `wizard/`, geradas por `tools/gen_icons.py` dos
+  mesmos SVG da marca. **São geradas, não versionadas à mão**: mexeu no SVG, rode o script;
+- desinstalador que **não** apaga `%LOCALAPPDATA%\dito` nem `Documents\Dito` — e não apaga arquivo
+  nenhum, o que `tests/test_packaging.py` prende.
+
+## A GPU não vem no `.exe`, e é escolha na instalação
+
+O bundle é **CPU-only por construção**: não tem CUDA e não tem `pip` para buscá-lo. Isso não se
+conserta com um build melhor — o porquê inteiro está em `docs/armadilhas.md` **3.11**.
+
+A caixa *"Baixar a aceleração por placa de vídeo (1,3 GB)"* roda `ditow.exe gpu --install --window`,
+que baixa os wheels do PyPI, confere o `sha256` publicado e extrai só `nvidia/*/bin` para
+`%LOCALAPPDATA%\dito\cuda` — **fora do `{app}`**, para sobreviver ao upgrade seguinte.
+
+| comando | o quê |
+|---|---|
+| `dito gpu` | diz se está instalada e onde |
+| `dito gpu --install` | baixa (1,3 GB) e extrai (1,9 GB em disco) |
+| `dito gpu --remove` | devolve os 1,9 GB |
+| `dito gpu --force` | baixa mesmo sem `nvidia-smi` detectar placa |
+
+Falhar aqui **não reprova a instalação**: aceleração é bônus, e o Dito funciona na CPU.
 
 ## A armadilha que a primeira instalação de verdade revelou
 

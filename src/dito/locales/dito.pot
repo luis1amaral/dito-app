@@ -1040,3 +1040,113 @@ msgstr ""
 #: src/dito/ui/review.py:122
 msgid "⏎ sends · Tab discards"
 msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:88
+#, python-brace-format
+msgid "could not reach PyPI: {error}"
+msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:97
+msgid "PyPI answered something that is not an index"
+msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:102
+#, python-brace-format
+msgid "PyPI has no Windows build of {package} {major}.x"
+msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:129
+msgid "the download is far bigger than the wheel — stopped"
+msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:152
+msgid "the wheel names a file outside the folder — stopped"
+msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:160
+msgid "the wheel carries no DLL — nothing was installed"
+msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:199
+msgid "asking PyPI which build to take…"
+msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:211
+#, python-brace-format
+msgid "unpacking {name}…"
+msgstr ""
+
+#: src/dito/platform/windows/cuda_pack.py:219
+msgid "the libraries were installed but do not load — Dito will use the CPU"
+msgstr ""
+
+#: src/dito/gpu_setup.py:36
+msgid "this command is for Windows; on Linux the packages come from apt"
+msgstr ""
+
+#: src/dito/gpu_setup.py:38
+msgid "GPU acceleration is already installed."
+msgstr ""
+
+#: src/dito/gpu_setup.py:41
+msgid "No NVIDIA card found — nothing was downloaded. Dito will use the processor."
+msgstr ""
+
+#: src/dito/gpu_setup.py:48
+msgid "GPU acceleration removed."
+msgstr ""
+
+#: src/dito/gpu_setup.py:48
+msgid "there was nothing to remove"
+msgstr ""
+
+#: src/dito/gpu_setup.py:53
+#, python-brace-format
+msgid "GPU acceleration is installed: {path}"
+msgstr ""
+
+#: src/dito/gpu_setup.py:55
+msgid "GPU acceleration is not installed. Run «dito gpu --install»."
+msgstr ""
+
+#: src/dito/gpu_setup.py:86 src/dito/gpu_setup.py:134
+msgid "GPU acceleration"
+msgstr ""
+
+#: src/dito/gpu_setup.py:148
+msgid "Enabling GPU acceleration"
+msgstr ""
+
+#: src/dito/gpu_setup.py:153
+msgid "Downloading the NVIDIA libraries that put transcription on the graphics card instead of the processor — about 1.3 GB, once. Dito works either way; this only makes it roughly three times faster."
+msgstr ""
+
+#: src/dito/gpu_setup.py:193
+#, python-brace-format
+msgid "{done} MB of {total} MB"
+msgstr ""
+
+#: src/dito/gpu_setup.py:208
+msgid "All set. Dictation will run on the graphics card."
+msgstr ""
+
+#: src/dito/cli.py:485
+msgid "GPU acceleration: says how it is, downloads it, drops it"
+msgstr ""
+
+#: src/dito/cli.py:487
+msgid "downloads the NVIDIA libraries (~1.3 GB) and unpacks them"
+msgstr ""
+
+#: src/dito/cli.py:489
+msgid "shows the progress in a window instead of the terminal"
+msgstr ""
+
+#: src/dito/cli.py:491
+msgid "downloads even with no NVIDIA card detected"
+msgstr ""
+
+#: src/dito/cli.py:493
+msgid "deletes the downloaded libraries and gives the 1.9 GB back"
+msgstr ""
+

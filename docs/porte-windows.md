@@ -73,15 +73,26 @@ Dito com todas as letras, porque este projeto nasceu de uma falha silenciosa:
 - **A suíte de X11 no Linux** depois da extração do `hotkeys_core.py`. Aqui não há servidor X, e
   `tests/test_hotkeys_x11.py` pula. Rodar no Linux antes de confiar.
 
-## O que falta construir
+## Os dois caminhos de instalação
 
-O **instalador de distribuição** (PyInstaller + Inno Setup) — ver `packaging/windows/README.md`.
-Hoje instala-se por `packaging/windows/instalar.ps1`, que precisa de Python na máquina.
+O **instalador de distribuição** (PyInstaller + Inno Setup) existe: `packaging/windows/construir.ps1`
+o monta, e `packaging/windows/README.md` explica cada peça. O **`instalar.ps1`** continua para quem
+tem Python e o repositório.
 
-A **GPU já está ligada** e medida numa GTX 1650: `small` em float16 transcreve 6,30 s de fala em
-**1,66 s (RTF 0,26)** com o modelo quente, contra 5,91 s (RTF 0,94) na CPU em int8 — **3,6×**. O
-`bootstrap.py` resolve os caminhos do Windows, adota um CUDA já instalado e grava o marcador em
-`%LOCALAPPDATA%\dito\state\gpu-ready`, então uma máquina nova baixa os ~1,5 GB uma vez só.
+A **GPU está ligada** e medida numa GTX 1650: `small` em float16 transcreve 6,30 s de fala em
+**1,66 s (RTF 0,26)** com o modelo quente, contra 5,91 s (RTF 0,94) na CPU em int8 — **3,6×**.
+
+Como ela chega até lá depende do caminho, e **os dois dividem o mesmo marcador**
+`%LOCALAPPDATA%\dito\state\gpu-ready`:
+
+| | quem baixa | para onde |
+|---|---|---|
+| `instalar.ps1` (venv) | `pip`, no primeiro uso | `site-packages/nvidia/*/bin` da venv |
+| `.exe` (bundle) | `dito gpu --install`, marcado na instalação | `%LOCALAPPDATA%\dito\cuda` |
+
+O bundle **não tem `pip`**, e por isso não é o `bootstrap.install_gpu_extras()` que roda lá —
+é `platform/windows/cuda_pack.py`, que baixa o wheel do PyPI e o extrai na mão. O porquê inteiro
+está em `docs/armadilhas.md` **3.11**. São **1,3 GB baixados e 1,9 GB em disco**, uma vez só.
 
 ## Convenções que não se negociam
 

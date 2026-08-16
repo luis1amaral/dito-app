@@ -1,5 +1,83 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — v0.4.1 — a GPU virou escolha na hora de instalar, e o assistente ganhou a marca
+
+### O quê
+
+1. **O instalador continua leve (101 MB) e pergunta.** Uma caixa nova, **desmarcada por padrão**,
+   diz *"Baixar a aceleração por placa de vídeo (1,3 GB) — deixa a transcrição ~3x mais rápida"*,
+   sob o título *"Se este computador tem placa de vídeo NVIDIA:"*. Quem marca, baixa durante a
+   instalação, com barra de progresso. Quem não marca, instala 101 MB e nunca mais vê o assunto.
+2. **A tela do assistente passou a ter logo.** `WizardImageFile` e `WizardSmallImageFile`, geradas
+   dos mesmos SVG da marca por `tools/gen_icons.py`, em quatro tamanhos cada — o Inno escolhe por
+   DPI, então num desktop a 150% a faixa continua nítida.
+3. **Comando novo: `dito gpu`.** Sem argumento diz como está; `--install` baixa; `--remove` devolve
+   os 1,9 GB; `--force` baixa mesmo sem detectar placa. Quem pulou a caixa na instalação liga
+   depois por aqui — nada fica sem saída.
+4. **Correção num defeito que já estava em produção:** o corte de tamanho do download em
+   `update.py` apagava o arquivo parcial com o handle ainda aberto. No Windows isso é
+   `PermissionError`, então o usuário via o erro do `unlink` em vez de "parei", **e o `.part`
+   ficava no disco para sempre.**
+5. **Três traduções erradas saíram do catálogo.** Estavam marcadas `fuzzy` — palpite do
+   `msgmerge` que ninguém revisou — então o `msgfmt` as pulava e o usuário via inglês.
+   «could not reach GitHub» estava traduzido como *"não consegui escrever a nota"*.
+6. **Token novo `Size.DIALOG_W`,** e as duas janelas de preparo passaram a usá-lo. Um `QLabel` com
+   quebra de linha **não tem largura preferida**: `resize(460, 0)` era ignorado e a janela saía
+   com **922 px** — medido numa captura offscreen. `setFixedWidth` é o que manda o texto quebrar.
+
+### Por quê
+
+O `.exe` era **CPU-only por construção** — não é build mal feito. O bundle não tem `_internal/nvidia`
+**e não tem `pip`**, então o `bootstrap.install_gpu_extras()`, que na instalação por venv baixa as
+bibliotecas no primeiro uso, não tinha como rodar: no congelado `sys.prefix` aponta para a pasta
+extraída do PyInstaller. Medido nesta máquina: **RTF 0,26 na GPU × 0,94 na CPU**, 3,6×. Quem tem
+placa estava perdendo isso em silêncio.
+
+Embutir CUDA no bundle resolveria e faria todo mundo — inclusive quem não tem placa — baixar 1,4 GB.
+Daí a escolha na instalação. Detalhe completo em `docs/armadilhas.md` **3.11**.
+
+### Onde as coisas moram, e por quê
+
+- **`%LOCALAPPDATA%\dito\cuda`**, ao lado do `state` — nunca dentro de `{app}`. A instalação é sem
+  UAC, e o `{app}` é substituído no upgrade seguinte: rebaixar 1,3 GB a cada versão seria a
+  consequência. Pela mesma razão o pacote **sobrevive a uma atualização**.
+- O layout `nvidia/<lib>/bin` é **o mesmo que o pip usa**, porque é o que o `cuda_dlls.register()`
+  varre. Achatar a árvore apagaria a aceleração sem nenhum erro aparecer.
+- O desinstalador **não apaga** essa pasta (ele não apaga arquivo nenhum, e há teste prendendo
+  isso), mas passou a **anunciá-la** ao final: 1,9 GB esquecidos em silêncio é falta de educação.
+
+### Como foi verificado
+
+- Portão: `ruff check .` limpo, **358 testes** verdes (eram 330; 28 novos).
+- **Os números do download são medidos, não estimados:** o índice central dos wheels foi lido por
+  Range HTTP, sem baixar 1,3 GB — cuBLAS 553 MB → 772 MB em 3 DLL, cuDNN 732 MB → 1117 MB em
+  10 DLL. Total **1,3 GB baixados, 1,9 GB em disco**.
+- O `.iss` **compila**, com as oito imagens de assistente resolvidas.
+- O defeito do `unlink` foi **provado com um teste que falhou antes da correção**
+  (`PermissionError: [WinError 32]`), nos dois caminhos de download.
+- O `resolve()` foi rodado **contra o PyPI de verdade** e devolveu os dois wheels certos, com os
+  `sha256` que batem com os medidos.
+- A janela do download foi **fotografada** (captura offscreen): 460×271, logo, barra determinada em
+  32% para 412 MB de 1285, e o estado de erro com os botões «Tentar de novo» / «Fechar». O texto
+  sai em quadradinhos na captura porque o modo offscreen tem **0 famílias de fonte** contra 265 no
+  Windows real — conferido, é artefato da foto e não do app.
+- O `.exe` construído responde `dito gpu` em português, com o `--help` completo.
+
+### E de quebra, esta versão prova o ciclo de auto-update
+
+A `v0.4.0` foi a primeira compilada já falando com o `dito-api`. Ela nunca tinha tido uma versão
+**seguinte** para achar — então o ciclo inteiro (achar, baixar, conferir o hash, aplicar) seguia
+não exercitado fora de servidor local. A `v0.4.1` é essa versão seguinte.
+
+### Ferramenta nova, fora do repositório
+
+`~/.claude/tools/po2mo.py` — compila `.po` → `.mo` só com biblioteca padrão, porque esta máquina
+não tem `msgfmt` e o catálogo é versionado. Provado contra o `.mo` real: **228 entradas, 0
+divergentes**. As 26 entradas novas foram acrescentadas ao fim do `.po` e do `.pot`; um
+`tools/i18n.sh all` no Linux reordena e mantém as traduções.
+
+---
+
 ## 2026-08-16 — v0.4.0 — a atualização automática passa a existir de verdade
 
 ### O quê

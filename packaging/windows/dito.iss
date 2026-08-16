@@ -14,6 +14,10 @@
 #define MyAppId "com.defalt.dito"
 #define BundleDir "..\..\build\windows\dist\Dito"
 #define IconFile "..\..\src\dito\ui\assets\dito.ico"
+; Saem de tools/gen_icons.py, dos mesmos SVG da marca. Uma lista por DPI: o Inno escolhe o
+; tamanho mais próximo, e num desktop a 150% a faixa continua nítida em vez de esticada.
+#define WizardBig "wizard\wizard-164x314.bmp,wizard\wizard-192x386.bmp,wizard\wizard-246x459.bmp,wizard\wizard-328x628.bmp"
+#define WizardSmall "wizard\wizard-small-55x58.bmp,wizard\wizard-small-64x68.bmp,wizard\wizard-small-83x80.bmp,wizard\wizard-small-110x116.bmp"
 
 [Setup]
 AppId={{8E3B5A2C-4D71-4C0E-9A6F-2F1D6B0A7E31}
@@ -38,6 +42,8 @@ UninstallDisplayName={#MyAppName} {#MyAppVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+WizardImageFile={#WizardBig}
+WizardSmallImageFile={#WizardSmall}
 ChangesEnvironment=yes
 ; Nós mesmos encerramos o Dito em PrepareToInstall; o Restart Manager só traria uma janela a mais.
 CloseApplications=no
@@ -51,6 +57,12 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Name: "startup"; Description: "Iniciar o Dito junto com o Windows"; GroupDescription: "Ao ligar o computador:"
 Name: "desktopicon"; Description: "Criar um atalho na Área de Trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
 Name: "addtopath"; Description: "Deixar o comando ""dito"" disponível no terminal"; GroupDescription: "Atalhos:"
+; DESMARCADA de propósito: são 1,3 GB, e quem não tem placa NVIDIA não ganha nada com eles. O .exe
+; é CPU-only por construção (sem CUDA no bundle e sem pip para buscá-lo) — ver docs/armadilhas.md
+; 3.11. Quem pular aqui liga depois com «dito gpu --install», nada fica sem saída.
+; A explicação vai no GroupDescription porque só ELE aceita %n e quebra linha: a lista de tarefas
+; do Inno não quebra, e uma descrição longa sai cortada com barra de rolagem horizontal.
+Name: "gpu"; Description: "Baixar a aceleração por placa de vídeo (1,3 GB)"; GroupDescription: "Placa de vídeo:%nSó marque se esta máquina tem uma NVIDIA — a transcrição fica ~3x mais rápida."; Flags: unchecked
 
 [Files]
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -67,6 +79,10 @@ Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\ditow.exe"; Parameters: "li
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Flags: preservestringtype; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant('{app}'))
 
 [Run]
+; Antes do postinstall e com waituntilterminated: o download tem que acabar enquanto o assistente
+; ainda está na tela. Quem desenha o progresso é o próprio Dito (src/dito/gpu_setup.py), porque só
+; ele sabe quantos bytes faltam. Falhar aqui NÃO reprova a instalação: o Dito funciona na CPU.
+Filename: "{app}\ditow.exe"; Parameters: "gpu --install --window"; StatusMsg: "Baixando a aceleração por placa de vídeo (1,3 GB)..."; Flags: waituntilterminated; Tasks: gpu
 Filename: "{app}\ditow.exe"; Parameters: "listen"; Description: "Começar a ditar agora"; Flags: nowait postinstall skipifsilent
 
 [Code]
@@ -108,6 +124,8 @@ begin
 end;
 
 procedure CurUninstallStepChanged(CurStep: TUninstallStep);
+var
+  Cuda: string;
 begin
   if CurStep = usUninstall then
   begin
@@ -115,10 +133,19 @@ begin
     RemoveFromPath(ExpandConstant('{app}'));
   end;
   // As gravações e a biblioteca ficam. Apagá-las seria a única perda irreversível deste programa.
+  // A pasta da GPU também fica, e por isso é anunciada: 1,9 GB esquecidos em silêncio é falta de
+  // educação, e apagá-la daqui quebraria a promessa de que este desinstalador não apaga arquivo.
   if (CurStep = usPostUninstall) and (not UninstallSilent) then
+  begin
+    Cuda := '';
+    if DirExists(ExpandConstant('{localappdata}\dito\cuda')) then
+      Cuda := #13#10#13#10 + 'A aceleração por placa de vídeo (1,9 GB) continua em:' + #13#10 +
+              ExpandConstant('{localappdata}\dito\cuda') + #13#10 +
+              'Ela é sua para apagar quando quiser.';
     MsgBox('O Dito foi removido.' + #13#10#13#10 +
            'As suas gravações NÃO foram apagadas:' + #13#10 +
            ExpandConstant('{localappdata}\dito\state') + #13#10 +
-           ExpandConstant('{userdocs}\Dito'),
+           ExpandConstant('{userdocs}\Dito') + Cuda,
            mbInformation, MB_OK);
+  end;
 end;

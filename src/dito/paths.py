@@ -45,6 +45,11 @@ def state_dir() -> Path:
     return _env("XDG_STATE_HOME", Path.home() / ".local" / "state") / APP
 
 
+def cuda_dir() -> Path:
+    """The CUDA pack the Windows installer downloads — see docs/armadilhas.md 3.11."""
+    return data_dir() / "cuda"
+
+
 def runtime_dir() -> Path:
     """Control socket home; falls back to the state dir on a session without systemd-logind."""
     if _windows():

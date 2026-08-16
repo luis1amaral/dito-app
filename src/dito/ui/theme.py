@@ -256,6 +256,10 @@ class Size:
     HUD_W = 340
     WINDOW_W = 880
     WINDOW_H = 600
+    # A exceção da regra acima, e por um motivo medido: um QLabel com quebra de linha não tem
+    # largura preferida, então a janela de preparo saía com 922 px. Aqui a largura é o que MANDA
+    # o texto quebrar — a altura continua livre.
+    DIALOG_W = 460
 
     # Painted controls: the geometry is the drawing, so it cannot come from a padding rule.
     SWITCH_W = 44

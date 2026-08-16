@@ -24,6 +24,7 @@ def venv(tmp_path, monkeypatch):
     monkeypatch.setattr(bootstrap, "VENV_DIR", root / "venv")
     monkeypatch.setattr(bootstrap, "GPU_MARK", root / "gpu-ready")
     monkeypatch.setattr(bootstrap, "GPU_LOCK", root / "gpu-install.lock")
+    monkeypatch.setattr(bootstrap, "CUDA_DIR", root / "cuda")
     return root
 
 
@@ -218,6 +219,115 @@ def test_the_cublas_glob_matches_what_pip_lays_down_on_each_platform():
         assert b.CUBLAS_GLOB.endswith("libcublas.so*")
         assert "lib/python*" in b.CUBLAS_GLOB
         assert b.venv_python().name == "python"
+
+
+# ---- o caminho do .exe: CUDA sem pip, numa pasta própria ------------------------------
+
+windows_only = pytest.mark.skipif(
+    __import__("sys").platform != "win32", reason="o caminho do instalador de Windows"
+)
+
+
+def _pack_where_the_installer_puts_it(root):
+    """A pasta que o instalador enche — o mesmo desenho `nvidia/*/bin` que o pip usa no Windows."""
+    lib = root / "cuda" / "nvidia" / "cublas" / "bin"
+    lib.mkdir(parents=True)
+    return lib / "cublas64_12.dll"
+
+
+@windows_only
+def test_the_downloaded_pack_counts_as_cublas_on_disk(venv):
+    """Sem isto o marcador seria apagado a cada subida e o instalador rebaixaria 1,3 GB."""
+    _pack_where_the_installer_puts_it(venv).write_bytes(b"")
+
+    assert bootstrap.cublas_paths()
+    assert bootstrap._cublas_on_disk() is True
+
+
+@windows_only
+def test_the_exe_never_erases_the_marker_the_venv_install_wrote(venv, monkeypatch):
+    """`sys.prefix` do .exe é o bundle, que nunca tem cuBLAS: sem esta guarda o .exe apagava o
+    marcador da instalação por venv que divide com ele a mesma pasta de estado (3.10)."""
+    bootstrap.GPU_MARK.write_text("ok\n")
+    monkeypatch.setattr(bootstrap, "frozen", lambda: True)
+
+    assert bootstrap.gpu_extras_ready() is False
+    assert bootstrap.GPU_MARK.exists(), "o .exe apagou um marcador que não era dele"
+
+
+@windows_only
+def test_the_pack_marker_is_written_only_after_the_library_proves_it_loads(venv, monkeypatch):
+    """«Arquivos chegaram» não é «GPU funciona»: o marcador só vale depois do CDLL passar."""
+    from dito.platform.windows import cuda_pack
+
+    monkeypatch.setattr(cuda_pack, "install", lambda *a, **k: [venv / "cuda" / "x.dll"])
+
+    ok, _msg = bootstrap.install_gpu_pack(lambda _m: None)
+
+    assert ok is True
+    assert bootstrap.GPU_MARK.exists()
+
+
+@windows_only
+def test_a_pack_that_fails_leaves_no_marker_so_it_retries(venv, monkeypatch):
+    from dito.platform.windows import cuda_pack
+
+    def boom(*_a, **_k):
+        raise cuda_pack.PackError("o PyPI não respondeu")
+
+    monkeypatch.setattr(cuda_pack, "install", boom)
+
+    ok, message = bootstrap.install_gpu_pack(lambda _m: None)
+
+    assert ok is False
+    assert "PyPI" in message
+    assert not bootstrap.GPU_MARK.exists()
+    assert not bootstrap.GPU_LOCK.exists(), "o lock ficou preso e a próxima tentativa não roda"
+
+
+@windows_only
+def test_two_pack_installs_cannot_run_at_once(venv, monkeypatch):
+    """O instalador e um «dito gpu --install» no terminal escrevem na mesma pasta."""
+    from dito.platform.windows import cuda_pack
+
+    bootstrap.GPU_LOCK.write_text("")
+    monkeypatch.setattr(cuda_pack, "install", lambda *a, **k: pytest.fail("rodou duas vezes"))
+
+    ok, _msg = bootstrap.install_gpu_pack(lambda _m: None)
+
+    assert ok is False
+
+
+@windows_only
+def test_a_full_disk_stops_the_pack_before_the_first_byte(venv, monkeypatch):
+    from dito.platform.windows import cuda_pack
+
+    monkeypatch.setattr(bootstrap, "_enough_disk", lambda _where=None: False)
+    monkeypatch.setattr(cuda_pack, "install", lambda *a, **k: pytest.fail("começou"))
+
+    ok, message = bootstrap.install_gpu_pack(lambda _m: None)
+
+    assert ok is False
+    assert "disk" in message.lower() or "disco" in message.lower()
+
+
+@windows_only
+def test_removing_the_pack_takes_the_marker_with_it(venv):
+    """Marcador sem biblioteca é a armadilha 3.10 de novo: responderia «pronto» sobre o nada."""
+    _pack_where_the_installer_puts_it(venv).write_bytes(b"")
+    bootstrap.GPU_MARK.write_text("ok\n")
+
+    assert bootstrap.remove_gpu_pack() is True
+    assert not bootstrap.CUDA_DIR.exists()
+    assert not bootstrap.GPU_MARK.exists()
+
+
+def test_pip_and_the_standalone_pack_ask_for_the_same_cuda():
+    """Duas listas de pacotes divergiriam em silêncio, e o .exe rodaria com cuDNN de outra era."""
+    assert bootstrap.CUDA_PACKAGES == ("nvidia-cublas-cu12>=12,<13", "nvidia-cudnn-cu12>=9,<10")
+    assert [name for name, _major in bootstrap.CUDA_LIBRARIES] == [
+        spec.split(">=")[0] for spec in bootstrap.CUDA_PACKAGES
+    ]
 
 
 def test_the_gpu_marker_never_lands_inside_a_repository(tmp_path, monkeypatch):
