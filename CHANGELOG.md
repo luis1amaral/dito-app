@@ -189,13 +189,22 @@ Com o sintético de 60 s do `tools/bench_stt.py`, **`beam=5`** (o `beam_dictatio
 processador espalhados por ~2,2 núcleos — a máquina inteira sentia. Na GPU é um núcleo alimentando
 a placa.
 
-### Em aberto
-**`beam=1` (reunião) não tem número confiável.** Na GPU ele mede *mais lento* que `beam=5`
-(19,4 s e 18,1 s contra 12,6 s e 10,3 s, reprodutível) — e isso é defeito do método, não da placa:
-áudio sintético com VAD desligado faz o decodificador alucinar, e *quanto* ele alucina depende da
-quantização, que difere entre os devices (`int8` na CPU, `float16` na GPU). O mesmo ruído gera
-quantidades diferentes de token. Comparar beams entre devices exige **fala real**, como o docstring
-do `bench_stt.py` já avisava.
+### Fechado com fala real: 141,8 s, os dois beams, os dois devices
+
+| | parede | CPU |
+|---|---|---|
+| reunião (`beam=1`) CPU `int8` | 37,31 s | 36,59 s |
+| reunião (`beam=1`) GPU `float16` | 18,29 s | **3,17 s** |
+| ditado (`beam=5`) CPU `int8` | 47,54 s | 47,69 s |
+| ditado (`beam=5`) GPU `float16` | 20,26 s | **2,95 s** |
+
+**Reunião: 11,5x menos CPU. Ditado: 16,2x menos CPU.** RTF de reunião na GPU = **0,129**, contra o
+0,8 que o `bench_stt.py` define como "cabe em tempo real" — seis vezes de folga.
+
+Com fala real o `beam=1` volta a ser **mais rápido** que o `beam=5` (18,3 s contra 20,3 s), como
+manda a física. A inversão que aparecia antes era artefato do áudio sintético com VAD desligado: o
+decodificador alucina, e *quanto* ele alucina depende da quantização, que difere entre os devices.
+Fica registrado porque a suspeita estava certa e agora está provada — não suposta.
 
 ## 2026-08-16 — o alarme acaba junto com a gravação, e a notificação não faz mais som
 
