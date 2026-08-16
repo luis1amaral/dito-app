@@ -22,7 +22,7 @@ from pathlib import Path
 from . import __version__, paths
 from .i18n import _
 
-REPO = "luis1amaral/dito"
+REPO = "luis1amaral/dito-app"
 API = "https://api.github.com/repos/{repo}/releases/latest"
 
 INSTALLER_SUFFIX = ".exe"
