@@ -1,5 +1,42 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o F10 vira "F9 sem segurar", e a nota se nomeia sozinha
+
+### O quê
+1. **As duas teclas terminam igual.** O F10 passa pelo cartão de revisão, como o F9: o texto
+   aparece, você edita, `⏎` envia, `Tab` descarta. Antes ele ia direto para o disco.
+2. **A caixa perguntando o assunto acabou.** `notes.subject_from()` tira o título da primeira
+   frase do texto **aprovado** — 8 palavras ou 60 caracteres, sem pontuação nas pontas.
+3. **Só o que foi aprovado é publicado.** Descartar no cartão não escreve nota nenhuma; o JSON da
+   sessão continua no disco de qualquer jeito.
+4. O F10 **continua transcrevendo em pedaços** enquanto você fala. Isso não mudou, e é o que
+   permite gravar uma hora sem esperar ~25 minutos de transcrição no fim.
+
+### Por quê
+Decisão do dono: o F10 devia ser o F9 sem precisar segurar, não um modo separado com regras
+próprias. Duas formas de terminar a mesma gravação era complexidade sem motivo.
+
+E o modal do assunto era a pergunta errada na hora errada: ninguém escreve nada ali, aperta Enter,
+e o cofre enche de `reuniao-0710`, `reuniao-1432` — nomes que ninguém acha depois. O objetivo do
+nome é ser encontrado, e ele falhava exatamente nisso. Agora
+`Alinhamento do orçamento de agosto. Depois falamos do resto.` vira
+`2026-08-16-alinhamento-do-orcamento-de-agosto.md`.
+
+### A regra que não foi enfraquecida
+Uma gravação longa **nunca** é colada sem ser vista. Com a confirmação desligada, o F10 salva e não
+cola: despejar uma hora de transcrição no campo que estiver em foco é uma pequena catástrofe, e sem
+o cartão ninguém olhou o texto.
+
+### Como foi verificado
+265 testes verdes, `ruff` limpo, catálogo com 0 sem tradução e 0 duvidosa. Quatro testes novos no
+`subject_from`: corta na frase, corta por palavra quando não há pontuação, devolve vazio para texto
+vazio, e o resultado ainda passa pelo `slugify` virando nome de arquivo válido.
+
+### Documentação
+`docs/armadilhas.md` **10.7**.
+
+---
+
 ## 2026-08-16 — as gravações mudaram de casa: `~/Documentos/Dito`, por ano/mês/dia
 
 ### O quê

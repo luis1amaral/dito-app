@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from dito.config import Config
-from dito.output.notes import MeetingNote, hms, slugify, write_meeting_note
+from dito.output.notes import MeetingNote, hms, slugify, subject_from, write_meeting_note
 
 STARTED = datetime(2026, 8, 15, 14, 32, 0)
 TRANSCRIPT = "Então a gente decidiu adiar o orçamento para a semana que vem."
@@ -224,3 +224,28 @@ def test_slug_stays_short_enough_for_a_filename():
 )
 def test_hms(seconds: float, expected: str):
     assert hms(seconds) == expected
+
+
+def test_the_subject_comes_from_the_first_sentence():
+    """The note used to be named by a dialog at the end of an hour. Nobody answers that well, and
+    «reuniao-0710» is a file nobody finds again in Obsidian. See docs/armadilhas.md 10.7."""
+    assert subject_from(
+        "Alinhamento do orçamento de agosto. Depois falamos do resto."
+    ) == "Alinhamento do orçamento de agosto"
+
+
+def test_a_subject_without_punctuation_is_cut_by_words():
+    long_text = "primeira segunda terceira quarta quinta sexta setima oitava nona decima"
+    assert subject_from(long_text) == "primeira segunda terceira quarta quinta sexta setima oitava"
+
+
+def test_an_empty_transcript_gives_an_empty_subject():
+    """The caller falls back to the clock; inventing a title for nothing would be a lie."""
+    assert subject_from("") == ""
+    assert subject_from("   \n  ") == ""
+
+
+def test_the_subject_survives_slugify_for_the_filename():
+    subject = subject_from("Reunião: orçamento de agosto. E o resto.")
+    assert subject == "Reunião: orçamento de agosto"
+    assert slugify(subject) == "reuniao-orcamento-de-agosto"

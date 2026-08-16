@@ -1047,3 +1047,27 @@ hífen — **`/` e `.` não sobrevivem**, então não existe travessia de diret�
 Dois números junto: teto de **60 caracteres**, que deixa espaço para o prefixo de data e um sufixo
 `-12` de colisão (10.5) em qualquer sistema de arquivos, e assunto que sobra vazio vira
 `reuniao` — nome de arquivo em branco também é um caminho inválido.
+
+### 10.7 O modal perguntando o assunto era a pergunta errada, na hora errada
+
+**Sintoma:** ao parar uma gravação longa, uma caixa de diálogo pedia o assunto, com
+`reuniao-0710` já preenchido. O que acontecia na prática é que ninguém escreve nada ali — aperta
+Enter e segue —, e o cofre do Obsidian enche de `reuniao-0710`, `reuniao-1432`, `reuniao-0915`:
+nomes que não dizem nada e que ninguém acha depois. O objetivo do nome é ser encontrado, e ele
+falhava exatamente nisso.
+
+**Correção:** `notes.subject_from()` tira o título do que foi dito — a primeira frase, cortada em
+8 palavras ou 60 caracteres, sem a pontuação nas pontas. `Alinhamento do orçamento de agosto.
+Depois falamos do resto.` vira a nota `2026-08-16-alinhamento-do-orcamento-de-agosto.md`.
+
+Três decisões dentro disso:
+
+- **O título sai do texto APROVADO**, não do texto cru. As duas teclas passam pelo cartão de
+  revisão agora, então o nome do arquivo reflete o que a pessoa deixou ficar.
+- **Texto vazio devolve assunto vazio**, e quem chama cai no relógio. Inventar título para nada
+  seria mentira, e o `slugify` já tem `reuniao` como último recurso (10.6).
+- **O corte é por frase e depois por palavra**, nessa ordem. Cortar só por caractere parte palavra
+  no meio, e um título cortado no meio de uma palavra parece defeito, não resumo.
+
+O `_shutdown()` também usa isso: fechando o app no meio de uma gravação não há ninguém para
+aprovar, mas o nome ainda sai do conteúdo em vez de um horário que ninguém reconhece depois.

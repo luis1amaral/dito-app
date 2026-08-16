@@ -30,12 +30,17 @@ Daí as duas garantias do Dito:
 | | |
 |---|---|
 | **F9** | segure, fale, solte — o texto é colado onde o cursor estiver |
-| **F10** | aperta para começar a reunião, aperta de novo para parar. **Sem limite de tempo** |
+| **F10** | o mesmo que o F9, **sem segurar**: aperta, fala, aperta de novo. **Sem limite de tempo** |
 | Bandeja | única coisa que aparece. **Nada abre no login** |
 | Janela | pelo menu ou pela bandeja: transcrições de um lado, configuração do outro |
 
-As teclas são trocadas na tela, sem reiniciar. Ao parar uma reunião, ele pergunta o assunto e
-salva o texto em `~/Documentos/Dito`, mais uma nota no cofre do Obsidian.
+As teclas são trocadas na tela, sem reiniciar. **As duas terminam igual:** o cartão de revisão
+abre com o texto, você edita, `⏎` envia e `Tab` descarta. Uma gravação de F10 aprovada também vira
+nota no cofre do Obsidian, com o **título tirado do que foi dito** — não há mais caixa perguntando
+o assunto.
+
+A diferença entre as teclas é só por dentro: o F10 transcreve **em pedaços enquanto você fala**, que
+é o que permite gravar uma hora sem esperar a transcrição no fim.
 
 **Onde ficam as gravações.** Em `~/Documentos/Dito`, arquivadas por data, com o horário no nome:
 
@@ -92,7 +97,7 @@ Depois: procure **Dito** no menu e abra uma vez. A primeira execução mostra um
 Conferir que deu certo:
 
 ```bash
-dito --version     # dito 0.2.2
+dito --version     # dito 0.3.0
 dito doctor        # microfone, atalhos, modelo, colagem
 ```
 

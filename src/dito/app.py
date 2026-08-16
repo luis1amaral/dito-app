@@ -30,6 +30,7 @@ from .core import publish
 from .core.session import Mode, Session
 from .i18n import _
 from .i18n import setup as setup_language
+from .output import notes
 from .output import paste as paster
 from .platform.linux_x11 import audio_system, instance, notify
 from .platform.linux_x11.focus import FocusBroker
@@ -178,9 +179,11 @@ class DitoApp:
                 result = session.stop()
                 if isinstance(result, ev.Finished) and result.mode == MEETING and result.text:
                     started = datetime.now() - timedelta(seconds=result.seconds)
+                    # Nobody is here to approve it, so the text goes as transcribed — but the name
+                    # still comes from the content, not from a timestamp nobody recognises later.
                     publish.publish_meeting(
                         Path(result.folder), result.text, result.seconds, started,
-                        self.cfg, f"reuniao-{started:%H%M}",
+                        self.cfg, notes.subject_from(result.text) or f"{started:%H%M}",
                     )
             except Exception as exc:
                 self._log_error(f"while finishing the recording: {type(exc).__name__}: {exc}")
@@ -251,16 +254,16 @@ class DitoApp:
 
     def _finish(self, session: Session) -> None:
         result = session.stop()
-        if not isinstance(result, ev.Finished) or result.mode == MEETING:
-            # A meeting is written to a file, never pasted: dumping an hour of transcript into
-            # whatever field happens to have focus would be a small catastrophe.
-            return
-        if not result.text:
+        if not isinstance(result, ev.Finished) or not result.text:
             return
         if self.cfg.output.confirm:
-            # The review card owns the paste from here: it has to hand focus back to the window
-            # the user was typing in first, or the text lands in the card itself.
+            # The review card owns what happens next: it hands focus back to the window the user
+            # was typing in before pasting, and a long recording is only published once approved.
             self._pending = result
+            return
+        if result.mode == MEETING:
+            # Never pasted unseen: an hour of transcript into whatever field has focus is a small
+            # catastrophe, and without the card nobody has looked at it.
             return
         if self.cfg.output.paste:
             self._paste_now(result.text, result.session_id, result.folder)
@@ -347,13 +350,12 @@ class DitoApp:
         if event.text:
             self._last_text = event.text
             self.tray.set_last_text(event.text)
-            if event.mode == MEETING:
-                self._publish_meeting(event)
-            elif self.cfg.output.confirm:
-                self.overlay.dismiss()
+            self.overlay.dismiss()
+            if self.cfg.output.confirm:
+                # Both keys end the same way: you read the text before anything happens to it.
                 self.review.present(event.text)
-            else:
-                self.overlay.dismiss()
+            elif event.mode == MEETING:
+                self._publish_meeting(event, event.text)
         elif not event.ever_heard_audio:
             # The exact failure this project exists for. Never a silent no-op.
             self.overlay.show_dead(
@@ -371,32 +373,20 @@ class DitoApp:
         if self._window is not None and self._window.isVisible():
             self._window.sessions.reload()
 
-    def _publish_meeting(self, event: ev.Finished) -> None:
-        """Ask for a subject, then write text + audio + note off the UI thread.
-
-        The prompt lands immediately after the user deliberately pressed stop, which is the one
-        moment a dialog is expected rather than an interruption — and a meeting without a name is
-        a file nobody finds again. Escape keeps the timestamp.
-        """
-        from PySide6.QtWidgets import QInputDialog
-
-        self.overlay.show_working(_("saving the meeting…"))
+    def _publish_meeting(self, event: ev.Finished, text: str) -> None:
+        """Write text + note off the UI thread, named after what was said — armadilhas 10.7."""
+        self.overlay.show_working(_("saving the recording…"))
         started = datetime.now() - timedelta(seconds=event.seconds)
-        default = f"reuniao-{started:%H%M}"
+        subject = notes.subject_from(text) or f"{started:%H%M}"
 
-        subject, accepted = QInputDialog.getText(
-            self._window, _("Meeting"), _("Meeting subject:"), text=default
-        )
-        subject = (subject or default).strip() if accepted else default
-
-        minutes, words = int(event.seconds // 60), len(event.text.split())
+        minutes, words = int(event.seconds // 60), len(text.split())
 
         def work() -> None:
             # A thread that dies without emitting leaves the pill on "saving…" forever — the same
             # lesson session.stop() already learned. Every worker here owes an event, always.
             try:
                 result = publish.publish_meeting(
-                    Path(event.folder), event.text, event.seconds, started, self.cfg, subject
+                    Path(event.folder), text, event.seconds, started, self.cfg, subject
                 )
                 published = ev.Published(
                     folder=str(result.folder),
@@ -440,6 +430,8 @@ class DitoApp:
         pending, self._pending = self._pending, None
         self._last_text = text
         self.tray.set_last_text(text)
+        if pending is not None and pending.mode == MEETING:
+            self._publish_meeting(pending, text)
         if not self.cfg.output.paste:
             return
 

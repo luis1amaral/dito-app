@@ -52,6 +52,13 @@ def slugify(text: str, *, fallback: str = FALLBACK_SLUG, max_len: int = SLUG_MAX
     return slug[:max_len].strip("-") or fallback
 
 
+def subject_from(text: str, *, max_words: int = 8, max_chars: int = SLUG_MAX) -> str:
+    """The note's title, taken from what was said — see docs/armadilhas.md 10.7."""
+    first = re.split(r"(?<=[.!?…])\s|\n", text.strip(), maxsplit=1)[0]
+    title = " ".join(first.split()[:max_words])[:max_chars]
+    return title.strip(" ,;:.!?-—…")
+
+
 def write_meeting_note(note: MeetingNote, cfg: Config) -> WrittenNote:
     """Write the note and return where it landed. Never overwrites an existing file."""
     stem = f"{note.started:%Y-%m-%d}-{slugify(note.subject)}"
