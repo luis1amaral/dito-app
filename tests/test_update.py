@@ -187,6 +187,22 @@ def test_a_stale_installer_does_not_pile_up_in_the_state_folder(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == [INSTALLER]
 
 
+def test_a_download_that_never_ends_is_cut_and_leaves_nothing(tmp_path, monkeypatch):
+    """O corte existia, mas apagava o arquivo com o handle ainda aberto: no Windows isso é
+    PermissionError, então o usuário via o erro do `unlink` em vez do «parei», e o `.part` ficava
+    no disco para sempre. Mesma forma de defeito em platform/windows/cuda_pack.py."""
+    monkeypatch.setattr(update, "MAX_INSTALLER_BYTES", 8)
+    body = b"grande demais para ser um instalador"
+    payload = release_payload()
+    payload["assets"][0]["digest"] = "sha256:" + hashlib.sha256(body).hexdigest()
+
+    with pytest.raises(update.UpdateError):
+        update.download(update.parse_release(payload), tmp_path,
+                        opener=opener_for({f"{BASE}/{INSTALLER}": body}))
+
+    assert list(tmp_path.iterdir()) == [], "o download recusado ficou no disco"
+
+
 def test_a_pip_install_never_lets_the_installer_run_over_it():
     """`sys.frozen` só existe no .exe; sobre um `pip install` o instalador brigaria com a venv."""
     assert not update.can_apply()

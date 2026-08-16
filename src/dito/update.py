@@ -175,22 +175,28 @@ def download(
     partial = folder / f"{release.asset}.part"
     digest = hashlib.sha256()
     written = 0
-    with _open(release.asset_url, opener, accept="application/octet-stream") as response:
-        total = int(response.headers.get("Content-Length") or 0) if response.headers else 0
-        with open(partial, "wb") as out:
-            while chunk := response.read(CHUNK):
-                written += len(chunk)
-                if written > MAX_INSTALLER_BYTES:
-                    partial.unlink(missing_ok=True)
-                    raise UpdateError(_("the download is far bigger than an installer — stopped"))
-                digest.update(chunk)
-                out.write(chunk)
-                if on_progress is not None:
-                    on_progress(written, total)
+    # Raised from INSIDE, deleted from OUTSIDE: Windows refuses to unlink a path whose handle is
+    # still open, so the cleanup used to replace the real error and the `.part` stayed on disk.
+    try:
+        with _open(release.asset_url, opener, accept="application/octet-stream") as response:
+            total = int(response.headers.get("Content-Length") or 0) if response.headers else 0
+            with open(partial, "wb") as out:
+                while chunk := response.read(CHUNK):
+                    written += len(chunk)
+                    if written > MAX_INSTALLER_BYTES:
+                        raise UpdateError(
+                            _("the download is far bigger than an installer — stopped")
+                        )
+                    digest.update(chunk)
+                    out.write(chunk)
+                    if on_progress is not None:
+                        on_progress(written, total)
 
-    if digest.hexdigest() != expected:
+        if digest.hexdigest() != expected:
+            raise UpdateError(_("the checksum does not match — the download was discarded"))
+    except BaseException:
         partial.unlink(missing_ok=True)
-        raise UpdateError(_("the checksum does not match — the download was discarded"))
+        raise
 
     target = folder / release.asset
     partial.replace(target)
