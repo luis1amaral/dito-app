@@ -1,4 +1,4 @@
-"""The meeting note in the `reuniao` skill's shape — see docs/armadilhas.md 7.2 and 7.3."""
+"""The meeting note in the `reuniao` skill's shape — see docs/armadilhas.md 10.2 and 10.3."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ class WrittenNote:
 
 
 def slugify(text: str, *, fallback: str = FALLBACK_SLUG, max_len: int = SLUG_MAX) -> str:
-    """`Reunião: Orçamento` -> `reuniao-orcamento`, and armadilhas 7.6: also the `../` barrier."""
+    """`Reunião: Orçamento` -> `reuniao-orcamento`, and armadilhas 10.6: also the `../` barrier."""
     decomposed = unicodedata.normalize("NFKD", text)
     without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
     slug = re.sub(r"[^a-z0-9]+", "-", without_accents.lower()).strip("-")
@@ -92,7 +92,7 @@ def _write(folder: Path, stem: str, note: MeetingNote, cfg: Config) -> Path:
 
 
 def _claim(folder: Path, stem: str) -> Path:
-    """Exclusive create, never `exists()` then write — armadilhas 7.5: that race overwrites."""
+    """Exclusive create, never `exists()` then write — armadilhas 10.5: that race overwrites."""
     attempt = 1
     while True:
         suffix = "" if attempt == 1 else f"-{attempt}"
@@ -106,7 +106,7 @@ def _claim(folder: Path, stem: str) -> Path:
 
 
 def _copy_audio(note: MeetingNote, path: Path, cfg: Config) -> str | None:
-    """Off by default, and that default matters — see docs/armadilhas.md 7.4 (Obsidian Git)."""
+    """Off by default, and that default matters — see docs/armadilhas.md 10.4 (Obsidian Git)."""
     if not cfg.meeting.obsidian.copy_audio:
         return None
 
@@ -144,7 +144,7 @@ def _render(note: MeetingNote, audio_name: str | None) -> str:
     if audio_name:
         lines.append(f"![[{audio_name}]]")
 
-    # Empty on purpose — see docs/armadilhas.md 7.3: Dito heard the meeting, it was not in it.
+    # Empty on purpose — see docs/armadilhas.md 10.3: Dito heard the meeting, it was not in it.
     lines += ["", "## Decidido", "", "## Pendências", "", "## Discutido, sem decisão", ""]
 
     lines.append("## Ligações")

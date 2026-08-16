@@ -208,6 +208,51 @@ Não existe API de "quem é o dono desta tecla": **tentar o grab é o teste**. S
 O hook de baixo nível fica bloqueado enquanto o callback roda, e o Windows **remove** um listener
 que demora a retornar. Todo trabalho pesado vai para uma fila.
 
+### 2.8 O grab morre quando o NumLock ou o CapsLock liga
+
+**Sintoma:** o atalho funciona, alguém encosta no NumLock, e a tecla volta a vazar para dentro do
+campo de texto (o sintoma de 2.6, de volta).
+
+**Causa:** `XGrabKey` casa a máscara de modificadores **exata**. As travas entram na máscara do
+evento: com o NumLock ligado, a tecla que chega não é `F9`, é `Mod2+F9` — e esse grab ninguém pediu.
+
+**Correção:** registrar o grab para **todas as combinações das três travas**, e não só para a
+máscara zero. São `Lock` (0x02, CapsLock), `Mod2` (0x10, NumLock) e 0x40 (ScrollLock): 2³ = **8
+combinações**, que é exatamente a tupla `_IGNORED` de `hotkeys.py`.
+
+O `ungrab` tem que percorrer as mesmas 8 — soltar só a máscara zero deixa sete grabs pendurados no
+root até o processo morrer. E o teste de dono (2.6) precisa de `sync()` depois do lote: o
+`BadAccess` chega assíncrono, e sem o `sync()` o `CatchError` ainda está vazio quando é lido.
+
+### 2.9 Fechar a conexão X com a vigia rodando abandona a gravação em curso
+
+**Sintoma:** sair do app segurando a tecla de ditar perdia a gravação — nem colava, nem salvava.
+
+**Causa:** `stop()` fechava o `Listener`, o `KeyGrabber` e o `KeyState` de imediato. A vigia de
+`_watch_hold` continua chamando `state.is_down()` a cada `POLL_S = 0,05 s` numa conexão X que
+acabou de ser fechada: a exceção mata a thread dentro do `while`, o `on_stop` **nunca é chamado**, e
+a sessão fica aberta para sempre.
+
+**Correção:** a ordem no `stop()` não é decorativa. Primeiro `_shutting_down = True` — a vigia
+enxerga a flag, **quebra o laço e finaliza a gravação** em vez de abandoná-la — depois
+`watcher.join(timeout=GRACE_S + 1,0 s)`, e **só então** listener, grabber e a conexão X são
+fechados. Um segundo a mais que a carência de 2.1, porque é o tempo máximo que a vigia pode levar
+para decidir sozinha.
+
+### 2.10 Não derrubar e recriar o `Listener` do pynput
+
+**Sintoma:** depois de mexer nos atalhos, a tecla ficava "presa": o app achava que a gravação
+continuava, ou o atalho seguinte não fazia nada.
+
+**Causa:** destruir o `Listener` enquanto uma tecla está pressionada perde o `Release` — o `Press`
+foi visto, o par nunca chega, e `_active` fica travado no nome da ação. O listener novo sobe num
+estado que não corresponde ao teclado real.
+
+**Correção:** `pause()` **não** destrói nada. O listener continua vivo e descarta os eventos
+(`if self._paused: return`); o que sai de cena é só o `XGrabKey`, via `ungrab_all()`. Assim a tecla
+volta a chegar no Qt (é disso que 7.10 depende) sem que ninguém perca a contabilidade de quem está
+pressionado.
+
 ---
 
 ## 3. Modelo e memória
@@ -230,8 +275,6 @@ CPU já não roda mais.
 As DLLs ficam em `site-packages/nvidia/*/bin`. E `os.add_dll_directory` **não basta**: ele só cobre
 `LoadLibraryEx` com as flags de diretório de busca, e o ctranslate2 resolve cuBLAS com um
 `LoadLibrary` simples, que lê o `PATH` e nada mais. É preciso prefixar o `PATH` também.
-
----
 
 ### 3.4 faster-whisper não é seguro para chamada concorrente
 
@@ -376,6 +419,28 @@ quebra a venv em silêncio. Recriar, sempre.
 
 `pynput` não escuta tecla global fora do X11. O ditado exige sessão X11.
 
+### 5.7 `QTimer.singleShot` chamado de uma thread sem loop de eventos do Qt NÃO FAZ NADA
+
+**Sintoma:** dois bugs que pareciam não ter relação. `dito stop` respondia **"parado."** e não
+parava nada; `dito ui` com o app já rodando saía com sucesso e **não abria janela nenhuma**.
+
+**Causa:** os comandos chegam pelo socket de controle, atendido numa thread própria. Essa thread
+não tem `QEventLoop`, e `QTimer.singleShot` agenda no loop da **thread que chama** — que não
+existe. O timer nunca dispara, ninguém levanta exceção, e o `return "ok"` sai antes: **a resposta é
+verdadeira sobre o envio e falsa sobre o efeito.** Silêncio, que é a família de falha que este
+projeto inteiro existe para combater.
+
+**Correção:** nada de timer. O comando é roteado por um sinal Qt com
+`Qt.ConnectionType.QueuedConnection` (`self.bridge.command.connect(self._run_command,
+QueuedConnection)`): o Qt enfileira no loop do **objeto receptor**, que vive na thread da interface.
+`_on_command` só emite; `_run_command` roda na thread do Qt, onde mexer em widget e sair do app são
+operações legais.
+
+**Regra:** de fora da thread do Qt, o único caminho é sinal com `QueuedConnection`. `singleShot`,
+`widget.show()` e `QApplication.quit()` chamados de outra thread são, na melhor das hipóteses, um
+no-op silencioso. Ver também 3.7, que é o problema espelhado: o que roda **dentro** do loop do Qt
+não pode bloquear.
+
 ---
 
 ## 6. Empacotamento
@@ -394,3 +459,435 @@ pacote grande o caminho seria bucket R2 público, que não tem esse teto.
 
 Os arquivos existem uma vez em `blobs/` e são linkados de `snapshots/`. `f.is_file()` segue link,
 então somar ingenuamente dá o dobro — o `doctor` chegou a reportar 972 MB para um modelo de 486 MB.
+
+### 6.4 O `.deb` fino cobra a conta na primeira execução — e ela precisa de janela
+
+**Consequência direta de 6.1:** como o pacote não pode carregar os ~400 MB, quem baixa é o
+`bootstrap.py`, na primeira execução. Três coisas que isso obriga:
+
+- **Login nunca baixa nada em silêncio.** A entrada de autostart define `DITO_BOOTSTRAP=never` e o
+  bootstrap sai com 0 sem tocar na rede. Uma barra de progresso que ninguém pediu, comendo banda
+  logo depois do login, é pior que um app que só sobe quando é aberto.
+- **A venv é `--system-site-packages`.** É o que deixa o pip reaproveitar o Qt, o numpy e o
+  onnxruntime que vieram do apt, em vez de baixar tudo de novo dentro da venv.
+- **"Pronto" é provado importando, não olhando a pasta.** `ready()` roda
+  `python -c "import faster_whisper, sounddevice"` na venv (timeout de 60 s). Uma venv criada com o
+  download pela metade existe no disco e não serve — e é justamente o estado em que a checagem
+  ingênua diz que está tudo certo.
+
+Sem `DISPLAY`, ou com `--headless`, o bootstrap cai para o modo texto; se a janela falhar por
+qualquer motivo, ele **instala mesmo assim** pelo caminho de texto. A instalação é o objetivo, a
+janela é conforto.
+
+---
+
+## 7. Interface
+
+### 7.1 A sombra do Qt não pinta em janela translúcida sem moldura — a nossa é feita na mão
+
+**Sintoma:** `QGraphicsDropShadowEffect` aplicado na pílula e no cartão de revisão não aparece. O
+efeito é recortado no retângulo do widget, e num top-level com `FramelessWindowHint` +
+`WA_TranslucentBackground` não há onde ele desenhar: o cartão sai com a borda dura, colado no que
+estiver atrás.
+
+**Correção:** `ui/surface.py` pinta a sombra à mão, antes do cartão. Os números:
+
+- **9 anéis** (`SHADOW_LAYERS`), espalhamento máximo de **14 px**, deslocamento de **5 px para
+  baixo** (a luz vem de cima), alpha **26** no anel mais denso.
+- **Queda quadrática**, `(1 - i/9)²`. Com rampa linear os 9 anéis se leem como *nove anéis*, uma
+  escada visível, e não como um borrão.
+
+**A pegadinha que sobra é o layout.** A sombra vive **fora** do cartão, então toda janela que a usa
+precisa reservar `shadow_margin() = 14 + 5 = 19 px` nas quatro margens do layout. Sem essa reserva
+a sombra é recortada na borda da janela e volta a se ler como uma aresta dura — que é exatamente o
+defeito que ela existia para resolver. É por isso que `overlay.py` e `review.py` somam `pad` em
+`setContentsMargins` e em `setFixedWidth`.
+
+### 7.2 A pílula NUNCA pode pegar foco; o cartão de revisão pega e DEVOLVE
+
+São as duas metades da mesma armadilha, e elas puxam para lados opostos.
+
+**A pílula aparece enquanto você digita.** Se ela roubar o foco, as teclas seguintes vão para ela e
+não para o campo onde a pessoa está escrevendo. Por isso o conjunto de flags é obrigatório e
+nenhuma delas é enfeite: `Tool` (fora da barra de tarefas e do Alt+Tab), `FramelessWindowHint`,
+`WindowStaysOnTopHint`, `WindowDoesNotAcceptFocus`, `BypassWindowManagerHint`, mais
+`WA_ShowWithoutActivating` — sem esta última, `show()` ativa a janela mesmo com as flags acima.
+
+**O cartão de revisão é o oposto:** ele existe para ser digitado, então toma o foco de propósito,
+pelo `FocusBroker` (thread própria com conexão X própria — 2.4), e **devolve antes de colar**. A
+ordem em `_finish()` é a armadilha: se o foco voltar depois da colagem, `Ctrl+V` cai no editor do
+próprio Dito e o texto some no lugar de chegar no destino.
+
+Duas sutilezas do broker, cada uma um bug já visto: ele **nunca guarda a si mesmo** como dono
+anterior (dois `take()` seguidos devolveriam o foco para o Dito), e uma exceção ao restaurar
+(janela alvo fechada no meio) é engolida com `continue` — perder uma restauração é melhor que
+perder a thread de foco pelo resto da sessão.
+
+### 7.3 Token de tema na pílula é o valor errado — ela tem paleta própria
+
+**Sintoma:** o alarme "SEM ÁUDIO" no tema escuro saía vermelho-claro sobre fundo escuro, ilegível;
+o ponto de status sumia; o texto secundário sobre o vermelho virava um borrão cinza.
+
+**Causa:** a pílula flutua sobre conteúdo arbitrário, então ela carrega **superfície própria e
+escura nos dois temas** (`hud_surface = #17171c`). Um token de tema é escolhido contra o fundo do
+*tema*, não contra esse fundo. Os pares que provam:
+
+- `danger` no tema escuro é **#ff6b6f** (clareado de propósito para o fundo escuro do app). Na
+  pílula o preenchimento de alarme tem que ser `hud_danger` = **#d02a30**.
+- `text_inverse` **inverte** com o tema: no escuro ele é `#16161a`, e o ponto do alarme ficaria
+  preto sobre vermelho. Na pílula o ponto é branco fixo.
+- `hud_muted` (**#a3a3b2**) sobre o vermelho não tem contraste. Sobre o alarme o detalhe é
+  `rgba(255,255,255,0.88)` e o cronômetro `rgba(255,255,255,0.75)`.
+
+**Correções estruturais:** a paleta tem um bloco `hud_*` idêntico nos dois temas, e **toda** cor da
+pílula por estado vive num lugar só (`Overlay._apply_colors`) — espalhada, sempre sobra um estado
+sem revisar.
+
+**E o piso de contraste é por papel, não 4,5 para tudo:** `content` 4,5 (AA — rótulo de botão e de
+chip contam como conteúdo), `hint` **3,0** de propósito (dica com contraste de corpo deixa de
+parecer dica), `control_edge` 3,0 (WCAG 1.4.11, o que se opera), `container` 1,1 (cartão contra a
+página é plano, não controle). Exigir 4,5 de tudo reprova decisões corretas — e o que é reprovado
+sem motivo acaba ignorado.
+
+### 7.4 Forma: o raio é nomeado por uso, e o que precisa animar é pintado, não estilizado
+
+**Raio.** A escala é nomeada pelo uso (`CONTROL` 8, `CARD` 12, `OVERLAY` 18), não por tamanho, e
+**o raio de um filho é `externo − padding`**: um botão de raio 12 dentro de um cartão de raio 12
+com 8 px de respiro deixa uma meia-lua de fundo aparecendo no canto. `PILL = 9999` é um **clamp**,
+não meia altura calculada — assim ele acompanha a altura real do controle sem ninguém recalcular.
+
+**Pintura.** O QSS não anima e não desenha geometria fracionária, então o ponto de status é um
+`paintEvent`: círculo de **8 → 12 px** num cosseno de período **1,2 s**, dentro de uma caixa fixa
+de **14 px**. A geometria é `QRectF` (float): com `QRect` inteiro os diâmetros fracionários do
+pulso achatam o círculo e ele "treme" em vez de pulsar. Caixa fixa, não tamanho variável, ou o
+layout inteiro se mexe a 60 Hz junto com o pulso.
+
+### 7.5 Medir texto antes do layout: a largura do widget ainda não vale
+
+**Sintoma:** o cartão de revisão abria com altura errada no primeiro texto e se corrigia com um
+salto visível no segundo.
+
+**Causa:** `_grow()` roda no `textChanged`, **antes** do layout ter atribuído geometria. Ler
+`self.editor.width()` ali devolve o valor pré-layout (o tamanho padrão do widget), e perguntar ao
+documento do `QPlainTextEdit` é pior ainda: ele se diagrama contra o **viewport**, e responde *uma
+linha* enquanto o widget nunca foi mostrado. A conta sai errada exatamente na primeira vez, que é a
+única que o usuário vê.
+
+**Correção:** a largura útil é **calculada das constantes**, não lida do widget —
+`_TEXT_WIDTH = WIDTH − 2·XL − 2·MD − 2` (o `−2` é a borda de 1 px dos dois lados). A altura sai de
+`QFontMetrics.boundingRect` com `TextWordWrap | TextWrapAnywhere` (sem `WrapAnywhere` uma URL longa
+estoura a medida), dividida por `lineSpacing` arredondando para cima. `lineSpacing`, não `height()`:
+a diferença é o *leading*, e ela se acumula linha a linha. O teto não é um número inventado, é
+**quanto ainda cabe na tela** descontando o resto do cartão (24 linhas quando nem tela há).
+
+**E a estimativa se corrige sozinha.** Métrica de fonte e o layout real do Qt divergem por uma
+linha de vez em quando, e barra de rolagem neste cartão é justamente o que não pode aparecer. Então
+depois de redimensionar o código **pergunta ao widget já realizado** (`verticalScrollBar().maximum()`)
+e cresce de novo — no máximo **3 passadas**, porque cada redimensionamento dispara outro layout e
+um laço sem teto aqui é um congelamento na tela.
+
+### 7.6 `QScrollArea` pinta faixas brancas entre os cartões
+
+**Sintoma:** listra clara aparecendo entre um cartão e outro na aba de transcrições, só na área que
+rola.
+
+**Causa:** a `QScrollArea` tem **três** camadas que pintam — ela própria, o viewport e o widget de
+conteúdo — e as duas de dentro herdam a cor base do estilo, não o `background` da página.
+
+**Correção:** a regra do tema cobre os três níveis explicitamente,
+`QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget { border: none; background:
+transparent; }`. Estilizar só a `QScrollArea` não resolve — é por isso que o seletor parece
+redundante e não é.
+
+**Corolário no cartão de revisão:** um `setStyleSheet` local **substitui** o do app naquele widget,
+então quem restiliza um `QPlainTextEdit` precisa reescrever também as regras de `QScrollBar` ali
+dentro, ou o Qt volta a desenhar as setinhas padrão no meio do cartão escuro.
+
+### 7.7 O ícone da bandeja tem 22 px: ele se distingue por FORMA, não por cor
+
+**Sintoma:** em 22 px, "cinza parado" e "vermelho gravando" são a mesma mancha — de canto de olho,
+em painel escuro, ou para quem não distingue vermelho de cinza.
+
+**Correção:** os três estados são três **formas**: anel vazado (parado), círculo cheio (gravando),
+triângulo com exclamação (alarme). A cor continua lá, como reforço, nunca como o único sinal — é a
+mesma regra de 7.9 aplicada ao menor elemento da interface.
+
+Duas coisas mais que o código carrega de propósito: o ícone é desenhado a **4× (`22 × 4 = 88 px`)**
+e recebe também um pixmap de 22 px pronto, porque a redução do painel a partir de um único tamanho
+grande borra a forma; e existe um **desenho de emergência** para quando o SVG não estiver instalado
+— ícone faltando nunca derruba o app, ele só fica menos bonito.
+
+### 7.8 Mola: `response` + `damping`, e Euler simples estoura a 60 Hz
+
+Animação aqui é descrita como a Apple descreve — **tempo de resposta e razão de amortecimento** —,
+não com curva de bézier: `STANDARD` 0,35 s / 1,0 (crítico, sem repique) e `MOMENTUM` 0,30 s / 0,8
+(um repique só, para o que "chega" na tela). `PRESS_MS = 100` porque atraso no toque destrói a
+sensação de resposta direta, `TOAST_MS = 1800` medido contra velocidade de leitura (um "Salvo" de
+900 ms some antes do olho chegar) e `SHAKE_MS = 220`.
+
+Três armadilhas no motor, todas já pagas:
+
+- **Euler explícito estoura.** Integrar posição antes de velocidade a 16 ms (60 Hz) faz a mola
+  passar do alvo em respostas curtas. O passo é **semi-implícito, velocidade primeiro**.
+- **Um `QTimer` por mola desincroniza os eixos.** As molas de um mesmo movimento andam num
+  `SpringDriver` só; em timers separados o X e o Y chegam em quadros diferentes e o movimento
+  entorta.
+- **Retarget não toca no valor atual.** Mudar o alvo no meio do voo mantém posição e velocidade, e
+  é isso que faz a pílula "crescer de onde está" quando o texto muda. Recriar a animação faz ela
+  saltar para o início.
+
+A parada é por limiar duplo — **0,5 px** e **1,0 px/s** — e o valor é fixado no alvo no mesmo
+quadro, ou a mola fica tremendo em torno do alvo para sempre e o timer nunca desliga.
+
+### 7.9 O alarme não pode depender da cor — e as barras são a prova de vida
+
+Perder fala em silêncio é a falha que originou o projeto (1.1), então o aviso é **redundante de
+propósito**. Ele chega por quatro caminhos simultâneos, e cada um sozinho já falhou em teste:
+
+- **Forma:** em `DEAD` a onda vira **uma linha reta**. "Nada está chegando" é lido sem depender de
+  cor nenhuma.
+- **Cor:** o preenchimento inteiro da pílula fica vermelho (`hud_danger`, ver 7.3).
+- **Movimento:** um tremor de **220 ms** decaindo, longo o bastante para a visão periférica pegar,
+  curto o bastante para não virar distração.
+- **Fora da janela:** ícone da bandeja e notificação/som — ver 9.4.
+
+**As barras não são enfeite: elas são o sinal de "está te ouvindo".** Por isso a escala é
+comprimida, `min(1, √(rms · 18))`: o RMS de fala fica entre **0,02 e 0,10**, e num mapeamento
+linear as barras ficariam praticamente invisíveis justamente enquanto tudo está funcionando. A
+suavização é **0,45 por quadro** — mais rápido estroboscopa, mais lento deixa de parecer ao vivo.
+
+### 7.10 O campo "pressione uma tecla" não enxerga a tecla que o grab está consumindo
+
+**Sintoma:** clicar em "trocar atalho" e apertar F9 não fazia nada. Nem capturava, nem recusava.
+
+**Causa:** o `XGrabKey` (2.6) consome a tecla **antes** de qualquer janela — inclusive a nossa. O
+Qt nunca recebe o `keyPressEvent`. A funcionalidade que existe para deixar a tecla ser trocada era
+justamente a que a tecla atual bloqueava.
+
+**Correção:** capturar é um estado que **pausa os atalhos globais** (`on_capture_start` →
+`hotkeys.pause()`, que solta os grabs sem matar o listener — 2.10) e os retoma no fim. Enquanto
+captura, o botão chama `grabKeyboard()` do Qt para receber tudo, inclusive Tab e Escape.
+
+Três detalhes que vieram de bug e não de gosto:
+
+- **`focusOutEvent` encerra a captura.** Um widget que fica segurando o `grabKeyboard()` do Qt come
+  **todas** as teclas da aplicação, e a única saída é fechar a janela.
+- **Modificador não é recusa, é espera.** Quem vai apertar `Ctrl+F9` aperta o Ctrl primeiro;
+  recusar ali dá uma mensagem de erro no meio do gesto.
+- **Só teclas da tabela `BINDABLE`** viram atalho (F1–F12, Scroll Lock, Pause, Insert, Print
+  Screen, Menu, Home, End, Page Up/Down, Espaço), e a mensagem de recusa **diz quais servem** — a
+  tabela é a mesma que o arquivo de config, o pynput e a busca de keysym usam (ver 2.7).
+
+### 7.11 Enter e Tab têm que ser interceptados NO campo de texto, não na janela
+
+**Sintoma:** no cartão de revisão, Enter inseria uma quebra de linha em vez de enviar, e Tab
+pulava para o botão em vez de descartar — apesar da dica na tela dizer *"⏎ envia · Tab descarta"*.
+
+**Causa:** o evento de tecla vai primeiro para o widget **com foco**, que é o editor. `Return`,
+`Enter` e `Tab` são teclas que o `QPlainTextEdit` **consome** (nova linha, navegação de foco), então
+elas nunca sobem para o `keyPressEvent` da janela. O override no cartão só recebia o que o editor
+deixava passar — e justamente essas três não passam.
+
+**Correção:** a interceptação vive numa subclasse do próprio `QPlainTextEdit` (`Editor`), que
+transforma as teclas em sinais (`submit`, `cancel`) e deixa o resto seguir para `super()`. Assim o
+comportamento fica no lugar onde a tecla chega, e o cartão continua sem saber de teclado.
+
+`Shift+Enter` cai no `super()` de propósito: é a quebra de linha. Sem essa exceção, texto de mais
+de um parágrafo vira impossível de editar — e editar é a razão de o cartão existir.
+
+---
+
+## 8. Biblioteca e retenção
+
+A regra dos dois lados: **ler é defensivo, apagar é estreito.** Listar errado mostra uma linha
+esquisita; apagar errado destrói a única cópia do que foi dito.
+
+### 8.1 Pasta ilegível é listada como `unknown`, nunca pulada
+
+**Sintoma que a regra evita:** a gravação que travou é exatamente a que tem o `session.json`
+corrompido — e era a única que o usuário queria de volta. Sumir com ela da lista é esconder a
+evidência da falha.
+
+Por isso cada campo tem uma segunda fonte, e nenhuma leitura levanta exceção:
+
+- `session.json` ilegível ou que não é um dicionário → `{}`, e **o nome da pasta vira o metadado**:
+  `2026-08-15_143200_meeting` já dá data, hora e modo.
+- Sem `text` no metadado → as primeiras **5 linhas** do `transcript.jsonl`. É o caso da reunião que
+  morreu no meio: os trechos já transcritos estão no jsonl mesmo sem o texto final.
+- Sem duração → calculada do **tamanho físico** do WAV, `(bytes − 44) / (16000 · 2)`, e não do
+  cabeçalho: por 1.4, o declarado subestima.
+- Estado ausente → `unknown`, que é o que `recoverable()` oferece para retomar depois de um crash.
+
+`list_sessions` também não segue symlink ao varrer (`is_dir(follow_symlinks=False)`), pelo motivo
+de 6.3.
+
+### 8.2 Apagar: por nome, nunca por glob, e com quatro travas antes
+
+**A lista de arquivos de áudio é fixa e nomeada** — `("audio.opus", "audio.wav")`, **Opus primeiro
+porque é a cópia sobrevivente** (1.10). Um `glob("*.wav")` ou `*.opus` na pasta da sessão apagaria
+qualquer coisa que o usuário tenha colocado ali, e a pasta é dele.
+
+A retenção só apaga quando **as quatro** condições valem:
+
+1. Existe janela configurada para aquele modo. `0` na config e modo desconhecido significam
+   **guardar para sempre** — o padrão de um valor que ninguém entendeu é não destruir nada.
+2. A sessão chegou a `done`. Áudio de sessão que falhou é justamente o que a pessoa vai querer.
+3. **Existe texto.** Sem transcrição, o WAV é a única evidência do que foi dito (1.1).
+4. A idade passou da janela. Sem `started` legível, cai no `mtime`; e se **o próprio `stat`
+   falhar**, a idade devolvida é `0,0` — "recém-criado", ou seja, **não apaga**. Falha fechada:
+   toda dúvida na conta de idade preserva o arquivo.
+
+---
+
+## 9. Não morrer calado
+
+Este projeto nasceu de 99 segundos de fala perdidos sem uma linha de log (1.1). A consequência
+atravessa o código: caminho de erro **nunca** pode derrubar em silêncio o mecanismo que avisa.
+
+### 9.1 O `except` largo do consumidor de áudio é deliberado
+
+Falha ao escrever no disco (disco cheio, pasta removida embaixo) **não pode** matar a thread
+`dito-audio`: ela é quem alimenta o watchdog de nível, o único detector de microfone morto. Se ela
+morre, a pílula continua verde, o cronômetro continua correndo, e o alarme que deveria gritar em
+~1 s nunca sai.
+
+Então o `try/except Exception` em volta do `writer.write` fica largo de propósito, o erro é
+reportado **uma vez** (`ev.Failed` + log, com guarda para não repetir a cada bloco) e **o laço
+continua**. Gravação sem disco ainda avisa; gravação sem watchdog não avisa nada.
+
+### 9.2 Nada no `finally` do `stop()` pode levantar
+
+**Causa:** uma exceção levantada dentro de um `finally` **substitui** a que estava em voo. Se
+`writer.close()` estourar, o `ev.Failed` com o motivo real da falha de transcrição é perdido e o
+usuário recebe outro erro, sobre outra coisa.
+
+Por isso as duas operações do `finally` — fechar o WAV e `engine.unpin()` — vão cada uma no seu
+`try`: a primeira loga o motivo (fechar o WAV é o último patch de tamanho de 1.4, e falhar ali
+importa), a segunda é silenciosa (soltar o pin do modelo no pior caso adia um unload por 60 s).
+
+### 9.3 Os controles de captura do ALSA têm nomes diferentes por hardware
+
+Não existe "o" controle de captura. Em placa HDA ele costuma ser `Capture`, `Front Mic` ou
+`Rear Mic`; em headset USB, `Mic` ou `Digital`. Por isso `_CAPTURE_CONTROLS` tenta os cinco e usa
+os que existirem — o `amixer sget` de um controle inexistente simplesmente não retorna nada.
+
+**Duas decisões que evitam alarme falso:**
+
+- **Nada de `boost`.** Boost em 0% é o normal em muita placa; tratar isso como problema faria o
+  `doctor` acusar erro em máquina saudável.
+- **Só acusa quando TODOS os controles encontrados estão desligados ou em 0%.** Uma placa com
+  `Rear Mic` mudo e `Mic` a 100% está funcionando. Alarme que grita à toa é ignorado — e aí não
+  serve para o caso em que estiver certo.
+
+O comando de correção sai montado com o card resolvido pelo `alsa.card` (1.2) e o nome do controle
+que **de fato** existe naquela máquina.
+
+### 9.4 O alarme tem três canais fora da janela, e todos são melhor-esforço
+
+A pílula (7.9) só ajuda quem está olhando para ela. Fora dela, o alarme vai por três caminhos
+independentes, porque cada um falta em alguma máquina:
+
+1. **Ícone da bandeja** vermelho com a causa no tooltip. É a última linha de defesa: não depende de
+   programa externo nenhum.
+2. **Notificação** via `notify-send`, com `--urgency critical` (fica até ser dispensada) reservada
+   para áudio perdido.
+3. **Som** via `paplay`, na primeira trilha que existir entre `dialog-warning.oga`,
+   `alarm-clock-elapsed.oga` e `bell.oga` — escolhidas por serem inequívocas, não agradáveis.
+
+Ausência de `notify-send` ou de `paplay` é verificada com `shutil.which` e devolve `False`; o
+`Popen` inteiro é `start_new_session=True` com saída para `DEVNULL`. **Nenhum canal levanta
+exceção** — falhar em avisar não pode derrubar o que ainda tem chance de avisar.
+
+**E a repetição é limitada:** som no máximo a cada **10 s**, notificação **só na primeira** vez de
+cada alarme. Repetir a cada tick transforma o alarme em ruído que o usuário aprende a ignorar, que
+dá no mesmo que não ter alarme.
+
+---
+
+## 10. Reunião: publicação e nota
+
+### 10.1 A ordem da publicação é texto → nota, e cada etapa falha sozinha
+
+Uma reunião de três horas termina numa sequência de operações que podem falhar de forma
+independente. A regra é **primeiro o que não dá para refazer**, e nenhuma etapa aborta a seguinte:
+
+1. **`transcricao.md`** é escrito assim que a pasta existe. É o resultado do processamento, e não
+   existe em nenhum outro lugar.
+2. **A nota** por último, porque é a única peça que uma pessoa consegue reescrever à mão. Falha ao
+   escrever a nota vira **aviso**, não erro: a reunião continua salva.
+
+**O áudio não passa por aqui.** Ele já está gravado na pasta da sessão desde o primeiro bloco
+(1.4), e mover a única cópia de três horas de gravação como parte de um passo que pode falhar é
+trocar segurança por arrumação. Compressão e o que acontece com o WAV são assunto de 1.10.
+
+**A pasta da biblioteca é do usuário e pode estar sem permissão.** Se o `mkdir` falhar, o destino
+passa a ser uma pasta dentro do espaço do próprio Dito, com aviso — a reunião não se perde por
+causa de um diretório. Colisão de nome resolve com sufixo `-2`…`-99` e, esgotado, com `HHMMSS`.
+
+**Aviso ganha da boa notícia:** a linha que aparece na pílula é o primeiro aviso, se houver, e só
+"reunião salva" quando não houver nenhum. Silêncio sobre um problema é o que criou este projeto.
+
+### 10.2 A nota sai no formato da skill `reuniao`, não num formato do Dito
+
+O arquivo é markdown com frontmatter `data / tipo: reuniao / participantes / tags / duracao`, para
+cair no cofre e ser encontrado pelas mesmas buscas que as notas escritas à mão. Detalhes que
+importam:
+
+- **Tag `dito` sempre**, marcando a nota como criada por máquina: uma busca acha todas as reuniões
+  que ninguém preencheu ainda.
+- **Link de volta para a gravação** por URI `file://` gerado com `Path.as_uri()`, que
+  percent-encoda espaço — que é o que um link markdown precisa e o que `str(path)` não faz.
+- **A transcrição bruta vai dobrada** num `<details>` no fim. Transcrição colada no corpo **não é**
+  a nota: ela empurra o conteúdo escrito por gente para fora da tela.
+
+### 10.3 O Dito NÃO resume: as seções saem vazias de propósito
+
+`## Decidido`, `## Pendências` e `## Discutido, sem decisão` são escritas **em branco**.
+
+Não é funcionalidade faltando, é limite de papel: **o Dito ouviu a reunião, ele não participou
+dela.** Ele não sabe quem tem autoridade para decidir, o que era brincadeira, nem o que ficou
+combinado no olhar. Um resumo automático numa nota que vai durar anos põe palavra na boca de gente
+que estava lá — e o erro só é descoberto quando alguém cobra a pendência errada.
+
+O que ele entrega é a matéria-prima com as seções prontas para preencher. A mesma frase está na
+tela de configuração, para a expectativa nascer certa.
+
+### 10.4 O cofre pode não existir — e o áudio não entra nele por padrão
+
+**Cofre ausente não é erro fatal.** Se `vault_dir()` não for um diretório, a nota é escrita **junto
+da gravação** e volta um motivo já em pt-BR, pronto para exibir: *"o cofre … não existe — a nota
+ficou junto da gravação"*. O mesmo vale para falha de permissão ao criar a subpasta. Escrever no
+lugar possível e **dizer onde foi** é sempre melhor que não escrever.
+
+**Copiar o áudio para dentro do cofre é `false` por padrão, e esse padrão é a armadilha.** Muito
+cofre do Obsidian é um repositório git com sincronização automática (Obsidian Git): ligar a cópia
+faz cada reunião empurrar dezenas de MB para dentro do histórico — que nunca mais saem. Quem quer
+liga com consciência; ligado por padrão, ninguém percebe até o repositório estar inchado.
+
+### 10.5 Reservar o nome com criação exclusiva, nunca `exists()` e depois escrever
+
+**Causa:** entre o `exists()` e o `write_text()` cabe outro processo. Perder a corrida aqui é
+**sobrescrever a nota de outra reunião** — e nota sobrescrita não tem de onde voltar.
+
+**Correção:** `path.touch(exist_ok=False)` num laço que tenta `stem.md`, `stem-2.md`, `stem-3.md`…
+A criação exclusiva é atômica no sistema de arquivos: quem chegou primeiro fica com o nome, o outro
+segue para o próximo.
+
+**E o nome é reservado ANTES de montar o corpo**, porque o corpo cita o áudio ao lado dele com o
+mesmo sufixo (`![[2026-08-15-reuniao-2.opus]]`). Montar primeiro e reservar depois gera nota
+apontando para arquivo que não existe. Se a escrita falhar depois da reserva, o arquivo vazio é
+removido (`unlink(missing_ok=True)`) e a exceção sobe — nada de nota de 0 byte no cofre.
+
+### 10.6 O `slugify` também é a barreira contra `../`
+
+O assunto da reunião é digitado pelo usuário e vira **nome de arquivo** dentro do cofre. Um assunto
+como `../../.ssh/config` seria um caminho, não um nome.
+
+A mesma normalização que faz `Reunião: Orçamento` virar `reuniao-orcamento` é o que fecha essa
+porta: depois do NFKD sem acentos, `re.sub(r"[^a-z0-9]+", "-")` só deixa passar `a-z`, `0-9` e
+hífen — **`/` e `.` não sobrevivem**, então não existe travessia de diretório nem nome oculto. Não
+é validação separada que alguém pode esquecer de chamar: é a única função que produz o nome.
+
+Dois números junto: teto de **60 caracteres**, que deixa espaço para o prefixo de data e um sufixo
+`-12` de colisão (10.5) em qualquer sistema de arquivos, e assunto que sobra vazio vira
+`reuniao` — nome de arquivo em branco também é um caminho inválido.
