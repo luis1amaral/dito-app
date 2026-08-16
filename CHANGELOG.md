@@ -1,5 +1,40 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — segurar o F10 ligava e desligava a gravação sem parar
+
+### O quê
+Um `TOGGLE` só age num Press que venha **depois de a tecla ter subido de verdade**. A alternância
+marca a tecla como retida, e uma thread espera o **keymap físico** confirmar que ela subiu por
+`GRACE_S`.
+
+### Por quê
+Segurar o F10 em vez de tocar fazia a gravação entrar e sair sem parar. No disco ficaram **cinco
+sessões vazias em três segundos**, cada uma aberta e fechada antes de dar tempo de falar.
+
+O ramo `HOLD` já se protegia do auto-repeat com `if self._active is not None: return`. O `TOGGLE`
+não podia usar a mesma guarda — para ele um segundo Press **deve** alternar — então confiava em
+todo Press. E o X11 entrega Press repetido enquanto a tecla está apertada (2.1).
+
+Medido, injetando tecla num X de verdade com auto-repeat ligado: segurar 1,5 s produziu **35
+eventos**, 17 pares start/stop. Com a correção, **um**.
+
+Debounce por tempo foi descartado: janela grande o bastante para engolir o auto-repeat também
+engole um toque duplo legítimo. O keymap não tem esse dilema — ele sabe se o dedo saiu.
+
+### Junto
+O link da nota do Obsidian dizia `[16]` — o nome da pasta do dia. Agora diz a data e a hora da
+gravação, que é o que alguém reconhece três semanas depois.
+
+### Como foi verificado
+272 testes verdes, `ruff` limpo. O teste novo injeta tecla num X real e segura 1,5 s, bem além do
+atraso de auto-repeat do servidor. **Conferido que ele reprova sem a correção**: removi o conserto,
+rodei, e ele acusou os 35 eventos.
+
+### Documentação
+`docs/armadilhas.md` **2.11**.
+
+---
+
 ## 2026-08-16 — publicar escreve só a nota, e nada mais se acumula na biblioteca
 
 ### O quê

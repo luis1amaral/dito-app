@@ -128,7 +128,7 @@ def _render(note: MeetingNote) -> str:
         f"# Reunião — {note.subject.strip()}" if note.subject.strip() else "# Reunião",
         "",
         f"Gravada pelo Dito em {note.started:%d/%m/%Y às %H:%M} · {duration}.",
-        f"Gravação: [{note.folder.name}]({_uri(note.folder)})",
+        f"Gravação: [{note.started:%d/%m/%Y %H:%M}]({_uri(note.folder)})",
     ]
     # Empty on purpose — see docs/armadilhas.md 10.3: Dito heard the meeting, it was not in it.
     lines += ["", "## Decidido", "", "## Pendências", "", "## Discutido, sem decisão", ""]

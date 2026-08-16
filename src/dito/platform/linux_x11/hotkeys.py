@@ -158,6 +158,8 @@ class HotkeyManager:
         self._lock = threading.Lock()
         self._watcher: threading.Thread | None = None
         self._shutting_down = False
+        # Toggles waiting for the key to come physically up — see docs/armadilhas.md 2.11.
+        self._held: set[str] = set()
 
     # ---- bindings -------------------------------------------------------------------
 
@@ -256,16 +258,11 @@ class HotkeyManager:
         # Releases ignored here — armadilhas 2.1 and 2.2: only the physical keymap decides.
 
     def _pressed(self, binding: Binding) -> None:
-        with self._lock:
-            if binding.mode is Mode.TOGGLE:
-                if self._active == binding.name:
-                    self._active = None
-                    self.on_stop(binding.name)
-                elif self._active is None:
-                    self._active = binding.name
-                    self.on_start(binding.name)
-                return
+        if binding.mode is Mode.TOGGLE:
+            self._toggled(binding)
+            return
 
+        with self._lock:
             if self._active is not None:
                 return              # already recording, this is auto-repeat
             self._active = binding.name
@@ -276,6 +273,48 @@ class HotkeyManager:
             target=self._watch_hold, args=(binding,), daemon=True, name="dito-hold"
         )
         self._watcher.start()
+
+    def _toggled(self, binding: Binding) -> None:
+        """One action per physical press — see docs/armadilhas.md 2.11: holding the key delivers
+        Press over and over, and a toggle that trusts each one starts and stops while you hold."""
+        with self._lock:
+            if binding.name in self._held:
+                return
+            self._held.add(binding.name)
+            if self._active == binding.name:
+                self._active = None
+                action = self.on_stop
+            elif self._active is None:
+                self._active = binding.name
+                action = self.on_start
+            else:
+                action = None
+
+        threading.Thread(
+            target=self._await_release, args=(binding,), daemon=True, name="dito-toggle"
+        ).start()
+        if action is not None:
+            action(binding.name)
+
+    def _await_release(self, binding: Binding) -> None:
+        """Frees the toggle once the key is physically up: the keymap decides, never the release
+        event, which is a lie under auto-repeat and on wireless keyboards (2.1 and 2.2)."""
+        state = self._state
+        try:
+            if state is None:
+                return
+            up_since: float | None = None
+            while not self._shutting_down:
+                if state.is_down(binding.key):
+                    up_since = None
+                elif up_since is None:
+                    up_since = time.monotonic()
+                elif time.monotonic() - up_since >= GRACE_S:
+                    return
+                time.sleep(POLL_S)
+        finally:
+            with self._lock:
+                self._held.discard(binding.name)
 
     def _watch_hold(self, binding: Binding) -> None:
         """Ends only after GRACE_S physically up — armadilhas 2.1 and 2.2, nothing else works."""

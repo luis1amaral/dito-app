@@ -108,7 +108,7 @@ Depois: procure **Dito** no menu e abra uma vez. A primeira execução mostra um
 Conferir que deu certo:
 
 ```bash
-dito --version     # dito 0.3.2
+dito --version     # dito 0.3.3
 dito doctor        # microfone, atalhos, modelo, colagem
 ```
 

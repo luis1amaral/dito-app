@@ -137,6 +137,27 @@ def test_toggle_needs_a_second_press_not_a_release(manager):
     assert rec.sequence == [("START", "meeting"), ("STOP", "meeting")]
 
 
+def test_holding_the_toggle_key_starts_once_and_only_once(manager):
+    """The defect the owner hit: X11 auto-repeat delivers Press again and again while the key is
+    held, and the toggle acted on every one — holding F10 started and stopped for as long as he
+    held it, leaving five empty sessions in three seconds on disk. See docs/armadilhas.md 2.11.
+
+    1.5 s is well past the server's auto-repeat delay, so the extra presses really do arrive."""
+    mgr, rec, dsp = manager
+    tap(dsp, "F8", 1.5)
+    time.sleep(GRACE_S + 0.4)
+
+    assert rec.sequence == [("START", "meeting")], (
+        f"segurar a tecla produziu {rec.sequence}"
+    )
+
+    tap(dsp, "F8", 0.1)
+    time.sleep(0.4)
+    assert rec.sequence == [("START", "meeting"), ("STOP", "meeting")], (
+        "depois de segurar, o próximo toque tem que parar"
+    )
+
+
 def test_conflicts_names_the_action_already_using_the_key(manager):
     mgr, _rec, _dsp = manager
     assert mgr.conflicts("f7") == "dictation"

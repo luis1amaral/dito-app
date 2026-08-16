@@ -299,6 +299,28 @@ estado que não corresponde ao teclado real.
 volta a chegar no Qt (é disso que 7.10 depende) sem que ninguém perca a contabilidade de quem está
 pressionado.
 
+### 2.11 Auto-repeat faz um TOGGLE ligar e desligar enquanto a tecla está apertada
+
+**Sintoma:** segurar o F10 em vez de tocar fazia a gravação entrar e sair sem parar. No disco do
+dono ficaram **cinco sessões vazias em três segundos**, todas com `0 chars` — cada uma abriu e
+fechou antes de dar tempo de falar.
+
+**Causa:** o ramo `HOLD` já se protegia do auto-repeat (2.1) com um `if self._active is not None:
+return`. O `TOGGLE` não podia usar a mesma guarda, porque para ele um segundo Press **deve**
+alternar — e por isso confiava em todo Press que chegava. Só que o X11 entrega Press repetido
+enquanto a tecla está fisicamente apertada, e cada um virava uma alternância.
+
+Medido, injetando tecla num X de verdade com auto-repeat ligado: segurar 1,5 s produziu **35
+eventos** (17 pares start/stop). Com a correção, **um**.
+
+**Correção:** um toggle só age num Press que venha **depois de a tecla ter subido de verdade**. A
+alternância marca a tecla como retida e uma thread espera o **keymap físico** dizer que ela subiu
+por `GRACE_S` — a mesma disciplina do `_watch_hold`, e pelo mesmo motivo: o evento de release
+mente sob auto-repeat e em teclado sem fio (2.1 e 2.2).
+
+Debounce por tempo foi descartado: qualquer janela grande o bastante para engolir o auto-repeat
+também engole um toque duplo legítimo. O keymap não tem esse dilema — ele sabe se o dedo saiu.
+
 ---
 
 ## 3. Modelo e memória
