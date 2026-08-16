@@ -37,7 +37,7 @@ def copy(text: str) -> bool:
         pyperclip.copy(text)
         return True
     except Exception:
-        # Almost always a missing xclip (armadilhas 4.4); raising here kills the whole job queue.
+        # On Linux almost always a missing xclip (armadilhas 4.4); raising here kills the queue.
         return False
 
 
@@ -56,9 +56,7 @@ def paste(text: str, send_enter: bool = False, restore_clipboard: bool = True) -
             previous = None
 
     if not copy(text):
-        return PasteResult(
-            pasted=False, copied=False, error="clipboard unavailable (is xclip missing?)"
-        )
+        return PasteResult(pasted=False, copied=False, error="clipboard unavailable")
 
     try:
         from pynput.keyboard import Controller, Key

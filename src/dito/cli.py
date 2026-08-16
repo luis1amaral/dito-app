@@ -20,7 +20,7 @@ from .audio.level import Reading, State, Watchdog, measure
 from .audio.writer import WavWriter
 from .i18n import _
 from .i18n import setup as setup_language
-from .platform.linux_x11 import alsa_mixer, audio_system
+from .platform import alsa_mixer, audio_system
 
 OK = "\033[32m"
 WARN = "\033[33m"
@@ -70,7 +70,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
     print("\n " + _("audio server"))
     if not audio_system.available():
-        _line("pactl", _("not installed — no mute detection"), WARN)
+        _line(_("mixer"), _("unavailable — no mute detection"), WARN)
     else:
         health = audio_system.health()
         _line(_("default source"), health.name or _("unknown"), DIM)
@@ -261,8 +261,7 @@ def _listen_headless(args: argparse.Namespace) -> int:
     from .core import events as ev
     from .core.session import Mode, Session
     from .output import paste as paster
-    from .platform.linux_x11.hotkeys import HotkeyManager
-    from .platform.linux_x11.hotkeys import Mode as KeyMode
+    from .platform import HotkeyManager, KeyMode
     from .stt.engine import WhisperEngine
 
     cfg = config.load()
@@ -376,7 +375,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     """Answers instantly, because it asks the running process rather than guessing from a PID
     file. The previous version slept 14 seconds and then read a PID that had been stale for
     hours — it once claimed 117814 while the live process was 1812."""
-    from .platform.linux_x11 import instance
+    from .platform import instance
 
     reply = instance.send(instance.STATUS)
     if reply is None:
@@ -387,7 +386,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_stop(args: argparse.Namespace) -> int:
-    from .platform.linux_x11 import instance
+    from .platform import instance
 
     if instance.send(instance.QUIT) is None:
         print(_paint(" " + _("it was already stopped"), DIM))

@@ -10,16 +10,33 @@ import sys
 import threading
 from pathlib import Path
 
+from . import paths
 from .i18n import _
 from .i18n import setup as setup_language
 
+_WINDOWS = sys.platform == "win32"
+
 APP_DIR = Path("/usr/lib/dito")
-VENV_DIR = Path(
-    os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
-) / "dito" / "venv"
+# On Linux the .deb builds this venv on first run; on Windows the installer already did, and the
+# app is running inside it — so `sys.prefix` is the one whose GPU extras matter.
+VENV_DIR = (
+    Path(sys.prefix)
+    if _WINDOWS
+    else Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share"))
+    / "dito"
+    / "venv"
+)
 LOCK = APP_DIR / "requirements.lock"
-GPU_MARK = VENV_DIR.parent / "gpu-ready"
-GPU_LOCK = VENV_DIR.parent / "gpu-install.lock"
+_GPU_STATE = paths.state_dir() if _WINDOWS else VENV_DIR.parent
+GPU_MARK = _GPU_STATE / "gpu-ready"
+GPU_LOCK = _GPU_STATE / "gpu-install.lock"
+
+# pip lays CUDA out differently on each platform, down to the file extension.
+CUBLAS_GLOB = (
+    "Lib/site-packages/nvidia/cublas/bin/cublas64_*.dll"
+    if _WINDOWS
+    else "lib/python*/site-packages/nvidia/cublas/lib/libcublas.so*"
+)
 
 # ctranslate2 loads these at runtime; the driver alone is not enough — see docs/armadilhas.md 3.8.
 # Pinned by major: a future cuDNN 10 against this ctranslate2 fails as a swallowed RuntimeError.
@@ -29,7 +46,7 @@ GPU_INSTALL_TIMEOUT_S = 1800
 
 
 def venv_python() -> Path:
-    return VENV_DIR / "bin" / "python"
+    return VENV_DIR / ("Scripts" if _WINDOWS else "bin") / ("python.exe" if _WINDOWS else "python")
 
 
 def has_nvidia_gpu() -> bool:
@@ -117,7 +134,7 @@ def gpu_extras_ready() -> bool:
 
 def _adopt_preexisting() -> bool:
     """Installed before the marker existed: prove it loads, record it, skip a second download."""
-    found = sorted(VENV_DIR.glob("lib/python*/site-packages/nvidia/cublas/lib/libcublas.so*"))
+    found = sorted(VENV_DIR.glob(CUBLAS_GLOB))
     if not found:
         return False
     try:
@@ -186,6 +203,11 @@ def install_gpu_extras(say, on_process=None) -> tuple[bool, str]:
         GPU_LOCK.unlink(missing_ok=True)
 
     return True, _("ready")
+
+
+def has_display() -> bool:
+    """Windows always has a desktop; only on X11 does a missing DISPLAY mean headless."""
+    return sys.platform == "win32" or bool(os.environ.get("DISPLAY"))
 
 
 def _run_with_window() -> int:
@@ -296,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
     if ready():
         return 0
 
-    if "--headless" in argv or not os.environ.get("DISPLAY"):
+    if "--headless" in argv or not has_display():
         ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
         print(message)
         return 0 if ok else 1

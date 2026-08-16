@@ -53,11 +53,24 @@ def test_the_marker_decides_not_the_file(venv, monkeypatch):
     assert bootstrap.gpu_extras_ready() is True
 
 
+def _cublas_where_pip_puts_it(venv_root):
+    """Lay the library down exactly where this platform's pip would — see bootstrap.CUBLAS_GLOB."""
+    import sys
+
+    if sys.platform == "win32":
+        lib = venv_root / "venv" / "Lib" / "site-packages" / "nvidia" / "cublas" / "bin"
+        name = "cublas64_12.dll"
+    else:
+        parts = ("lib", "python3.13", "site-packages", "nvidia", "cublas", "lib")
+        lib = venv_root.joinpath("venv", *parts)
+        name = "libcublas.so.12"
+    lib.mkdir(parents=True)
+    return lib / name
+
+
 def test_libraries_installed_before_the_marker_are_adopted(venv, monkeypatch):
     """Upgrading must not re-download 1.5 GB that is already on disk and loads fine."""
-    lib = venv / "venv" / "lib" / "python3.13" / "site-packages" / "nvidia" / "cublas" / "lib"
-    lib.mkdir(parents=True)
-    (lib / "libcublas.so.12").write_bytes(b"")
+    _cublas_where_pip_puts_it(venv).write_bytes(b"")
     monkeypatch.setattr(bootstrap.ctypes, "CDLL", lambda *a, **k: object())
 
     assert bootstrap.gpu_extras_ready() is True
@@ -65,9 +78,7 @@ def test_libraries_installed_before_the_marker_are_adopted(venv, monkeypatch):
 
 
 def test_a_library_that_does_not_load_is_not_adopted(venv, monkeypatch):
-    lib = venv / "venv" / "lib" / "python3.13" / "site-packages" / "nvidia" / "cublas" / "lib"
-    lib.mkdir(parents=True)
-    (lib / "libcublas.so.12").write_bytes(b"truncated")
+    _cublas_where_pip_puts_it(venv).write_bytes(b"truncated")
 
     def boom(*_a, **_k):
         raise OSError("file too short")
@@ -158,3 +169,51 @@ def test_a_hanging_pip_is_killed_not_waited_on(venv, monkeypatch):
 
     assert ok is False
     assert real_kill == [1]
+
+
+def test_windows_is_never_headless(monkeypatch):
+    """DISPLAY does not exist on Windows, so deciding by it alone sent every Windows run down the
+    headless path and the preparation window never appeared. See docs/porte-windows.md."""
+    monkeypatch.setattr(bootstrap.sys, "platform", "win32")
+    monkeypatch.delenv("DISPLAY", raising=False)
+
+    assert bootstrap.has_display() is True
+
+
+def test_x11_without_display_still_means_headless(monkeypatch):
+    monkeypatch.setattr(bootstrap.sys, "platform", "linux")
+    monkeypatch.delenv("DISPLAY", raising=False)
+    assert bootstrap.has_display() is False
+
+    monkeypatch.setenv("DISPLAY", ":0")
+    assert bootstrap.has_display() is True
+
+
+def test_the_cublas_glob_matches_what_pip_lays_down_on_each_platform():
+    """The Linux glob found nothing on Windows, so the GPU was never adopted and every dictation
+    ran on the CPU — silently, because the engine falls back on its own."""
+    import sys
+
+    from dito import bootstrap as b
+
+    if sys.platform == "win32":
+        assert b.CUBLAS_GLOB.endswith("cublas64_*.dll")
+        assert "Lib/site-packages" in b.CUBLAS_GLOB
+        assert b.venv_python().name == "python.exe"
+    else:
+        assert b.CUBLAS_GLOB.endswith("libcublas.so*")
+        assert "lib/python*" in b.CUBLAS_GLOB
+        assert b.venv_python().name == "python"
+
+
+def test_the_gpu_marker_never_lands_inside_a_repository(tmp_path, monkeypatch):
+    """On Windows VENV_DIR is wherever the app runs from, which may be a checkout: the marker
+    belongs in the state directory, not next to the source."""
+    import sys
+
+    from dito import bootstrap as b
+
+    if sys.platform != "win32":
+        pytest.skip("o caminho de Windows")
+    assert "state" in b.GPU_MARK.parts
+    assert b.GPU_MARK.parent == b.GPU_LOCK.parent

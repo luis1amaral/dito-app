@@ -17,10 +17,17 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
 
 import pytest
 
 from dito.platform.linux_x11 import instance
+
+# The abstract socket IS the mechanism under test, and AF_UNIX does not exist on Windows. The
+# same guarantees are checked against the named mutex and pipe in test_instance_windows.py.
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="backend de Linux — o equivalente está em test_instance_windows"
+)
 
 # A name of our own: the real one may be held by a Dito that is actually running, and a test that
 # goes red because the application is working is worse than no test. The frozen-name test below

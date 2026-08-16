@@ -33,11 +33,18 @@ dev = ["pytest>=8", "ruff>=0.6"]
 [project.scripts]
 dito = "dito.cli:main"
 
+# Same entry point without a console window: what the Start Menu and the autostart entry call, so
+# that nothing flashes on screen at login. On Linux it is just another name for `dito`.
+[project.gui-scripts]
+ditow = "dito.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-dito = ["ui/assets/**/*"]
+# The .mo files are not optional: without them a `pip install .` runs the whole interface in
+# English. The .deb never noticed because make-deb.sh copies src/dito wholesale.
+dito = ["ui/assets/**/*", "locales/**/*.mo"]
 
 [tool.ruff]
 line-length = 100
@@ -52,4 +59,6 @@ markers = [
     # These inject real keystrokes through XTest. Global for a fraction of a second, so they are
     # skippable with `-m "not x11"` when someone is typing.
     "x11: precisa de um servidor X ativo e injeta teclas de verdade",
+    # The same idea on Windows, through SendInput and the low-level hook.
+    "winkeys: injeta teclas de verdade no Windows via SendInput",
 ]

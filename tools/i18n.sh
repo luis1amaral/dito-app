@@ -19,8 +19,11 @@ IDIOMAS=(pt_BR)
 
 extrair() {
   mkdir -p "$LOCALES"
+  # Run from the root with relative paths: absolute ones bake the author's machine into every
+  # reference comment, so the catalogue churned whenever it was rebuilt somewhere else.
   # --keyword=_ is the default; ngettext needs the plural form spelled out.
-  find "$RAIZ/src/dito" -name '*.py' -print0 \
+  ( cd "$RAIZ" && find src/dito -name '*.py' -print0 \
+    | sort -z \
     | xargs -0 xgettext \
         --language=Python \
         --keyword=_ \
@@ -30,7 +33,7 @@ extrair() {
         --msgid-bugs-address=lluispaulop@gmail.com \
         --no-wrap \
         --sort-output \
-        -o "$POT"
+        -o "$POT" )
   echo "  $(grep -c '^msgid ' "$POT") strings em $(realpath --relative-to="$RAIZ" "$POT")"
 }
 

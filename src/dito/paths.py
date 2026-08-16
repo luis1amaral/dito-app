@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -13,29 +14,63 @@ SESSION_SUFFIX = ".json"
 AUDIO_SUFFIX = ".wav"
 PARTIALS_SUFFIX = ".jsonl"
 
+_CSIDL_PERSONAL = 5
 
-def _xdg(var: str, fallback: Path) -> Path:
-    # See docs/armadilhas.md 5.4: XDG_* are defined AND empty here, so `get(var, default)` lies.
+
+def _windows() -> bool:
+    return sys.platform == "win32"
+
+
+def _env(var: str, fallback: Path) -> Path:
+    # See docs/armadilhas.md 5.4: the var can be defined AND empty, so `get(var, default)` lies.
     value = os.environ.get(var, "").strip()
     return Path(value).expanduser() if value else fallback
 
 
 def config_dir() -> Path:
-    return _xdg("XDG_CONFIG_HOME", Path.home() / ".config") / APP
+    if _windows():
+        return _env("APPDATA", Path.home() / "AppData" / "Roaming") / APP
+    return _env("XDG_CONFIG_HOME", Path.home() / ".config") / APP
 
 
 def data_dir() -> Path:
-    return _xdg("XDG_DATA_HOME", Path.home() / ".local" / "share") / APP
+    if _windows():
+        return _env("LOCALAPPDATA", Path.home() / "AppData" / "Local") / APP
+    return _env("XDG_DATA_HOME", Path.home() / ".local" / "share") / APP
 
 
 def state_dir() -> Path:
-    return _xdg("XDG_STATE_HOME", Path.home() / ".local" / "state") / APP
+    if _windows():
+        return data_dir() / "state"
+    return _env("XDG_STATE_HOME", Path.home() / ".local" / "state") / APP
 
 
 def runtime_dir() -> Path:
     """Control socket home; falls back to the state dir on a session without systemd-logind."""
+    if _windows():
+        return state_dir()
     value = os.environ.get("XDG_RUNTIME_DIR", "").strip()
     return Path(value) / APP if value else state_dir()
+
+
+def documents_dir() -> Path:
+    """Where the recordings live. OneDrive moves this folder, so the shell is asked, not guessed."""
+    if not _windows():
+        return Path.home() / "Documentos"
+    import ctypes
+
+    buffer = ctypes.create_unicode_buffer(260)
+    try:
+        if ctypes.windll.shell32.SHGetFolderPathW(None, _CSIDL_PERSONAL, None, 0, buffer) == 0:
+            return Path(buffer.value)
+    except (AttributeError, OSError):
+        pass
+    return Path.home() / "Documents"
+
+
+def default_library() -> Path:
+    """A plain folder on purpose: any program picks it up as context, knowing nothing about Dito."""
+    return documents_dir() / "Dito"
 
 
 def config_file() -> Path:

@@ -32,10 +32,8 @@ from .i18n import _
 from .i18n import setup as setup_language
 from .output import notes
 from .output import paste as paster
-from .platform.linux_x11 import audio_system, instance, notify
-from .platform.linux_x11.focus import FocusBroker
-from .platform.linux_x11.hotkeys import HotkeyManager
-from .platform.linux_x11.hotkeys import Mode as KeyMode
+from .platform import FocusBroker, HotkeyManager, audio_system, instance, notify
+from .platform import KeyMode as KeyMode
 from .stt.engine import WhisperEngine
 from .ui import theme
 from .ui.icons import app_icon
@@ -46,7 +44,6 @@ from .ui.window import MainWindow
 
 DICTATION = "dictation"
 MEETING = "meeting"
-
 
 
 class Bridge(QObject):
@@ -143,6 +140,10 @@ class DitoApp:
         if self.cfg.ui.tray and QSystemTrayIcon.isSystemTrayAvailable():
             self.tray.show()
         self.tray.set_ready(self.cfg.hotkeys.push_to_talk, self.cfg.hotkeys.meeting_toggle)
+        # Windows has no notify-send: the tray is the only toast channel, and platform/ cannot
+        # reach into ui/, so the wiring happens here.
+        if hasattr(notify, "set_sink"):
+            notify.set_sink(self.tray.notify)
 
         self.control = instance.ControlServer(self._on_command)
         self.control.start()

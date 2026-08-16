@@ -1,5 +1,98 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o Dito roda no Windows
+
+### O quê
+
+1. **Fachada de plataforma.** `src/dito/platform/__init__.py` escolhe o backend por `sys.platform`
+   e reexporta. Os 12 pontos que importavam `linux_x11` direto (`app.py`, `cli.py`,
+   `core/session.py`) agora pedem à fachada. `stt/engine.py` ficou como estava: ele despacha por
+   `sys.platform` **em tempo de chamada** e `tests/test_cuda_dispatch.py` protege exatamente isso.
+
+2. **O que é conhecimento único saiu dos backends.** `platform/hotkeys_core.py` (a máquina hold/
+   toggle), `platform/control.py` (protocolo e nome da trava), `platform/source_health.py` e
+   `platform/mixer.py`. Cada backend só implementa o que muda de verdade.
+
+3. **Adaptador do Windows completo**: `hotkeys.py` (hook de baixo nível com `suppress_event`),
+   `instance.py` (mutex nomeado + **pipe nomeado** para o canal de controle), `audio_system.py`
+   (WASAPI em COM cru por `ctypes`, sem dependência nova), `alsa_mixer.py` (responde "não dá para
+   checar"), `notify.py` (`winsound` + toast pela bandeja), `focus.py` (`SetForegroundWindow` com
+   `AttachThreadInput`).
+
+4. **`paths.py` com ramo de Windows**: `%APPDATA%` para configuração, `%LOCALAPPDATA%` para estado,
+   e a biblioteca em `Documents\Dito` — perguntada ao shell (`SHGetFolderPathW`), porque o OneDrive
+   move essa pasta. O padrão de `library.folder` deixou de ser `~/Documentos/Dito` cravado.
+
+5. **Os dois vazamentos de X11 fora de `platform/`**: `bootstrap.has_display()` (decidir headless
+   por `DISPLAY` mandava todo Windows para o modo sem janela) e a mensagem do `paste.py` que
+   culpava o `xclip`. O `doctor` também parou de dizer "pactl não instalado" no Windows.
+
+6. **Instalador**: `packaging/windows/instalar.ps1` — venv própria em `%LOCALAPPDATA%\dito\venv`,
+   `dito` no PATH, atalho no Menu Iniciar, e `-ComWindows` para o autostart (desligado por padrão).
+   `ditow.exe`, gêmeo sem console, entrou no `pyproject.toml` como `gui-scripts`.
+
+7. **Três defeitos que só apareceram rodando** (detalhe em `docs/armadilhas.md` 2.12, 2.13 e 7.16):
+   - `suppress_event()` do pynput **aborta a conversão do próprio pynput**, então a tecla engolida
+     nunca chegava ao `on_press` — o atalho não fazia nada. O filtro passou a despachar ele mesmo,
+     enfileirando antes de suprimir;
+   - **a tecla que o hook engole some do `GetAsyncKeyState`**: segurar 1,2 s gravava 0,30 s. No
+     Windows o hook é a autoridade, não a tabela de estado assíncrono;
+   - o **cartão de revisão** crescia antes do `show()`, comparando com uma geometria que ainda não
+     existia, e cortava a última linha (180 px de texto num viewport de 174 px).
+
+8. **`package-data` não levava os `.mo`.** Num `pip install .` a interface saía inteira em inglês.
+   O `.deb` nunca viu porque `make-deb.sh` copia `src/dito` com `cp -a`.
+
+9. **O caminho de GPU do `bootstrap.py` era 100% Linux** — venv em `bin/python`, glob
+   `lib/python*/.../libcublas.so*`. No Windows nunca achava nada e a GPU ficava sempre desligada,
+   em silêncio.
+
+10. **`tools/i18n.sh` gravava o caminho absoluto da máquina** em cada comentário de referência do
+    catálogo, então rebuildar em outra máquina virava 530 linhas de diff. Passou a extrair com
+    caminho relativo.
+
+### Por quê
+
+O código já vinha separado por plataforma, mas nada disso tinha rodado numa máquina Windows —
+`platform/__init__.py` estava vazio e os dois módulos do Windows nunca tinham sido executados. O
+briefing que veio no repositório (`docs/porte-windows.md`) estava certo no desenho e desatualizado
+em três pontos, todos corrigidos a partir do que a máquina respondeu, não do que o texto dizia.
+
+### Como foi verificado
+
+Windows 10 Pro 19045, Python 3.13.3, PySide6 6.11.1, GTX 1650.
+
+- `ruff check .` limpo; `pytest -m "not x11 and not winkeys"`: **300 passam**, 9 pulados (só-Linux).
+- `pytest -m winkeys`: **6 passam**, injetando tecla de verdade por `SendInput` no hook real.
+  Marcador novo, o equivalente do `x11` — foi ele que pegou os defeitos 7.1 e 7.2 acima.
+- `tests/test_hotkeys_core.py`: a máquina hold/toggle passou a ter cobertura **nas duas
+  plataformas**. Antes, sem servidor X, esses comportamentos não tinham teste nenhum.
+- **Áudio nunca se perde**: `taskkill /F` no meio de uma gravação deixou **5,80 s** de WAV que abre
+  e toca.
+- **Alarme**: `dito selftest --source zeros` disparou em **1,20 s**.
+- **Trava**: com o daemon vivo, `claim()` recusou e um segundo `dito listen` não virou um segundo
+  processo (1 → 1).
+- **Motor**: fala sintetizada pelo TTS do Windows → `WhisperEngine` devolveu a frase inteira, 100%
+  das palavras, nos dois backends.
+- **GPU ligada e medida** numa GTX 1650, mesmo áudio de 6,30 s, três passadas seguidas:
+
+  | | frio (carrega o modelo) | quente (o do dia a dia) |
+  |---|---|---|
+  | GPU, `small` float16 | 5,15 s — RTF 0,82 | **1,66 s — RTF 0,26** |
+  | CPU, `small` int8 | 10,30 s — RTF 1,63 | 5,91 s — RTF 0,94 |
+
+  **3,6× mais rápido** com a placa, e RTF 0,26 quer dizer que a transcrição sobra sobre a fala.
+  `_adopt_preexisting()` reconheceu o CUDA já instalado e gravou o marcador em
+  `%LOCALAPPDATA%\dito\state\gpu-ready`, então não rebaixa 1,5 GB na próxima subida.
+- Catálogos conferidos carregando o `.mo` compilado, não pelo `check` — como manda a armadilha 7.15.
+
+### O que NÃO foi verificado
+
+A cadeia com **fala humana** de ponta a ponta (F9 → falar → texto colado): as peças foram provadas
+separadas, a emenda não. O **toast**, o **`focus.py`** e o **autostart num login de verdade** também
+não. E a **suíte de X11 no Linux** depois da extração do `hotkeys_core.py` — aqui não há servidor X.
+
+
 ## 2026-08-16 — o .deb não instalava em Ubuntu/Mint, só em Debian trixie/LMDE
 
 ### O quê

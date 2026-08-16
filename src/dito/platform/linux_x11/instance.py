@@ -9,19 +9,13 @@ from pathlib import Path
 
 from ... import paths
 from ...i18n import _
+from ..control import ENCODING as _ENCODING
+from ..control import LEGACY_LOCK_NAME, PING, QUIT, SHOW, STATUS, AlreadyRunning
 
-# Do NOT rename: contract with the sibling `defalt` project (docs/armadilhas.md 5.1).
-LEGACY_LOCK_NAME = "defalt-voice-input"
-
-SHOW = "show"
-PING = "ping"
-QUIT = "quit"
-STATUS = "status"
-_ENCODING = "utf-8"
-
-
-class AlreadyRunning(RuntimeError):
-    pass
+__all__ = [
+    "LEGACY_LOCK_NAME", "PING", "QUIT", "SHOW", "STATUS", "AlreadyRunning",
+    "claim", "send", "ControlServer",
+]
 
 
 # Abstract socket, not a PID file: the kernel reclaims the name on death (armadilhas 5.2).

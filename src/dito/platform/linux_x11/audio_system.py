@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from dataclasses import dataclass
 
-from ...i18n import _
+from ..source_health import SourceHealth
 
 DEFAULT_SOURCE = "@DEFAULT_SOURCE@"
 _TIMEOUT = 2.0
@@ -72,28 +71,6 @@ def set_volume(pct: int, source: str = DEFAULT_SOURCE) -> bool:
 
 def default_source_name() -> str | None:
     return _pactl("get-default-source") or None
-
-
-@dataclass(frozen=True)
-class SourceHealth:
-    muted: bool | None
-    volume: int | None
-    name: str | None
-
-    @property
-    def blocks_recording(self) -> bool:
-        """Only CERTAIN trouble blocks; `None` records anyway, since the watchdog covers it."""
-        if self.muted is True:
-            return True
-        return self.volume is not None and self.volume < 5
-
-    @property
-    def reason(self) -> str | None:
-        if self.muted is True:
-            return _("the microphone is muted in the system")
-        if self.volume is not None and self.volume < 5:
-            return _("the input volume is at {pct}%").format(pct=self.volume)
-        return None
 
 
 def health(source: str = DEFAULT_SOURCE) -> SourceHealth:

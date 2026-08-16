@@ -160,7 +160,8 @@ class ReviewCard(QWidget):
         self._resize_to(min(lines, ceiling), metrics.lineSpacing())
 
         # Self-correcting: the estimate and the widget's own layout can differ by a line, and a
-        # scrollbar is exactly what the owner asked never to see. Ask the realised widget.
+        # scrollbar is exactly what the owner asked never to see. Only bites once shown, which is
+        # why present() grows a second time.
         for _attempt in range(3):
             document = self.editor.document().size().height() * metrics.lineSpacing()
             if document <= self.editor.viewport().height() or lines >= ceiling:
@@ -201,6 +202,9 @@ class ReviewCard(QWidget):
         self.editor.setTextCursor(cursor)
         self._grow()
         self.show()
+        # Again, with geometry to read: hidden, the viewport lies and the document is still one
+        # line, so _grow() cannot correct itself. See docs/armadilhas.md 7.16.
+        self._grow()
         self.raise_()
         self.activateWindow()
         self.editor.setFocus()

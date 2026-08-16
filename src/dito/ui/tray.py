@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
@@ -14,6 +15,9 @@ from .keycapture import pretty
 
 
 class Tray(QSystemTrayIcon):
+    # Where Windows toasts come out; the alarm fires off-thread and Qt only paints on its own.
+    toast = Signal(str, str, bool, int)
+
     def __init__(
         self,
         on_open: Callable[[], None],
@@ -63,9 +67,26 @@ class Tray(QSystemTrayIcon):
         # Both reasons accepted: some panels deliver Trigger on a left click, others DoubleClick.
         self.activated.connect(self._on_activated)
 
+        self.toast.connect(self._show_toast)
+
         self.retranslate()
         # No parent window, so the walk in ui/live.py cannot find it: it signs up instead.
         live.register(self)
+
+    def notify(self, title: str, body: str, urgent: bool, msecs: int) -> bool:
+        """Callable from any thread; the signal hops to the GUI thread on its own."""
+        if not self.isVisible():
+            return False
+        self.toast.emit(title, body, urgent, msecs)
+        return True
+
+    def _show_toast(self, title: str, body: str, urgent: bool, msecs: int) -> None:
+        icon = (
+            QSystemTrayIcon.MessageIcon.Critical
+            if urgent
+            else QSystemTrayIcon.MessageIcon.Information
+        )
+        self.showMessage(title, body, icon, msecs)
 
     def retranslate(self) -> None:
         self._open_action.setText(_("Open Dito"))

@@ -1,59 +1,70 @@
 # Adaptador do Windows
 
-Nasceu com as assinaturas prontas e **não foi exercitado**. Não há máquina Windows aqui, e nada
-neste diretório será dado como funcionando antes de rodar numa.
+Escrito e **exercitado numa máquina Windows de verdade** (10 Pro 19045, Python 3.13.3). O que não
+foi exercitado está dito na lista do fim — e em `docs/porte-windows.md`.
 
-## O que já está portado
+## Os módulos
 
-| Arquivo | Estado |
+| Arquivo | O que faz |
 |---|---|
-| `instance.py` | mutex nomeado, completo. **O nome é contrato com o projeto `defalt` — não renomear.** |
-| `cuda_dlls.py` | registro das DLLs de cuBLAS, completo (ver a armadilha abaixo) |
+| `hotkeys.py` | atalho global pelo hook de baixo nível do pynput, com `suppress_event()` |
+| `instance.py` | mutex nomeado para a trava, e **pipe nomeado** para o canal de controle |
+| `audio_system.py` | mudo e volume da entrada padrão por WASAPI, em COM cru por `ctypes` |
+| `alsa_mixer.py` | não existe camada equivalente aqui: responde "não dá para checar", honesto |
+| `notify.py` | som pelo `winsound`; o toast sai pela bandeja, que `app.py` pluga |
+| `focus.py` | `SetForegroundWindow`, com o `AttachThreadInput` que o Windows exige |
+| `cuda_dlls.py` | põe as DLLs de cuBLAS onde o Windows procura (armadilha 3.3) |
 
-## O que falta
+A máquina de estados hold/toggle **não** está aqui: mora em `platform/hotkeys_core.py`, junto com a
+do Linux. Aqui só entra o que muda de plataforma.
 
-- **A fachada de plataforma, antes de tudo.** `src/dito/platform/__init__.py` está vazio: `app.py`,
-  `cli.py` e `core/session.py` importam `linux_x11` direto, em oito lugares, então `import
-  dito.app` quebra no Windows antes de chegar a qualquer funcionalidade. Ver `docs/porte-windows.md`.
-- `hotkeys.py` — no Windows o caminho é o `win32_event_filter` do pynput com `suppress_event()`,
-  que **só existe lá**. É mais simples que no X11: não há auto-repeat entregando pares
-  Release+Press, então o vigia de estado físico não é necessário. As constantes `VK_*` que a
-  versão antiga tinha estão no histórico do repositório `dev`.
-- `paste.py` — igual ao do Linux (clipboard + Ctrl+V pelo pynput); só não depende de `xclip`.
-- `audio_system.py` — não há `pactl`. O equivalente é WASAPI via `pycaw` ou a API `IAudioEndpointVolume`.
-  **Enquanto não existir, o watchdog de nível continua cobrindo sozinho** — ele é o detector que
-  dá a verdade de qualquer forma.
-- Instalador: PyInstaller + Inno Setup.
+## As armadilhas, todas medidas
 
-## Armadilhas conhecidas, antes de começar
+### 1. `suppress_event()` aborta a conversão do próprio pynput
 
-1. **As DLLs de cuBLAS ficam onde o Windows não procura.** O pip as instala em
-   `site-packages/nvidia/*/bin`. E `os.add_dll_directory` **não basta**: ele só cobre
-   `LoadLibraryEx` com as flags de diretório de busca, e o ctranslate2 resolve cuBLAS com um
-   `LoadLibrary` simples, que lê o `PATH` e nada mais. É preciso prefixar o `PATH` também.
-   Já está resolvido em `cuda_dlls.py`.
+Ela levanta exceção de dentro do `_convert()`, então o `post` que entregaria o evento ao `on_press`
+nunca roda: **suprimir e receber são exclusivos**. Por isso o `win32_event_filter` despacha ele
+mesmo — enfileira e só então suprime. Ver `docs/armadilhas.md` 2.12.
 
-2. **O erro de cuBLAS só aparece no primeiro encode.** Construir o `WhisperModel` com
-   `device="cuda"` não toca na biblioteca. Sem forçar um encode de 1 s dentro do `try`, o
-   construtor passa e o erro estoura na primeira transcrição de verdade — quando o fallback para
-   CPU já não roda mais. Resolvido em `stt/engine.py`.
+### 2. A tecla que você engole SOME do `GetAsyncKeyState`
 
-3. **Os wheels queriam Python ≤ 3.12.** O `ctranslate2` não tinha wheel para 3.14 quando isto foi
-   escrito. Conferir antes de escolher a versão do Python do instalador.
+Medido: F7 engolida pelo nosso hook responde `False` no `GetAsyncKeyState` durante todo o hold; F6
+deixada passar responde `True`. No X11 o `XGrabKey` redireciona sem apagar do keymap; no Windows
+capturar **é** apagar. Por isso `KeyState.note()` grava o que o hook viu e é ele quem manda.
+Ver `docs/armadilhas.md` 2.13.
 
-4. **`WS_EX_NOACTIVATE` briga com `focus_force`.** A pílula não pode tomar foco, mas o diálogo de
-   revisão precisa do teclado. No Qt isso é `Qt.Tool` + `WA_ShowWithoutActivating` para a pílula e
-   uma janela separada para o diálogo — mesma divisão do Linux, mas o comportamento precisa ser
-   revalidado lá.
+### 3. Nunca transcrever dentro do callback do teclado
 
-## Como validar quando houver máquina
+O hook fica bloqueado enquanto o callback roda, e o Windows **remove** um listener lento — o atalho
+para de funcionar, sem erro. O filtro só faz um lookup e um `put` na fila. Ver 2.7.
 
-Os mesmos critérios do Linux, na ordem:
+### 4. As DLLs de cuBLAS: `add_dll_directory` não basta
 
-```
-dito doctor                              # microfone, mute, modelo
-dito selftest --source zeros --seconds 5 # alarme em ~1 s
-dito selftest --source mic --seconds 5   # WAV íntegro em %LOCALAPPDATA%
-```
-Depois: segurar a tecla por 40 s sem a gravação se partir, e conferir que a trava impede coexistir
-com o `defalt`.
+O pip as instala em `site-packages/nvidia/*/bin`, onde o Windows não procura. E
+`os.add_dll_directory()` só cobre `LoadLibraryEx` com flags de diretório; o ctranslate2 resolve
+cuBLAS com um `LoadLibrary` simples, que lê o `PATH`. São as duas coisas. Ver 3.3.
+
+### 5. O erro de cuBLAS só estoura no primeiro encode
+
+Construir `WhisperModel(device="cuda")` não toca na biblioteca. Sem forçar um encode de 1 s dentro
+do `try`, o construtor passa e o erro aparece na primeira transcrição de verdade — quando o
+fallback para CPU já não roda mais. Resolvido em `stt/engine.py`, e o fallback foi visto funcionando
+aqui (`GPU indisponível (RuntimeError), usando CPU`). Ver 3.2.
+
+### 6. O mutex `Local\defalt-voice-input` é contrato entre repositórios
+
+Compartilhado de propósito com o projeto irmão `defalt`, para que os dois nunca rodem ao mesmo
+tempo. Renomear de um lado só faz os dois subirem juntos, brigando pelo microfone e colando cada
+frase **duas vezes**. `tests/test_instance_windows.py` trava o nome — o teste que faltava, e que o
+README antigo prometia trazer. Ver 5.1 e 5.1b.
+
+### 7. Os wheels já não exigem Python ≤ 3.12
+
+Isto era verdade quando o briefing foi escrito. Hoje `ctranslate2` 4.8.1 e `onnxruntime` 1.28.0 têm
+wheel até `cp314`, e `PySide6` 6.11.1 declara `<3.15`. A instalação aqui roda em **3.13.3**.
+
+## O que este diretório ainda não provou
+
+- O **toast** (`notify.py`) não foi visto na tela.
+- **`focus.py`** não foi exercitado: devolver o foco depois do cartão de revisão.
+- A cadeia inteira com **fala humana**, do F9 até o texto colado.

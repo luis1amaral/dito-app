@@ -201,7 +201,10 @@ A detecção de microfone morto (1.11) atrasa 50 ms no pior caso, e o alarme con
 
 ---
 
-## 2. Teclado no X11
+## 2. Teclado
+
+De 2.1 a 2.11 é X11; 2.12 e 2.13 são do Windows. A máquina de estados hold/toggle é a mesma nos
+dois (`platform/hotkeys_core.py`) — o que muda é como se lê a tecla e como se a consome.
 
 ### 2.1 Auto-repeat entrega pares Release+Press — o release não é confiável
 
@@ -320,6 +323,43 @@ mente sob auto-repeat e em teclado sem fio (2.1 e 2.2).
 
 Debounce por tempo foi descartado: qualquer janela grande o bastante para engolir o auto-repeat
 também engole um toque duplo legítimo. O keymap não tem esse dilema — ele sabe se o dedo saiu.
+
+### 2.12 Windows: `suppress_event()` aborta a conversão do próprio pynput
+
+**Sintoma:** com o grab ligado, a tecla era engolida corretamente para os outros programas — e o
+`on_press` do Dito nunca era chamado. Ou seja: o atalho não fazia nada.
+
+**Causa:** no pynput do Windows, `suppress_event()` **levanta uma exceção**
+(`SystemHook.SuppressException`). Ela é chamada de dentro do `win32_event_filter`, que roda dentro
+do `_convert()`; a exceção sobe e o `self._message_loop.post(...)` logo abaixo **nunca executa**.
+Esse `post` é justamente o que entrega o evento ao `on_press`. Suprimir e receber são exclusivos.
+
+**Correção:** o filtro despacha ele mesmo. Quando a tecla é uma das nossas, ele enfileira
+`(tecla, pressionada)` e só então chama `suppress_event()`. Uma thread própria drena a fila e
+chama a máquina de estados — enfileirar é a única coisa barata o bastante para rodar dentro do
+hook (2.7).
+
+### 2.13 Windows: a tecla que você engole SOME do `GetAsyncKeyState`
+
+**Sintoma:** segurar a tecla por 1,2 s gravava 0,30 s — exatamente a janela de carência. O
+`_watch_hold` perguntava "ainda está apertada?", ouvia "não" já na primeira volta, e encerrava.
+
+**Causa, medida com o hook de verdade:**
+
+| tecla | o hook viu | `GetAsyncKeyState` durante o hold |
+|---|---|---|
+| F7, **engolida** pelo nosso hook | keydown **e** keyup | **False** |
+| F6, deixada passar | keydown e keyup | True |
+
+Suprimir no `WH_KEYBOARD_LL` tira o evento do sistema — inclusive da tabela de estado assíncrono.
+No X11 "só o keymap físico decide" (2.1) funciona porque o `XGrabKey` **redireciona** a tecla para
+nós sem apagá-la do keymap. No Windows, capturar é apagar: as duas coisas não podem coexistir.
+
+**Correção:** no Windows o hook é a autoridade. `KeyState.note(vk, down)` grava o que o hook viu, e
+`is_down()` responde por ele; o `GetAsyncKeyState` só atende tecla que nunca passou pelo hook (a
+que já estava apertada antes de o listener subir). Não há perda de confiabilidade: ao contrário do
+X11, o Windows não sintetiza Release durante o auto-repeat — ele repete o keydown e manda **um**
+keyup no fim.
 
 ---
 
@@ -961,6 +1001,33 @@ Pior que faltar tradução: falta é visível, errado não.
 **Correção:** marcador de `fuzzy` sai **um a um**, depois de ler o par. E a conferência final não é
 o `check` — é carregar o `.mo` compilado e imprimir cada string traduzida, que é o que o app vai
 mostrar. Foi só assim que os quatro apareceram.
+
+### 7.16 O cartão de revisão crescia antes de ter geometria — e cortava a última linha
+
+**Sintoma:** no Windows, uma ditada normal de seis frases entrava num cartão pequeno demais: 180 px
+de texto num viewport de 174 px. A última linha ficava escondida, que é exatamente o que o dono
+pediu para nunca acontecer.
+
+**Causa:** o `_grow()` tem um laço de autocorreção que compara o documento com o viewport e cresce
+mais uma linha enquanto não couber — a ideia certa. Só que ele rodava **antes do `show()`**, e um
+widget que ainda não foi realizado responde qualquer coisa. Medido, com o mesmo texto:
+
+| momento | `viewport` | documento | veredito |
+|---|---|---|---|
+| escondido | 478 px | 15 px | "cabe" — e o laço saía na primeira volta |
+| depois do `show()` | 160 px | 180 px | **cortado** |
+| `_grow()` de novo, já visível | 189 px | 180 px | cabe de verdade |
+
+A estimativa por `boundingRect` estava **certa** (178 px → 12 linhas). O erro era comparar com
+números que ainda não existiam.
+
+Tentar acertar por aritmética não serve: `frameWidth()` (13) + `contentsMargins` (9+9) +
+`documentMargin`×2 (8) somam 52 px, enquanto a moldura real mede 18 — o stylesheet se sobrepõe a
+esses valores e nenhuma fórmula fecha.
+
+**Correção:** o `present()` chama `_grow()` de novo **depois do `show()`**. O primeiro faz o cartão
+nascer com o tamanho quase certo (sem piscar), o segundo corrige contra a geometria de verdade. É
+idempotente: chamar uma terceira vez não muda mais nada.
 
 ---
 

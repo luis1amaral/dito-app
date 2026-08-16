@@ -71,7 +71,7 @@ class Meeting:
 
 @dataclass
 class Library:
-    folder: str = "~/Documentos/Dito"
+    folder: str = field(default_factory=lambda: str(paths.default_library()))
     # Dictation adds up: a month is enough to still find what you said, and 0 keeps everything.
     keep_days: int = 30
 

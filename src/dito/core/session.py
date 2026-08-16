@@ -19,7 +19,7 @@ from ..audio.level import State as AudioState
 from ..audio.level import Watchdog
 from ..audio.writer import WavWriter
 from ..i18n import _
-from ..platform.linux_x11 import alsa_mixer, audio_system
+from ..platform import alsa_mixer, audio_system
 from ..stt.chunker import Chunker
 from . import events as ev
 
