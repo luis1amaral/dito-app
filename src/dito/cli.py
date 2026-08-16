@@ -360,6 +360,30 @@ def _listen_headless(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_status(args: argparse.Namespace) -> int:
+    """Answers instantly, because it asks the running process rather than guessing from a PID
+    file. The previous version slept 14 seconds and then read a PID that had been stale for
+    hours — it once claimed 117814 while the live process was 1812."""
+    from .platform.linux_x11 import instance
+
+    reply = instance.send(instance.STATUS)
+    if reply is None:
+        print(_paint(" parado", DIM))
+        return 1
+    print(f" {_paint('ouvindo', OK)} — {reply}")
+    return 0
+
+
+def cmd_stop(args: argparse.Namespace) -> int:
+    from .platform.linux_x11 import instance
+
+    if instance.send(instance.QUIT) is None:
+        print(_paint(" já estava parado", DIM))
+        return 0
+    print(" parado.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="dito", description="Ditado por voz offline.")
     p.add_argument("--version", action="version", version=f"dito {__version__}")
@@ -386,6 +410,12 @@ def build_parser() -> argparse.ArgumentParser:
     listen.add_argument("--no-paste", action="store_true", help="só imprime, não cola")
     listen.add_argument("--no-enter", action="store_true", help="cola sem dar Enter")
     listen.set_defaults(func=cmd_listen)
+
+    st = subs.add_parser("status", help="diz se o ditado está ouvindo, na hora")
+    st.set_defaults(func=cmd_status)
+
+    stop = subs.add_parser("stop", help="encerra o ditado que está rodando")
+    stop.set_defaults(func=cmd_stop)
 
     return p
 

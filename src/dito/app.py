@@ -403,6 +403,18 @@ class DitoApp:
             return "ok"
         if command == instance.PING:
             return "ok"
+        if command == instance.STATUS:
+            estado = "pausado" if self._paused else "ouvindo"
+            return (
+                f"{estado} · {self.cfg.hotkeys.push_to_talk.upper()} dita, "
+                f"{self.cfg.hotkeys.meeting_toggle.upper()} reunião · "
+                f"modelo {self.cfg.stt.model} ({self.engine.backend})"
+            )
+        if command == instance.QUIT:
+            # Answer before quitting, or the caller sees a closed socket and reports failure for
+            # something that worked.
+            QTimer.singleShot(50, self._quit)
+            return "ok"
         return "?"
 
     def _preflight_warning(self) -> None:

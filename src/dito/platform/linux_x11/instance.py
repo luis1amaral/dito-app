@@ -32,6 +32,8 @@ LEGACY_LOCK_NAME = "defalt-voice-input"
 
 SHOW = "show"
 PING = "ping"
+QUIT = "quit"
+STATUS = "status"
 _ENCODING = "utf-8"
 
 
