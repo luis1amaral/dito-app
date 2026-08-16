@@ -395,6 +395,45 @@ def cmd_stop(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_update(args: argparse.Namespace) -> int:
+    """Asks GitHub what the newest release is and, unless `--check`, installs it."""
+    from . import update as updater
+
+    try:
+        release = updater.check()
+    except updater.UpdateError as exc:
+        print(_paint(" " + str(exc), BAD))
+        return 2
+
+    if release is None:
+        print(" " + _("Dito {version} is the newest there is.").format(version=__version__))
+        return 0
+
+    print("\n " + _paint(_("new version: {version}").format(version=release.version), OK))
+    for line in release.notes.strip().splitlines()[:8]:
+        print(f"   {_paint(line, DIM)}")
+
+    if args.check:
+        print("\n " + _("run «dito update» to install it") + "\n")
+        return 0
+
+    if not updater.can_apply():
+        print(_paint(" " + _("this Dito did not come from the installer — update it the same "
+                             "way you installed it"), WARN))
+        return 3
+
+    print(" " + _("downloading {name}…").format(name=release.asset))
+    try:
+        installer = updater.download(release)
+        updater.install(installer, silent=args.silent)
+    except updater.UpdateError as exc:
+        print(_paint(" " + str(exc), BAD))
+        return 2
+
+    print(" " + _("checksum matches. The installer is taking over; Dito will close.") + "\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="dito", description=_("Offline voice dictation."))
     p.add_argument("--version", action="version", version=f"dito {__version__}")
@@ -430,10 +469,26 @@ def build_parser() -> argparse.ArgumentParser:
     stop = subs.add_parser("stop", help=_("shuts down the dictation that is running"))
     stop.set_defaults(func=cmd_stop)
 
+    up = subs.add_parser("update", help=_("looks for a new version and installs it"))
+    up.add_argument("--check", action="store_true", help=_("only says what exists, downloads "
+                                                           "nothing"))
+    up.add_argument("--silent", action="store_true", help=_("installs without a single window"))
+    up.set_defaults(func=cmd_update)
+
     return p
 
 
+def _readable_output() -> None:
+    """See docs/armadilhas.md 5.9: redirected stdout is cp1252, and one `●` kills the thread."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+        except (AttributeError, OSError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _readable_output()
     # Before the parser is built: argparse keeps the help strings it was given.
     setup_language(os.environ.get("DITO_LANG") or config.load().ui.language)
     parser = build_parser()

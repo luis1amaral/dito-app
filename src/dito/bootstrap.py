@@ -157,9 +157,15 @@ def _adopt_preexisting() -> bool:
     return True
 
 
+def frozen() -> bool:
+    """The .exe from the installer has no venv to pip into — and no `sys.prefix` worth reading."""
+    return bool(getattr(sys, "frozen", False))
+
+
 def gpu_extras_missing() -> bool:
     """Cheap test first: has_nvidia_gpu() may wake a sleeping dGPU, so never ask it needlessly."""
-    return not gpu_extras_ready() and has_nvidia_gpu()
+    # `frozen` first: gpu_extras_ready() would erase the marker the venv install shares with us.
+    return not frozen() and not gpu_extras_ready() and has_nvidia_gpu()
 
 
 def _enough_disk() -> bool:

@@ -37,9 +37,20 @@ def test_the_struct_is_the_size_the_shell_expects():
     assert size >= 500, f"NOTIFYICONDATAW pequena demais: {size} bytes"
 
 
+def test_the_tray_window_is_looked_for_only_inside_this_process():
+    """FindWindow varre o desktop inteiro: com o Dito rodando, a suíte mandou um balão de teste
+    para a bandeja DELE, na tela do dono. Em produção o mesmo faria o Dito notificar pela bandeja
+    de outro app Qt. Ver docs/armadilhas.md 9.9.
+
+    Não dispara balão nenhum: pytest não tem bandeja, então a busca tem que voltar vazia."""
+    assert notify._tray_window() is None, (
+        "achou uma janela de bandeja fora deste processo — a busca não está isolada"
+    )
+
+
 def test_no_tray_window_means_no_balloon_rather_than_a_crash():
     """Headless, or before the tray is up: the caller falls back to Qt instead of dying."""
-    assert notify.balloon("Dito", "corpo", False, 5000) in (True, False)
+    assert notify.balloon("Dito", "corpo", False, 5000) is False
 
 
 def test_notify_without_a_sink_says_no_instead_of_pretending():

@@ -1415,3 +1415,24 @@ especificação de notificações do freedesktop. O ambiente exibe e cala.
 para ser inequívoco em vez de agradável, com interruptor na tela. O toque genérico do ambiente por
 cima é redundância que ninguém pediu — e ele tocava mesmo com o som do Dito desligado, o que
 transforma um interruptor da tela em mentira.
+
+
+### 9.9 `FindWindow` varre o desktop inteiro — e o balão do Dito ia parar na bandeja alheia
+
+**Sintoma, relatado pelo dono:** chegou uma notificação do Dito escrita **"corpo"**. Ninguém pediu
+essa notificação: "corpo" é o texto de um TESTE (`tests/test_notify_windows.py`).
+
+**Causa:** para mandar o balão sem som (9.8) o Dito monta a notificação sobre o ícone de bandeja
+que o Qt já criou, e achava a janela dele com
+`FindWindowW(None, "QTrayIconMessageWindow")`. Só que o `FindWindow` procura em **todas as janelas
+do desktop**, não nas do processo. Rodando a suíte com o Dito ligado, o teste encontrou a bandeja
+do **Dito de verdade** e disparou um balão na tela do usuário.
+
+O caso do teste é o sintoma barato. O grave é o mesmo mecanismo em produção: qualquer outro
+programa Qt com ícone de bandeja tem uma janela com esse mesmo título, e o Dito entregaria a
+notificação dele **pela bandeja do outro app** — com o nome e o ícone do outro app.
+
+**Correção:** `EnumWindows` filtrando por `GetWindowThreadProcessId == GetCurrentProcessId`. A
+janela tem que ser nossa. O teste novo não dispara balão nenhum: ele afirma que, sem bandeja neste
+processo, a busca volta **vazia** — e ele só prova alguma coisa porque roda com o Dito ligado ao
+lado, que é exatamente a situação que produzia o defeito.

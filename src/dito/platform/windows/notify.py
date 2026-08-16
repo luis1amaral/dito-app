@@ -27,6 +27,9 @@ _TRAY_WINDOW_TITLE = "QTrayIconMessageWindow"
 
 _user32 = ctypes.WinDLL("user32", use_last_error=True)
 _shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+_kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+_ENUM_WINDOWS_PROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 
 
 class _NOTIFYICONDATAW(ctypes.Structure):
@@ -50,9 +53,28 @@ class _NOTIFYICONDATAW(ctypes.Structure):
 
 
 def _tray_window() -> int | None:
-    """Qt's hidden tray window, in this process — the balloon has to ride on the existing icon."""
-    hwnd = _user32.FindWindowW(None, _TRAY_WINDOW_TITLE)
-    return hwnd or None
+    """Qt's hidden tray window, IN THIS PROCESS — see docs/armadilhas.md 9.9.
+
+    FindWindow searches the whole desktop, so it would hand our balloon to another Qt app's tray.
+    """
+    achado = ctypes.c_void_p()
+    meu = _kernel32.GetCurrentProcessId()
+
+    @_ENUM_WINDOWS_PROC
+    def visitar(hwnd, _lparam):
+        dono = wintypes.DWORD()
+        _user32.GetWindowThreadProcessId(hwnd, ctypes.byref(dono))
+        if dono.value != meu:
+            return True
+        titulo = ctypes.create_unicode_buffer(len(_TRAY_WINDOW_TITLE) + 2)
+        _user32.GetWindowTextW(hwnd, titulo, len(titulo))
+        if titulo.value != _TRAY_WINDOW_TITLE:
+            return True
+        achado.value = hwnd
+        return False
+
+    _user32.EnumWindows(visitar, 0)
+    return achado.value or None
 
 
 def balloon(title: str, body: str, urgent: bool, msecs: int) -> bool:

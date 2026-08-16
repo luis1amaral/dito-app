@@ -1,8 +1,12 @@
-"""What has to travel with the code when it is pip-installed, and is easy to forget.
+"""What has to travel with the code when it is packaged, and is easy to forget.
 
 The `.deb` never catches these: `make-deb.sh` copies `src/dito` wholesale, so anything the tree
-contains arrives whether or not `package-data` declares it. A `pip install .` — which is how the
-Windows install works — ships only what is declared, and silently drops the rest.
+contains arrives whether or not it was declared. A `pip install .` and a PyInstaller bundle ship
+only what is declared, and silently drop the rest — the interface came out entirely in English
+once for exactly this reason.
+
+The second half of the file guards the Windows installer's two promises: the shortcuts carry the
+app's identity, and uninstalling never takes a recording with it.
 """
 
 from __future__ import annotations
@@ -14,6 +18,8 @@ import dito
 from dito import i18n
 
 ROOT = Path(__file__).resolve().parent.parent
+SPEC = ROOT / "packaging" / "windows" / "dito.spec"
+ISS = ROOT / "packaging" / "windows" / "dito.iss"
 
 
 def _package_data() -> list[str]:
@@ -55,3 +61,67 @@ def test_every_entry_point_points_at_something_real():
 def test_the_version_is_the_one_the_installer_reports():
     with open(ROOT / "pyproject.toml", "rb") as f:
         assert dito.__version__ == tomllib.load(f)["project"]["version"]
+
+
+# ---- o instalador de distribuição do Windows ---------------------------------------------
+
+
+def _iss_section(name: str) -> list[str]:
+    """As linhas úteis de uma seção do .iss, sem comentário nem linha vazia."""
+    lines: list[str] = []
+    inside = False
+    for raw in ISS.read_text(encoding="utf-8-sig").splitlines():
+        line = raw.strip()
+        if line.startswith("[") and line.endswith("]"):
+            inside = line.lower() == f"[{name.lower()}]"
+            continue
+        if inside and line and not line.startswith(";"):
+            lines.append(line)
+    return lines
+
+
+def test_the_pyinstaller_bundle_ships_the_compiled_catalogues():
+    """O mesmo defeito do `package-data`, uma camada mais fora: bundle sem `.mo` roda a interface
+    inteira em inglês, e nada falha enquanto isso acontece."""
+    spec = SPEC.read_text(encoding="utf-8")
+    assert '"locales"' in spec and '"dito/locales"' in spec, (
+        "o .spec não declara src/dito/locales -> dito/locales: o .exe sai em inglês"
+    )
+
+
+def test_the_bundle_has_a_windowed_twin_and_a_console_one():
+    """`ditow.exe` sem console é o que o atalho e o autostart chamam — nada pisca no login."""
+    spec = SPEC.read_text(encoding="utf-8")
+    assert 'name="ditow"' in spec and "console=False" in spec
+    assert 'name="dito"' in spec and "console=True" in spec
+
+
+def test_the_model_is_not_baked_into_the_bundle():
+    """486 MB no `small`: ele é baixado no primeiro uso, e o instalador não pode carregá-lo."""
+    spec = SPEC.read_text(encoding="utf-8")
+    assert "huggingface/hub" not in spec and "models--" not in spec
+
+
+def test_every_shortcut_carries_the_app_identity():
+    """Sem `System.AppUserModel.ID` no atalho a notificação do Windows se apresenta como
+    «Python» — o id no processo sozinho não resolve, o shell lê o do atalho."""
+    icons = _iss_section("Icons")
+    assert icons, "o .iss não tem seção [Icons]"
+    for line in icons:
+        assert "AppUserModelID:" in line, f"atalho sem identidade: {line}"
+
+
+def test_starting_with_windows_comes_checked():
+    """É a máquina do dono: um login tem que chegar já ditando. O `instalar.ps1` faz o contrário
+    de propósito, e o README explica por que os dois padrões divergem."""
+    startup = [t for t in _iss_section("Tasks") if t.startswith("Name: \"startup\"")]
+    assert len(startup) == 1, "a tarefa «startup» sumiu do instalador"
+    assert "unchecked" not in startup[0]
+
+
+def test_the_uninstaller_cannot_delete_a_recording():
+    """A única perda irreversível deste programa. O `postrm` do .deb preserva o mesmo no Linux."""
+    text = ISS.read_text(encoding="utf-8-sig")
+    assert "[UninstallDelete]" not in text, "seção que apagaria arquivo fora do {app}"
+    for destructive in ("DelTree", "DeleteFile", "RemoveDir"):
+        assert destructive not in text, f"{destructive} no instalador: nada aqui apaga arquivo"
