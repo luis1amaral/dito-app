@@ -236,7 +236,12 @@ class DitoApp:
     def _end(self, name: str) -> None:
         with self._sessions_lock:
             session = self._sessions.pop(name, None)
+            idle = not self._sessions
         if session is None:
+            # A refused start emits the alarm and leaves nothing to stop, so releasing the key hit
+            # this `return` and the red pill stayed on screen for good — armadilhas 9.5.
+            if idle:
+                self.overlay.dismiss_alarm_after(theme.Motion.TOAST_MS)
             return
         # Off the hotkey thread: that thread is polling the physical keymap, and blocking it for
         # the length of a transcription means the next key press is simply missed.

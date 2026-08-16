@@ -58,6 +58,7 @@ class Overlay(QWidget):
         self._pulse_t0 = time.monotonic()
         self._shake_until = 0.0
         self._shake_phase = 0.0
+        self._alarm_since = 0.0
 
         self.setWindowFlags(
             Qt.WindowType.Tool
@@ -248,7 +249,18 @@ class Overlay(QWidget):
         self._apply_colors()
         self._nudge()
 
+    def dismiss_alarm_after(self, ms: int) -> None:
+        """See docs/armadilhas.md 9.5: a refused start left the red pill on screen for good."""
+        if self._state is not HudState.DEAD:
+            return
+        shown = (time.monotonic() - self._alarm_since) * 1000
+        QTimer.singleShot(
+            max(0, int(ms - shown)),
+            lambda: self.dismiss() if self._state is HudState.DEAD else None,
+        )
+
     def show_dead(self, reason: str | None, fix_label: str | None = None) -> None:
+        self._alarm_since = time.monotonic()
         self._state = HudState.DEAD
         self._reason = reason or ""
         self._title.setText(self._title_for(HudState.DEAD))

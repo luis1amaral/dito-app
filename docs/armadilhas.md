@@ -939,6 +939,25 @@ exceção** — falhar em avisar não pode derrubar o que ainda tem chance de av
 cada alarme. Repetir a cada tick transforma o alarme em ruído que o usuário aprende a ignorar, que
 dá no mesmo que não ter alarme.
 
+### 9.5 Alarme de gravação que nunca começou ficava vermelho na tela para sempre
+
+**Sintoma:** o microfone recusa, a pílula fica vermelha, e **soltar a tecla não apaga**. Ela fica
+ali até o app ser reiniciado. Um alarme que não sai é tão ruim quanto um que não aparece: na
+próxima vez, a pessoa não sabe se é o de agora ou o de vinte minutos atrás.
+
+**Causa:** o `preflight` recusa, emite `AudioAlarm(DEAD)` e o `_begin()` tira a sessão do
+dicionário — ela nunca existiu de fato. Ao soltar a tecla, o `_end()` faz `pop`, recebe `None` e
+**retorna**. Não há sessão para parar, então ninguém dispensa a pílula. O caminho de sucesso
+apagava o alarme como efeito colateral de encerrar a gravação; o caminho de recusa não tinha esse
+efeito colateral e ninguém tinha reparado.
+
+**Correção:** o `_end()` dispensa o alarme quando não havia nada a parar — **e só quando nenhuma
+outra sessão está viva**, senão soltar o F9 apagaria o alarme legítimo de um F10 gravando.
+
+O tempo mínimo importa: a dispensa espera até o alarme completar `TOAST_MS` (1800 ms) na tela. Um
+toque rápido no F9 sem microfone, sem esse piso, mostraria o vermelho por 80 ms — que é o mesmo
+que não mostrar. O 1800 é o número já medido contra velocidade de leitura em 7.8.
+
 ---
 
 ## 10. Reunião: publicação e nota

@@ -15,6 +15,7 @@ Two things are worth testing here and cannot be tested by reading the source:
 from __future__ import annotations
 
 import os
+import time
 
 import pytest
 
@@ -180,3 +181,31 @@ def test_clock_grows_past_an_hour_instead_of_wrapping(seconds, expected):
     """A meeting has no time limit, so the field has to grow. mm:ss wrapping at 60 minutes would
     show 00:00 an hour into a recording."""
     assert _clock(seconds) == expected
+
+
+def test_an_alarm_from_a_refused_start_clears_itself(app):
+    """The red pill from a recording that never began stayed on screen until a restart: releasing
+    the key found no session to stop, so nothing dismissed it. See docs/armadilhas.md 9.5."""
+    overlay = Overlay(theme.LIGHT)
+    overlay.show_dead("o microfone «X» não está conectado", None)
+    assert overlay._state is HudState.DEAD
+
+    overlay.dismiss_alarm_after(0)
+    app.processEvents()
+    time.sleep(0.05)
+    app.processEvents()
+
+    assert overlay._state is HudState.HIDDEN
+
+
+def test_dismissing_the_alarm_never_touches_a_live_recording(app):
+    """Called on any other state it must do nothing: the pill belongs to whatever is recording."""
+    overlay = Overlay(theme.LIGHT)
+    overlay.show_recording()
+
+    overlay.dismiss_alarm_after(0)
+    app.processEvents()
+    time.sleep(0.05)
+    app.processEvents()
+
+    assert overlay._state is HudState.RECORDING

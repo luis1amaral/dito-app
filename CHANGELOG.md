@@ -1,5 +1,36 @@
 # CHANGELOG — Dito
 
+## 2026-08-16 — o alarme de uma gravação que nunca começou ficava na tela para sempre
+
+### O quê
+`_end()` dispensa o alarme quando não havia sessão para parar — e só quando **nenhuma outra**
+está viva. A dispensa espera o alarme completar `TOAST_MS` (1800 ms) na tela.
+
+### Por quê
+O `preflight` recusa, emite `AudioAlarm(DEAD)` e o `_begin()` tira a sessão do dicionário: ela
+nunca existiu. Ao soltar a tecla, o `_end()` faz `pop`, recebe `None` e **retorna** — não há o que
+parar, então ninguém apaga a pílula, e ela fica vermelha até o app reiniciar. O caminho de sucesso
+apagava o alarme como efeito colateral de encerrar a gravação; o de recusa não tinha esse efeito.
+
+Um alarme que não sai é tão ruim quanto um que não aparece: na vez seguinte ninguém sabe se o
+vermelho é de agora ou de vinte minutos atrás.
+
+O piso de 1800 ms não é enfeite: um toque rápido no F9 sem microfone mostraria o vermelho por
+80 ms, que é o mesmo que não mostrar. É o número já medido contra velocidade de leitura.
+
+### A regra que não foi enfraquecida
+O alarme **durante** uma gravação continua até a gravação acabar. A dispensa exige que nada esteja
+gravando, senão soltar o F9 apagaria o alarme legítimo de um F10 em curso.
+
+### Como foi verificado
+260 testes verdes, `ruff` limpo. Dois testes novos: o alarme órfão se apaga, e a mesma chamada num
+estado de gravação não faz nada.
+
+### Documentação
+`docs/armadilhas.md` **9.5**.
+
+---
+
 ## 2026-08-16 — trocar o idioma deixava a tela pela metade
 
 ### O quê
