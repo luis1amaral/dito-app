@@ -442,10 +442,19 @@ def cmd_gpu(args) -> int:
     return gpu_setup.run(args.install, args.window, args.force, args.remove)
 
 
+def cmd_engine(args: argparse.Namespace) -> int:
+    from .engine_server import run_server
+
+    return run_server()
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="dito", description=_("Offline voice dictation."))
     p.add_argument("--version", action="version", version=f"dito {__version__}")
     subs = p.add_subparsers(dest="comando")
+
+    eng = subs.add_parser("engine", help=_("runs the JSON-lines engine server for Flutter"))
+    eng.set_defaults(func=cmd_engine)
 
     d = subs.add_parser(
         "doctor", help=_("checks microphone, mute, volume, model and configuration")
