@@ -4,6 +4,14 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.6: suporte a auto-atualização por instalador e pacote zip com descarte de cache
+
+**Auto-atualização sem falhas.** Suporte nativo a instaladores executáveis e pacotes de atualização no Windows, com geração automática de pacotes zip e manifesto com hashes SHA-256 publicados em tempo real.
+
+**Como foi verificado.** Bateria de testes do updater e compilação do pacote 1.2.6.
+
+---
+
 ## 2026-08-18 — 1.2.5: encerramento limpo do processo e botão de fechar aplicativo
 
 **Encerramento 100% limpo do processo.** `shutdown()` agora executa `exit(0)` ao fechar pelo menu da bandeja ou pela nova opção em Ajustes ("Encerrar o Dito"), garantindo que o processo não fique órfão/preso no Gerenciador de Tarefas do Windows.

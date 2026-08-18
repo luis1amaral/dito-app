@@ -83,18 +83,30 @@ if ($LASTEXITCODE -ne 0) { throw 'Inno Setup reprovou' }
 $Instalador = Join-Path $Raiz "build\windows\installer\dito-$Versao-setup.exe"
 if (-not (Test-Path $Instalador)) { throw "o instalador nao apareceu em $Instalador" }
 
+# --- zip do bundle ----------------------------------------------------------
+Etapa 'Gerando o zip do bundle para auto-atualizacao'
+$Zip = Join-Path $Raiz "build\windows\installer\dito-$Versao.zip"
+if (Test-Path $Zip) { Remove-Item $Zip -Force }
+Compress-Archive -Path "$Bundle\*" -DestinationPath $Zip -Force
+
 # --- checksum ---------------------------------------------------------------
 # O updater recusa instalar sem hash publicado, entao isto nao e opcional.
 Etapa 'Calculando o SHA256'
-$hash = (Get-FileHash -Algorithm SHA256 $Instalador).Hash.ToLower()
-$nome = Split-Path $Instalador -Leaf
-$sums = Join-Path $Raiz 'build\windows\installer\SHA256SUMS.txt'
-"$hash  $nome" | Set-Content -Path $sums -Encoding ASCII
+$hashExe = (Get-FileHash -Algorithm SHA256 $Instalador).Hash.ToLower()
+$nomeExe = Split-Path $Instalador -Leaf
+$hashZip = (Get-FileHash -Algorithm SHA256 $Zip).Hash.ToLower()
+$nomeZip = Split-Path $Zip -Leaf
 
-$mb = [math]::Round((Get-Item $Instalador).Length / 1MB, 1)
+$sums = Join-Path $Raiz 'build\windows\installer\SHA256SUMS.txt'
+"$hashExe  $nomeExe`r`n$hashZip  $nomeZip" | Set-Content -Path $sums -Encoding ASCII
+
+$mbExe = [math]::Round((Get-Item $Instalador).Length / 1MB, 1)
+$mbZip = [math]::Round((Get-Item $Zip).Length / 1MB, 1)
 Write-Host ''
-Write-Host "instalador: $Instalador ($mb MB)" -ForegroundColor Green
-Write-Host "sha256: $hash"
+Write-Host "instalador: $Instalador ($mbExe MB)" -ForegroundColor Green
+Write-Host "zip bundle: $Zip ($mbZip MB)" -ForegroundColor Green
+Write-Host "sha256 exe: $hashExe"
+Write-Host "sha256 zip: $hashZip"
 
 # --- entrega ----------------------------------------------------------------
 if ($Destino) {
