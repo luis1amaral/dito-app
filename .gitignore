@@ -51,3 +51,12 @@ app.*.map.json
 spike_result.txt
 spike_keys_result.txt
 spike_paste_result.txt
+
+# Artifacts & Temporary Test Screenshots
+_shot/
+_proof/
+_*.bat
+_*.log
+hud_shot*.png
+hud_installed.png
+
