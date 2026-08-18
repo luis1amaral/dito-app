@@ -4,6 +4,14 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.4: restauração instantânea da janela ao clicar no atalho (comunicação inter-processos e ForceForeground)
+
+**Abertura instantânea da janela em execução em segundo plano.** Ao abrir o Dito pelo atalho ou executável enquanto ele já está rodando (minimizado na bandeja), a nova instância agora acorda a janela existente via mensagem IPC nativa (`WM_DITO_SHOW_MAIN_WINDOW`), executa `ForceForeground` e restaura o ícone na barra de tarefas (`windowManager.setSkipTaskbar(false)` e `windowManager.show()`). Isso elimina a necessidade de finalizar o processo no Gerenciador de Tarefas para reabrir a janela.
+
+**Como foi verificado.** `flutter analyze` com 0 issues, testes unitários aprovados e compilação do instalador `dito-1.2.4-setup.exe`.
+
+---
+
 ## 2026-08-18 — 1.2.3: eliminação da área preta no topo do cartão de revisão (estilos WS_POPUP e sem moldura nativa)
 
 **Remoção de moldura e área preta parasita na janela de revisão.** A sub-janela do cartão de revisão (`ReviewWindow`) agora é instanciada com estilo `WS_POPUP` e `WS_EX_TOOLWINDOW | WS_EX_TOPMOST` em `desktop_multi_window` (em vez de herdar `WS_OVERLAPPEDWINDOW`), e `adoptAsPanel` no plugin Win32 garante a remoção de caption/bordas nativas (`WS_CAPTION`, `WS_THICKFRAME`). Isso alinha a área cliente do Flutter à área da janela pixel a pixel, eliminando o retângulo preto não-renderizado no topo do cartão.

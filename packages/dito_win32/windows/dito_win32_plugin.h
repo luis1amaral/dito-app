@@ -40,6 +40,7 @@ class DitoWin32Plugin : public flutter::Plugin {
 
   // Test-only EDIT control; never used by the product.
   HWND test_edit_ = nullptr;
+  int proc_delegate_id_ = -1;
 };
 
 }  // namespace dito_win32

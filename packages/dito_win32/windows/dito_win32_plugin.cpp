@@ -207,10 +207,31 @@ DitoWin32Plugin::DitoWin32Plugin(flutter::PluginRegistrarWindows* registrar)
 
   key_channel_ = std::move(key_channel);
   tray_channel_ = std::move(tray_channel);
+
+  const UINT wm_show = ::RegisterWindowMessageW(L"WM_DITO_SHOW_MAIN_WINDOW");
+  proc_delegate_id_ = registrar_->RegisterTopLevelWindowProcDelegate(
+      [this, wm_show](HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> std::optional<LRESULT> {
+        if (message == wm_show) {
+          std::lock_guard<std::mutex> lock(g_sink_mutex);
+          if (tray_sink_ != nullptr) {
+            tray_sink_->Success(EncodableValue(EncodableMap{
+                {EncodableValue("event"), EncodableValue("menu")},
+                {EncodableValue("id"), EncodableValue("open")},
+            }));
+          }
+          return 0;
+        }
+        return std::nullopt;
+      });
+
   hook_->Start();
 }
 
 DitoWin32Plugin::~DitoWin32Plugin() {
+  if (proc_delegate_id_ != -1) {
+    registrar_->UnregisterTopLevelWindowProcDelegate(proc_delegate_id_);
+    proc_delegate_id_ = -1;
+  }
   // The hook is shared and outlives every window; only drop our own listener and sink.
   if (hook_ != nullptr && listener_token_ != 0) hook_->RemoveListener(listener_token_);
   std::lock_guard<std::mutex> lock(g_sink_mutex);

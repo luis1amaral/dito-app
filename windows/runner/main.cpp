@@ -15,6 +15,20 @@ void RegisterPluginsInSubWindow(void *controller) {
   RegisterPlugins(view_controller->engine());
 }
 
+static bool ForceForeground(HWND target) {
+  if (target == nullptr || IsWindow(target) == 0) return false;
+  if (SetForegroundWindow(target) != 0) return true;
+
+  const DWORD owner = GetWindowThreadProcessId(GetForegroundWindow(), nullptr);
+  const DWORD mine = GetCurrentThreadId();
+  if (owner == 0 || owner == mine) return false;
+
+  AttachThreadInput(mine, owner, TRUE);
+  const bool ok = SetForegroundWindow(target) != 0;
+  AttachThreadInput(mine, owner, FALSE);
+  return ok;
+}
+
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
   // A zombie instance with grab=true swallows F9/F10 before the new one; never run two.
@@ -22,8 +36,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (::GetLastError() == ERROR_ALREADY_EXISTS) {
     HWND existing = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"Dito");
     if (existing) {
+      ::ShowWindow(existing, SW_SHOW);
       ::ShowWindow(existing, SW_RESTORE);
-      ::SetForegroundWindow(existing);
+      ForceForeground(existing);
+      const UINT wm_show = ::RegisterWindowMessageW(L"WM_DITO_SHOW_MAIN_WINDOW");
+      ::PostMessageW(existing, wm_show, 0, 0);
     }
     return EXIT_SUCCESS;
   }
