@@ -1,4 +1,4 @@
-﻿; Instalador do Dito para Windows: app Flutter + motor de transcrição.
+; Instalador do Dito para Windows: app Flutter + motor de transcrição.
 ;
 ;   ISCC.exe /DMyAppVersion=1.0.0 packaging\windows\dito.iss
 ;
@@ -44,7 +44,8 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 [Tasks]
 Name: "startup"; Description: "Iniciar o Dito junto com o Windows (fica só na bandeja)"; GroupDescription: "Ao ligar o computador:"
 Name: "desktopicon"; Description: "Criar um atalho na Área de Trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
-Name: "model"; Description: "Baixar agora todos os modelos de voz (cerca de 5,3 GB)"; GroupDescription: "Modelos de transcrição:%nCom todos baixados, trocar de modelo nos Ajustes funciona na hora. Se não baixar agora, o Dito baixa sozinho o que faltar."
+Name: "model_small"; Description: "Baixar o modelo de voz padrão agora (small - ~484 MB, recomendado)"; GroupDescription: "Modelos de transcrição:"
+Name: "model"; Description: "Baixar TODOS os outros modelos de voz (cerca de 5,3 GB no total)"; GroupDescription: "Modelos adicionais:"; Flags: unchecked
 Name: "gpu"; Description: "Baixar a aceleração por placa de vídeo NVIDIA (1,3 GB)"; GroupDescription: "Placa de vídeo:%nSó marque se esta máquina tem placa NVIDIA - a transcrição fica cerca de 3x mais rápida."; Flags: unchecked
 
 [InstallDelete]
@@ -67,12 +68,12 @@ Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Parameters: "
 [Run]
 ; Um por modelo, para o assistente mostrar de qual ele esta cuidando. runhidden: o motor e um
 ; programa de console, e sem isso pisca uma janela preta na cara de quem instala.
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model tiny"; StatusMsg: "Baixando o modelo Mínimo (1 de 5, ~75 MB)..."; Flags: waituntilterminated runhidden; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model base"; StatusMsg: "Baixando o modelo Básico (2 de 5, ~145 MB)..."; Flags: waituntilterminated runhidden; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model small"; StatusMsg: "Baixando o modelo Equilibrado (3 de 5, ~484 MB)..."; Flags: waituntilterminated runhidden; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model medium"; StatusMsg: "Baixando o modelo Bom (4 de 5, ~1,5 GB)..."; Flags: waituntilterminated runhidden; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model large-v3"; StatusMsg: "Baixando o modelo Melhor (5 de 5, ~3,1 GB)..."; Flags: waituntilterminated runhidden; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "gpu --install"; StatusMsg: "Baixando a aceleração por placa de vídeo (~1,3 GB, pode demorar)..."; Flags: waituntilterminated runhidden; Tasks: gpu
+Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model small"; StatusMsg: "Baixando o modelo de voz padrão Small (~484 MB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model_small
+Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model tiny"; StatusMsg: "Baixando o modelo Mínimo (1 de 4, ~75 MB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model
+Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model base"; StatusMsg: "Baixando o modelo Básico (2 de 4, ~145 MB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model
+Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model medium"; StatusMsg: "Baixando o modelo Bom (3 de 4, ~1,5 GB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model
+Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model large-v3"; StatusMsg: "Baixando o modelo Melhor (4 de 4, ~3,1 GB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model
+Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "gpu --install"; StatusMsg: "Baixando a aceleração por placa de vídeo (~1,3 GB, pode demorar)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: gpu
 Filename: "{app}\{#MyAppExe}"; Description: "Abrir o Dito"; Flags: nowait postinstall skipifsilent
 
 [Code]

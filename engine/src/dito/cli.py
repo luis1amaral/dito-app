@@ -441,6 +441,19 @@ def cmd_engine(args: argparse.Namespace) -> int:
     return run_server()
 
 
+def cmd_download_model(args: argparse.Namespace) -> int:
+    from faster_whisper import WhisperModel
+    name = args.model_name
+    print(f"Baixando modelo {name}...")
+    try:
+        WhisperModel(name, device="cpu", compute_type="int8", local_files_only=False)
+        print(f"Modelo {name} baixado com sucesso.")
+        return 0
+    except Exception as exc:
+        print(f"Erro ao baixar modelo {name}: {exc}")
+        return 0  # Return 0 so installer doesn't crash on network failure
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="dito", description=_("Offline voice dictation."))
     p.add_argument("--version", action="version", version=f"dito {__version__}")
@@ -448,6 +461,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     eng = subs.add_parser("engine", help=_("runs the JSON-lines engine server for Flutter"))
     eng.set_defaults(func=cmd_engine)
+
+    dl = subs.add_parser("download-model", help=_("downloads a whisper model by name"))
+    dl.add_argument("model_name", help=_("name of model to download (e.g. small, tiny)"))
+    dl.set_defaults(func=cmd_download_model)
 
     d = subs.add_parser(
         "doctor", help=_("checks microphone, mute, volume, model and configuration")
