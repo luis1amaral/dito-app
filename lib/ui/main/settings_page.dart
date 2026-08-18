@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/boot.dart';
 import '../../config/config_model.dart';
@@ -31,7 +32,13 @@ class SettingsPage extends StatelessWidget {
               _Section(title: s.sectionUpdates, children: <Widget>[
                 ListTile(
                   title: Text(s.installedVersion),
-                  subtitle: Text('v${'1.1.7'}'),
+                  subtitle: FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      final version = snapshot.data?.version ?? '';
+                      return Text(version.isEmpty ? '...' : 'v$version');
+                    },
+                  ),
                   trailing: FilledButton.icon(
                     onPressed: () => app.updater.check(),
                     icon: const Icon(Icons.system_update_rounded, size: 16),

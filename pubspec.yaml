@@ -24,6 +24,7 @@ dependencies:
     path: packages/desktop_multi_window
   dito_win32:
     path: packages/dito_win32
+  package_info_plus: ^9.0.1
   ffi: ^2.2.0
 
 dev_dependencies:
