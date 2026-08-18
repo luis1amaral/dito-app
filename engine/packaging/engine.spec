@@ -4,7 +4,8 @@ from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs
 
-ROOT = Path(SPECPATH).resolve().parent.parent
+# O spec mora em engine/packaging/, entao a raiz do motor e um nivel acima.
+ROOT = Path(SPECPATH).resolve().parent
 SRC = ROOT / "src"
 ICON = SRC / "dito" / "ui" / "assets" / "dito.ico"
 
@@ -56,7 +57,10 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    # console=False (GUI subsystem): sem isto o Windows abre um console preto toda vez que o
+    # Flutter faz spawn do motor. O IPC segue vivo porque o Flutter redireciona stdin/stdout por
+    # pipes; entry_engine._ensure_std_streams() protege os subcomandos quando NAO ha redirect.
+    console=False,
     icon=str(ICON) if ICON.exists() else None,
 )
 

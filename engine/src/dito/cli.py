@@ -235,27 +235,20 @@ def _tick(
 
 
 def cmd_ui(args: argparse.Namespace) -> int:
-    """Open the Dito window. Called by the application menu entry.
-
-    If a daemon is already listening, this does not start a second process — it asks the running
-    one to show its window, which is what the user meant by launching the app again.
-    """
-    from .app import run
-
-    return run(show_window=True)
+    """The window lives in the Flutter app now; this motor only speaks the engine protocol."""
+    print("A janela do Dito e o aplicativo Flutter. Este executavel e so o motor.")
+    return 2
 
 
 def cmd_listen(args: argparse.Namespace) -> int:
     """The daemon: tray, hotkeys, overlay — and no window.
 
-    This is what the autostart entry runs. Nothing appears at login except the tray icon; the
-    window exists only when asked for. `--headless` drops Qt entirely and prints to the terminal,
-    which is how the chain gets debugged without the UI in the picture.
+    Only the headless form survives: the tray, the hotkeys and the overlay belong to the
+    Flutter app, and this is how the chain gets debugged without any UI in the picture.
     """
     if not args.headless:
-        from .app import run
-
-        return run(show_window=False)
+        print("Use --headless: a bandeja e os atalhos sao do aplicativo Flutter.")
+        return 2
     return _listen_headless(args)
 
 

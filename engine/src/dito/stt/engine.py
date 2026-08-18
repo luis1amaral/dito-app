@@ -124,12 +124,25 @@ class WhisperEngine:
 
             from faster_whisper import WhisperModel
 
+            # CAUSA RAIZ 1.1.6: sem local_files_only o faster-whisper bate no HuggingFace Hub a
+            # CADA carga para conferir a revisao. Com o hub lento/rate-limited (o aviso «sending
+            # unauthenticated requests to the HF Hub» nos logs), a resolucao do modelo falha e o
+            # WhisperModel levanta — em GPU E em CPU — mesmo com o modelo inteiro em disco. O app e
+            # offline por contrato ("nothing leaves the machine"): quando o modelo esta em cache,
+            # carregamos 100% local, sem rede. So baixamos quando ele realmente falta.
+            cached = model_cached(self.model_name)
+
             if self.device_pref in ("auto", "cuda"):
                 register_cuda_dlls(self._log)
                 try:
                     import numpy as np
 
-                    model = WhisperModel(self.model_name, device="cuda", compute_type="float16")
+                    model = WhisperModel(
+                        self.model_name,
+                        device="cuda",
+                        compute_type="float16",
+                        local_files_only=cached,
+                    )
                     # See docs/armadilhas.md 3.2: without this forced encode the fallback is dead.
                     list(
                         model.transcribe(
@@ -144,28 +157,56 @@ class WhisperEngine:
                 except Exception as exc:
                     if self.device_pref == "cuda":
                         raise
-                    self._log(f"[modelo] GPU indisponível ({type(exc).__name__}), usando CPU")
+                    # O tipo sozinho escondia a causa (cublas/cudnn/cudart, VRAM). Logamos o texto
+                    # inteiro para o fallback nunca ser um mistério — docs/armadilhas.md 3.3.
+                    self._log(
+                        f"[modelo] GPU indisponível ({type(exc).__name__}: {exc}), usando CPU"
+                    )
 
             # Announced BEFORE the download starts: it is hundreds of MB, and a first use that
             # looks frozen is what «Unable to open file model.bin» used to be — armadilhas 3.12.
-            if not model_cached(self.model_name):
+            if not cached:
                 self._log(f"[modelo] baixando {self.model_name}, uma vez só")
 
             try:
-                self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
+                self._model = WhisperModel(
+                    self.model_name,
+                    device="cpu",
+                    compute_type="int8",
+                    local_files_only=cached,
+                )
             except Exception as exc:
                 # ctranslate2 says «Unable to open file model.bin», which names a file the user
                 # never chose and hides the only fact that matters: it is not downloaded yet.
-                if not model_cached(self.model_name):
+                # Mas quando o modelo ESTA em disco e mesmo assim falha, o texto original e a unica
+                # pista real (DLL faltando, runtime, etc.) — logamos antes de traduzir o erro.
+                self._log(
+                    f"[modelo] carga CPU falhou ({type(exc).__name__}: {exc})"
+                    f" — cached={model_cached(self.model_name)}"
+                )
+                if not cached:
                     raise ModelNotReady(
                         _("the «{model}» model is still downloading — try again in a moment")
                         .format(model=self.model_name)
                     ) from exc
-                raise ModelNotReady(
-                    _("the «{model}» model did not load. Pick another one in Settings, or "
-                      "delete it from the cache so it downloads again.")
-                    .format(model=self.model_name)
-                ) from exc
+                # cached=True mas a carga local falhou: o cache pode estar incompleto (um arquivo
+                # faltando). Uma ultima tentativa permitindo a rede (o comportamento antigo) antes
+                # de desistir — assim local_files_only nunca deixa o app pior do que estava.
+                try:
+                    self._model = WhisperModel(
+                        self.model_name, device="cpu", compute_type="int8", local_files_only=False
+                    )
+                    self._log("[modelo] recuperado permitindo a rede (cache estava incompleto)")
+                except Exception as exc2:
+                    self._log(
+                        f"[modelo] carga CPU falhou tambem com a rede "
+                        f"({type(exc2).__name__}: {exc2})"
+                    )
+                    raise ModelNotReady(
+                        _("the «{model}» model did not load. Pick another one in Settings, or "
+                          "delete it from the cache so it downloads again.")
+                        .format(model=self.model_name)
+                    ) from exc2
 
             self._backend = "cpu (int8)"
             self._log(f"[modelo] {self.model_name} na CPU (int8)")

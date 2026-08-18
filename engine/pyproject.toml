@@ -57,6 +57,8 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Sem isto os testes so acham o pacote se a venv estiver instalada apontando para ca.
+pythonpath = ["src"]
 markers = [
     # These inject real keystrokes through XTest. Global for a fraction of a second, so they are
     # skippable with `-m "not x11"` when someone is typing.

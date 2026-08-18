@@ -116,6 +116,9 @@ class Session:
         self._backlog: list = []          # chunks the transcriber could not take in time
         self._late = False
         self._stt_alive = False
+        # Primeira falha de transcricao numa reuniao: sem isto o F10 terminava com texto vazio e
+        # nao dizia nada, enquanto o F9 (que transcreve no stop) mostrava o erro — assimetria.
+        self._stt_error: str | None = None
 
     # ---- lifecycle -------------------------------------------------------------------
 
@@ -344,6 +347,10 @@ class Session:
             result = self.engine.transcribe(chunk.audio, beam=self.cfg.stt.beam_meeting)
         except Exception as exc:
             self._log(f"[error] chunk {chunk.index}: {type(exc).__name__}: {exc}")
+            # Guarda a primeira falha: o stop() a transforma em Failed quando a reuniao termina
+            # sem nenhum texto, para o F10 reportar como o F9 em vez de sumir em silencio.
+            if self._stt_error is None:
+                self._stt_error = f"{type(exc).__name__}: {exc}"
             return
         if not result.text:
             return
@@ -382,7 +389,12 @@ class Session:
                 self._backlog.clear()
             with self._parts_lock:
                 ordered = sorted(self._parts)
-            return " ".join(text for _i, text in ordered).strip()
+            joined = " ".join(text for _i, text in ordered).strip()
+            # Nada transcrito E houve erro: a reuniao falhou de verdade. Levantamos para o stop()
+            # emitir Failed (mesmo caminho do F9), em vez de devolver "" e o app dar dismiss mudo.
+            if not joined and self._stt_error is not None:
+                raise RuntimeError(self._stt_error)
+            return joined
 
         if not self._blocks:
             return ""
