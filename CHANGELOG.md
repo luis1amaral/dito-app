@@ -4,6 +4,14 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.7: release de teste para validação do fluxo completo de auto-atualização
+
+**Validação do auto-updater.** Release com manifesto enriquecido (tamanho e SHA-256 de instalador e pacote zip), permitindo que o usuário teste a verificação e o download de atualização diretamente pela interface do aplicativo.
+
+**Como foi verificado.** Compilação do instalador `dito-1.2.7-setup.exe` e zip `dito-1.2.7.zip`.
+
+---
+
 ## 2026-08-18 — 1.2.6: suporte a auto-atualização por instalador e pacote zip com descarte de cache
 
 **Auto-atualização sem falhas.** Suporte nativo a instaladores executáveis e pacotes de atualização no Windows, com geração automática de pacotes zip e manifesto com hashes SHA-256 publicados em tempo real.
