@@ -130,7 +130,7 @@ class HudPill extends StatelessWidget {
           minWidth: AppSize.hudMinWidth + AppShadow.margin * 2,
         ),
         child: FloatingSurface(
-          fill: colors.fill.withValues(alpha: AppAlpha.hudSurface),
+          fill: colors.fill,
           border: colors.border,
           child: Padding(
             padding: const EdgeInsets.symmetric(

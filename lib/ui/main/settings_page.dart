@@ -28,6 +28,17 @@ class SettingsPage extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: <Widget>[
+              _Section(title: s.sectionUpdates, children: <Widget>[
+                ListTile(
+                  title: Text(s.installedVersion),
+                  subtitle: Text('v${'1.1.7'}'),
+                  trailing: FilledButton.icon(
+                    onPressed: () => app.updater.check(),
+                    icon: const Icon(Icons.system_update_rounded, size: 16),
+                    label: Text(s.btnCheckUpdates),
+                  ),
+                ),
+              ]),
               _Section(title: s.sectionHotkeys, children: <Widget>[
                 KeyCaptureField(
                   label: s.hotkeyDictation,
@@ -161,17 +172,6 @@ class SettingsPage extends StatelessWidget {
                 ListTile(
                   title: Text(s.libraryKeep),
                   trailing: Text(s.libraryKeepDays(cfg.library.keepDays)),
-                ),
-              ]),
-              _Section(title: s.sectionUpdates, children: <Widget>[
-                ListTile(
-                  title: Text(s.installedVersion),
-                  subtitle: Text('v${'1.1.7'} (Flutter)'),
-                  trailing: FilledButton.icon(
-                    onPressed: () => app.updater.check(),
-                    icon: const Icon(Icons.system_update_rounded, size: 16),
-                    label: Text(s.btnCheckUpdates),
-                  ),
                 ),
               ]),
             ],

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Dito</title>
+  <!-- Geometry, colour and spacing are specified in docs/marca.md; colours come from
+       src/dito/ui/theme.py. No CSS here on purpose: QtSvg ignores <style>, so a rule written
+       there would apply in a browser and silently not apply in the app. -->
+  <defs>
+    <linearGradient id="ditoPlate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4b3bd4"/>
+      <stop offset="1" stop-color="#342899"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="url(#ditoPlate)"/>
+
+  <!-- The glyph is drawn once, on a 24 grid, and only ever scaled: translate(32 32) scale(8)
+       puts its 19.5-unit ink box dead centre at 156/256 of the plate. -->
+  <g transform="translate(32 32) scale(8)">
+    <path d="M 6.5 3.5 H 15 A 5.5 5.5 0 0 1 15 14.5 H 8.5 L 3.5 20.5 V 6.5 A 3 3 0 0 1 6.5 3.5 Z"
+          fill="#f7f7f9" stroke="#f7f7f9" stroke-width="2.5"
+          stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Level meter. #3f31b8 is the midpoint of the plate gradient, so the bars read as holes. -->
+    <rect x="7.15" y="6.5" width="2.5" height="5" rx="1.25" fill="#3f31b8"/>
+    <rect x="11.15" y="4.5" width="2.5" height="9" rx="1.25" fill="#3f31b8"/>
+    <rect x="15.15" y="5.7" width="2.5" height="6.6" rx="1.25" fill="#3f31b8"/>
+  </g>
+</svg>

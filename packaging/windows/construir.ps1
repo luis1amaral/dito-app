@@ -23,7 +23,7 @@ trap {
 }
 
 $Raiz = Resolve-Path (Join-Path $PSScriptRoot '..\..')
-$RepoMotor = Resolve-Path (Join-Path $Raiz '..\dito-app')
+$RepoMotor = $Raiz
 $MotorRaiz = Join-Path $RepoMotor 'engine'
 Set-Location $Raiz
 

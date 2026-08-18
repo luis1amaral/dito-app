@@ -1,0 +1,1210 @@
+# Portuguese translations for dito package.
+# Copyright (C) 2026 THE dito'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the dito package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: dito\n"
+"Report-Msgid-Bugs-To: lluispaulop@gmail.com\n"
+"POT-Creation-Date: 2026-08-16 15:50-0300\n"
+"PO-Revision-Date: 2026-08-15 23:06-0300\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: src/dito/ui/settings_page.py:191 src/dito/ui/settings_page.py:281
+msgid " min"
+msgstr " min"
+
+#: src/dito/audio/devices.py:20
+msgid "(default)"
+msgstr "(padrão)"
+
+#: src/dito/ui/settings_page.py:279
+msgid "0 keeps the model loaded. During a meeting it is never freed"
+msgstr "0 mantém o modelo carregado. Durante uma reunião ele nunca é liberado"
+
+#: src/dito/bootstrap.py:262
+msgid ""
+"A few components are missing that Debian does not package.\n"
+"About 50 MB, once."
+msgstr ""
+"Faltam alguns componentes que o Debian não empacota.\n"
+"Cerca de 50 MB, uma vez só."
+
+#: src/dito/bootstrap.py:258
+msgid "A few components are missing that Debian does not package. About 1.5 GB to download and 2.5 GB on disk, once — most of it is what puts transcription on your NVIDIA card instead of the CPU."
+msgstr "Faltam alguns componentes que o Debian não empacota. Cerca de 1,5 GB para baixar e 2,5 GB em disco, uma vez só — a maior parte é o que leva a transcrição para a sua placa NVIDIA em vez da CPU."
+
+#: src/dito/ui/settings_page.py:286
+msgid "A meeting records until you stop it — there is no time limit. Dito does not summarise: the note comes out with the transcript and empty sections to fill in."
+msgstr "A reunião grava até você mandar parar — não há limite de tempo. O Dito não resume: a nota sai com a transcrição e as seções prontas para preencher."
+
+#: src/dito/cli.py:226
+msgid "AUDIO TOO LOW"
+msgstr "ÁUDIO MUITO BAIXO"
+
+#: src/dito/bootstrap.py:301
+msgid "All set. Opening Dito…"
+msgstr "Tudo pronto. Abrindo o Dito…"
+
+#: src/dito/ui/settings_page.py:302
+msgid "Appearance"
+msgstr "Aparência"
+
+#: src/dito/ui/overlay.py:221
+msgid "Audio is very low"
+msgstr "Áudio muito baixo"
+
+#: src/dito/ui/settings_page.py:300
+msgid "Choose…"
+msgstr "Escolher…"
+
+#: src/dito/bootstrap.py:279 src/dito/bootstrap.py:307
+msgid "Close"
+msgstr "Fechar"
+
+#: src/dito/app.py:531
+msgid "Copied"
+msgstr "Copiado"
+
+#: src/dito/ui/tray.py:100
+msgid "Copy the last text"
+msgstr "Copiar o último texto"
+
+#: src/dito/app.py:370
+msgid "Could not paste"
+msgstr "Não deu para colar"
+
+#: src/dito/cli.py:357
+msgid "Ctrl+C exits."
+msgstr "Ctrl+C encerra."
+
+#: src/dito/ui/settings_page.py:43
+msgid "Dark"
+msgstr "Escuro"
+
+#: src/dito/ui/settings_page.py:253
+msgid "Dictate (hold)"
+msgstr "Ditar (segurar)"
+
+#: src/dito/ui/review.py:124
+msgid "Discard"
+msgstr "Descartar"
+
+#: src/dito/app.py:515
+msgid "Discarded"
+msgstr "Descartado"
+
+#: src/dito/cli.py:409
+#, python-brace-format
+msgid "Dito {version} is the newest there is."
+msgstr ""
+
+#: src/dito/app.py:401
+msgid "Dito — NO AUDIO"
+msgstr "Dito — SEM ÁUDIO"
+
+#: src/dito/cli.py:44
+msgid "Dito — diagnosis"
+msgstr "Dito — diagnóstico"
+
+#: src/dito/ui/tray.py:130
+#, python-brace-format
+msgid "Dito — hold {dictate} to dictate, {meeting} for a meeting"
+msgstr "Dito — segure {dictate} para ditar, {meeting} para reunião"
+
+#: src/dito/app.py:427
+msgid "Dito — nothing was picked up"
+msgstr "Dito — nada foi captado"
+
+#: src/dito/app.py:197
+msgid "Dito — now using your graphics card"
+msgstr "Dito — agora usando a sua placa de vídeo"
+
+#: src/dito/app.py:478 src/dito/app.py:485
+msgid "Dito — saved in Obsidian"
+msgstr "Dito — guardado no Obsidian"
+
+#: src/dito/app.py:378
+msgid "Fix"
+msgstr "Corrigir"
+
+#: src/dito/ui/settings_page.py:41 src/dito/ui/settings_page.py:48
+msgid "Follow the system"
+msgstr "Seguir o sistema"
+
+#: src/dito/ui/settings_page.py:278
+msgid "Free the memory after"
+msgstr "Liberar a memória depois de"
+
+#: src/dito/bootstrap.py:189
+msgid "GPU acceleration is already being set up."
+msgstr "A aceleração por GPU já está sendo instalada."
+
+#: src/dito/bootstrap.py:191 src/dito/bootstrap.py:194
+msgid "GPU acceleration unavailable — Dito will use the CPU."
+msgstr "Aceleração por GPU indisponível — o Dito vai usar a CPU."
+
+#: src/dito/update.py:116
+msgid "GitHub answered something that is not a release"
+msgstr ""
+
+#: src/dito/ui/settings_page.py:263
+msgid "Input"
+msgstr "Entrada"
+
+#: src/dito/ui/review.py:123
+msgid "Keep in Obsidian"
+msgstr "Guardar no Obsidian"
+
+#: src/dito/ui/settings_page.py:305
+msgid "Language"
+msgstr "Idioma"
+
+#: src/dito/ui/settings_page.py:42
+msgid "Light"
+msgstr "Claro"
+
+#: src/dito/ui/overlay.py:219 src/dito/ui/settings_page.py:284
+msgid "Meeting"
+msgstr "Reunião"
+
+#: src/dito/ui/settings_page.py:255
+msgid "Meeting (toggle)"
+msgstr "Reunião (alternar)"
+
+#: src/dito/ui/settings_page.py:261
+msgid "Microphone"
+msgstr "Microfone"
+
+#: src/dito/ui/settings_page.py:272
+msgid "Model"
+msgstr "Modelo"
+
+#: src/dito/ui/overlay.py:222 src/dito/ui/tray.py:112
+msgid "NO AUDIO"
+msgstr "SEM ÁUDIO"
+
+#: src/dito/cli.py:227
+msgid "NO AUDIO — the microphone is not picking up"
+msgstr "SEM ÁUDIO — o microfone não está captando"
+
+#: src/dito/cli.py:289
+#, python-brace-format
+msgid "NO AUDIO — {reason}"
+msgstr "SEM ÁUDIO — {reason}"
+
+#: src/dito/bootstrap.py:182
+msgid "Not enough free disk space for GPU acceleration — Dito will use the CPU."
+msgstr "Espaço em disco insuficiente para a aceleração por GPU — o Dito vai usar a CPU."
+
+#: src/dito/app.py:434
+msgid "Nothing recognized"
+msgstr "Nada reconhecido"
+
+#: src/dito/ui/window.py:168
+msgid ""
+"Nothing recorded yet.\n"
+"Hold the dictation key and speak — the text appears wherever the cursor is."
+msgstr ""
+"Nada gravado ainda.\n"
+"Segure a tecla de ditado e fale — o texto aparece onde o cursor estiver."
+
+#: src/dito/ui/settings_page.py:291
+msgid "Obsidian vault"
+msgstr "Cofre do Obsidian"
+
+#: src/dito/cli.py:438
+msgid "Offline voice dictation."
+msgstr "Ditado por voz offline."
+
+#: src/dito/ui/settings_page.py:297
+msgid "Only the text is kept. The audio is deleted as soon as it is transcribed."
+msgstr "Só o texto fica guardado. O áudio é apagado assim que é transcrito."
+
+#: src/dito/ui/tray.py:99
+msgid "Open Dito"
+msgstr "Abrir o Dito"
+
+#: src/dito/ui/window.py:122
+msgid "Open folder"
+msgstr "Abrir pasta"
+
+#: src/dito/ui/window.py:152
+msgid "Open the folder"
+msgstr "Abrir a pasta"
+
+#: src/dito/ui/settings_page.py:275
+msgid "Paste the text where the cursor is"
+msgstr "Colar o texto onde o cursor estiver"
+
+#: src/dito/ui/tray.py:101
+msgid "Pause dictation"
+msgstr "Pausar o ditado"
+
+#: src/dito/ui/settings_page.py:267
+msgid "Play a sound when the microphone stops picking up"
+msgstr "Tocar um som quando o microfone parar de captar"
+
+#: src/dito/ui/settings_page.py:276
+msgid "Press Enter after pasting"
+msgstr "Dar Enter depois de colar"
+
+#: src/dito/ui/tray.py:102
+msgid "Quit"
+msgstr "Sair"
+
+#: src/dito/ui/review.py:121
+msgid "Ready — edit it or send it"
+msgstr "Pronto — edite ou envie"
+
+#: src/dito/ui/overlay.py:219
+msgid "Recording"
+msgstr "Gravando"
+
+#: src/dito/ui/window.py:156
+msgid "Refresh"
+msgstr "Atualizar"
+
+#: src/dito/app.py:484
+msgid "Saved in Obsidian"
+msgstr "Guardado no Obsidian"
+
+#: src/dito/app.py:477
+msgid "Saved in Obsidian, with a caveat"
+msgstr "Guardado no Obsidian, com uma ressalva"
+
+#: src/dito/ui/review.py:125
+msgid "Send"
+msgstr "Enviar"
+
+#: src/dito/bootstrap.py:247 src/dito/bootstrap.py:253
+msgid "Setting up Dito"
+msgstr "Preparando o Dito"
+
+#: src/dito/ui/window.py:255
+msgid "Settings"
+msgstr "Configuração"
+
+#: src/dito/ui/settings_page.py:252
+msgid "Shortcuts"
+msgstr "Atalhos"
+
+#: src/dito/ui/settings_page.py:268
+msgid "Show a system notification as well"
+msgstr "Mostrar notificação do sistema junto"
+
+#: src/dito/ui/keycapture.py:42
+msgid "Space"
+msgstr "Espaço"
+
+#: src/dito/ui/settings_page.py:258
+msgid "Swallow the key"
+msgstr "Consumir a tecla"
+
+#: src/dito/ui/settings_page.py:54
+msgid "System default"
+msgstr "Padrão do sistema"
+
+#: src/dito/ui/settings_page.py:303
+msgid "Theme"
+msgstr "Tema"
+
+#: src/dito/ui/overlay.py:223
+msgid "Transcribing…"
+msgstr "Transcrevendo…"
+
+#: src/dito/ui/settings_page.py:270
+msgid "Transcription"
+msgstr "Transcrição"
+
+#: src/dito/app.py:198
+msgid "Transcription moved off the CPU."
+msgstr "A transcrição saiu da CPU."
+
+#: src/dito/ui/window.py:244
+msgid "Transcriptions"
+msgstr "Transcrições"
+
+#: src/dito/ui/settings_page.py:299 src/dito/ui/settings_page.py:364
+msgid "Transcripts folder"
+msgstr "Pasta das transcrições"
+
+#: src/dito/app.py:526
+msgid "Tried to unmute"
+msgstr "Tentei desmutar"
+
+#: src/dito/bootstrap.py:278 src/dito/bootstrap.py:306
+msgid "Try again"
+msgstr "Tentar de novo"
+
+#: src/dito/ui/settings_page.py:296
+msgid "Where the files go"
+msgstr "Onde ficam os arquivos"
+
+#: src/dito/cli.py:78
+msgid "YES"
+msgstr "SIM"
+
+#: src/dito/cli.py:200
+msgid "alarm at"
+msgstr "alarme em"
+
+#: src/dito/cli.py:120
+msgid "all set."
+msgstr "tudo pronto."
+
+#: src/dito/cli.py:225
+msgid "audio is back"
+msgstr "áudio voltou"
+
+#: src/dito/cli.py:71
+msgid "audio server"
+msgstr "servidor de áudio"
+
+#: src/dito/app.py:382
+msgid "audio too low"
+msgstr "áudio muito baixo"
+
+#: src/dito/ui/settings_page.py:32
+msgid "base"
+msgstr "base"
+
+#: src/dito/cli.py:197
+msgid "blocks"
+msgstr "blocos"
+
+#: src/dito/cli.py:111
+#, python-brace-format
+msgid "cached ({size} MB)"
+msgstr "em cache ({size} MB)"
+
+#: src/dito/cli.py:78 src/dito/cli.py:81
+msgid "can't tell"
+msgstr "não sei"
+
+#: src/dito/platform/mixer.py:37
+#, python-brace-format
+msgid "capture is switched OFF in the hardware (amixer «{control}»)"
+msgstr "a captura está DESLIGADA no hardware (amixer «{control}»)"
+
+#: src/dito/cli.py:98
+#, python-brace-format
+msgid "card {card} — {controls}"
+msgstr "card {card} — {controls}"
+
+#: src/dito/ui/settings_page.py:272
+msgid "changing the model downloads it on first use"
+msgstr "trocar de modelo baixa os arquivos no primeiro uso"
+
+#: src/dito/cli.py:443
+msgid "checks microphone, mute, volume, model and configuration"
+msgstr "checa microfone, mute, volume, modelo e configuração"
+
+#: src/dito/cli.py:433
+msgid "checksum matches. The installer is taking over; Dito will close."
+msgstr ""
+
+#: src/dito/core/session.py:59
+msgid "choose «System default» under Settings › Audio"
+msgstr "escolha «Padrão do sistema» em Configuração › Microfone"
+
+#: src/dito/cli.py:46
+msgid "configuration"
+msgstr "configuração"
+
+#: src/dito/cli.py:66
+msgid "configured"
+msgstr "configurado"
+
+#: src/dito/cli.py:90
+msgid "could not be checked"
+msgstr "não foi possível checar"
+
+#: src/dito/bootstrap.py:116
+msgid "could not create the environment"
+msgstr "não consegui criar o ambiente"
+
+#: src/dito/output/notes.py:86
+#, python-brace-format
+msgid "could not create {folder}: {error}"
+msgstr "não consegui criar {folder}: {error}"
+
+#: src/dito/output/paste.py:30
+msgid "could not paste or copy — the text is saved in the session folder"
+msgstr "não consegui colar nem copiar — o texto está salvo na pasta da sessão"
+
+#: src/dito/output/paste.py:29
+msgid "could not paste — the text is on the clipboard"
+msgstr "não consegui colar — o texto está na área de transferência"
+
+#: src/dito/update.py:107
+#, python-brace-format
+msgid "could not reach GitHub: {error}"
+msgstr "não consegui alcançar o GitHub: {error}"
+
+#: src/dito/app.py:466
+#, python-brace-format
+msgid "could not save the meeting: {error}"
+msgstr "não consegui salvar a reunião: {error}"
+
+#: src/dito/app.py:287
+#, python-brace-format
+msgid "could not start recording: {error}"
+msgstr "não consegui começar a gravar: {error}"
+
+#: src/dito/update.py:215
+#, python-brace-format
+msgid "could not start the installer: {error}"
+msgstr "não consegui iniciar o instalador: {error}"
+
+#: src/dito/platform/windows/instance.py:55
+msgid "could not take the single-instance lock"
+msgstr "não consegui obter a trava de instância única"
+
+#: src/dito/output/notes.py:69
+#, python-brace-format
+msgid "could not write in {folder}: {error}"
+msgstr "não consegui escrever em {folder}: {error}"
+
+#: src/dito/core/publish.py:55
+#, python-brace-format
+msgid "could not write the note: {error}"
+msgstr "não consegui escrever a nota: {error}"
+
+#: src/dito/bootstrap.py:96
+msgid "creating the environment…"
+msgstr "criando o ambiente…"
+
+#: src/dito/cli.py:76
+msgid "default source"
+msgstr "fonte padrão"
+
+#: src/dito/ui/window.py:95
+msgid "dictation"
+msgstr "ditado"
+
+#: src/dito/platform/linux_x11/instance.py:31
+#: src/dito/platform/windows/instance.py:59
+msgid "dictation is already running — two instances would paste everything twice"
+msgstr "já existe um ditado rodando — duas instâncias colariam o texto duplicado"
+
+#: src/dito/app.py:85
+msgid "dictation is already running."
+msgstr "já existe um ditado rodando."
+
+#: src/dito/cli.py:52
+msgid "dictation key"
+msgstr "tecla de ditado"
+
+#: src/dito/cli.py:200
+msgid "did not fire"
+msgstr "não disparou"
+
+#: src/dito/bootstrap.py:104
+msgid "downloading the components…"
+msgstr "baixando os componentes…"
+
+#: src/dito/cli.py:425
+#, python-brace-format
+msgid "downloading {name}…"
+msgstr "baixando {name}…"
+
+#: src/dito/bootstrap.py:193
+msgid "enabling GPU acceleration…"
+msgstr "ativando a aceleração por GPU…"
+
+#: src/dito/ui/window.py:36
+msgid "failed"
+msgstr "falhou"
+
+#: src/dito/cli.py:48
+msgid "file"
+msgstr "arquivo"
+
+#: src/dito/cli.py:199
+msgid "final state"
+msgstr "estado final"
+
+#: src/dito/cli.py:365
+msgid "finished."
+msgstr "encerrado."
+
+#: src/dito/cli.py:93 src/dito/cli.py:292
+#, python-brace-format
+msgid "fix: {command}"
+msgstr "corrigir: {command}"
+
+#: src/dito/cli.py:90 src/dito/cli.py:92 src/dito/cli.py:97
+msgid "hardware gain"
+msgstr "ganho no hardware"
+
+#: src/dito/cli.py:198
+msgid "highest peak"
+msgstr "pico máximo"
+
+#: src/dito/ui/settings_page.py:253
+msgid "hold it, speak, let go"
+msgstr "segure, fale, solte"
+
+#: src/dito/cli.py:353
+#, python-brace-format
+msgid "hold {key} and speak; release to transcribe"
+msgstr "segure {key} e fale; solte para transcrever"
+
+#: src/dito/ui/settings_page.py:292
+msgid "if the folder does not exist Dito will NOT create it — the note stays in place"
+msgstr "se a pasta não existir, o Dito NÃO a cria — a nota fica na pasta da sessão"
+
+#: src/dito/cli.py:69
+msgid "in use"
+msgstr "em uso"
+
+#: src/dito/cli.py:63
+msgid "input"
+msgstr "entrada"
+
+#: src/dito/cli.py:59
+msgid "inputs"
+msgstr "entradas"
+
+#: src/dito/cli.py:475
+msgid "installs without a single window"
+msgstr ""
+
+#: src/dito/cli.py:190 src/dito/ui/window.py:35
+msgid "interrupted"
+msgstr "interrompido"
+
+#: src/dito/cli.py:392
+msgid "it was already stopped"
+msgstr "já estava parado"
+
+#: src/dito/ui/settings_page.py:258
+msgid "keeps it from reaching the text box underneath"
+msgstr "não deixa vazar para o campo de texto"
+
+#: src/dito/ui/settings_page.py:264
+msgid "kept by name, not by index: the index moves when a USB device comes or goes"
+msgstr "guardado pelo nome, não pelo índice: o índice muda quando um USB entra ou sai"
+
+#: src/dito/ui/settings_page.py:35
+msgid "large-v3 — the best, heavy"
+msgstr "large-v3 — o melhor, pesado"
+
+#: src/dito/cli.py:54
+msgid "library"
+msgstr "biblioteca"
+
+#: src/dito/app.py:585
+msgid "listening"
+msgstr "ouvindo"
+
+#: src/dito/cli.py:472
+msgid "looks for a new version and installs it"
+msgstr ""
+
+#: src/dito/ui/settings_page.py:34
+msgid "medium — better, ~3× slower on the CPU"
+msgstr "medium — melhor, ~3× mais lento na CPU"
+
+#: src/dito/ui/window.py:95
+msgid "meeting"
+msgstr "reunião"
+
+#: src/dito/cli.py:53
+msgid "meeting key"
+msgstr "tecla de reunião"
+
+#: src/dito/cli.py:56
+msgid "microphone"
+msgstr "microfone"
+
+#: src/dito/app.py:609
+msgid "microphone unavailable"
+msgstr "microfone indisponível"
+
+#: src/dito/cli.py:159 src/dito/core/session.py:141
+#, python-brace-format
+msgid "microphone unavailable: {error}"
+msgstr "microfone indisponível: {error}"
+
+#: src/dito/cli.py:73
+msgid "mixer"
+msgstr "mixer"
+
+#: src/dito/cli.py:100
+msgid "model"
+msgstr "modelo"
+
+#: src/dito/cli.py:78
+msgid "muted"
+msgstr "mudo"
+
+#: src/dito/cli.py:412
+#, python-brace-format
+msgid "new version: {version}"
+msgstr ""
+
+#: src/dito/cli.py:78
+msgid "no"
+msgstr "não"
+
+#: src/dito/cli.py:459
+msgid "no Qt: terminal only, to debug the chain without the interface"
+msgstr "sem Qt: só terminal, para depurar a cadeia sem a interface"
+
+#: src/dito/audio/devices.py:96
+msgid "no input found"
+msgstr "nenhuma entrada encontrada"
+
+#: src/dito/cli.py:59
+msgid "none found"
+msgstr "nenhuma encontrada"
+
+#: src/dito/cli.py:113
+msgid "not downloaded — downloads on first use"
+msgstr "não baixado — baixa no primeiro uso"
+
+#: src/dito/stt/engine.py:80
+msgid "not loaded"
+msgstr "não carregado"
+
+#: src/dito/app.py:481
+msgid "note in the vault"
+msgstr "nota no cofre"
+
+#: src/dito/app.py:482
+msgid "note next to the recording"
+msgstr "nota junto da gravação"
+
+#: src/dito/cli.py:328
+msgid "nothing recognized"
+msgstr "nada reconhecido"
+
+#: src/dito/cli.py:327
+msgid "nothing recognized — and the microphone picked nothing up"
+msgstr "nada reconhecido — e o microfone não captou nada"
+
+#: src/dito/cli.py:462
+msgid "only prints, does not paste"
+msgstr "só imprime, não cola"
+
+#: src/dito/cli.py:473
+msgid "only says what exists, downloads nothing"
+msgstr ""
+
+#: src/dito/cli.py:454
+msgid "opens the Dito window"
+msgstr "abre a janela do Dito"
+
+#: src/dito/cli.py:460
+msgid "overrides the dictation key (e.g. f7)"
+msgstr "sobrepõe a tecla de ditado (ex.: f7)"
+
+#: src/dito/cli.py:461
+msgid "overrides the meeting key"
+msgstr "sobrepõe a tecla de reunião"
+
+#: src/dito/cli.py:463
+msgid "pastes without pressing Enter"
+msgstr "cola sem dar Enter"
+
+#: src/dito/app.py:585 src/dito/ui/tray.py:113
+msgid "paused"
+msgstr "pausado"
+
+#: src/dito/bootstrap.py:112
+msgid "pip failed without saying why"
+msgstr "o pip falhou sem dizer por quê"
+
+#: src/dito/ui/keycapture.py:95
+msgid "press a key…"
+msgstr "pressione uma tecla…"
+
+#: src/dito/ui/settings_page.py:255
+msgid "press to start, press again to stop"
+msgstr "aperta para começar, aperta para parar"
+
+#: src/dito/bootstrap.py:127 src/dito/bootstrap.py:219 src/dito/ui/tray.py:108
+#: src/dito/ui/window.py:34
+msgid "ready"
+msgstr "pronto"
+
+#: src/dito/cli.py:352
+msgid "ready."
+msgstr "pronto."
+
+#: src/dito/ui/tray.py:109
+msgid "recording"
+msgstr "gravando"
+
+#: src/dito/core/publish.py:24
+msgid "recording saved"
+msgstr "gravação guardada"
+
+#: src/dito/ui/tray.py:110
+msgid "recording the meeting"
+msgstr "gravando reunião"
+
+#: src/dito/cli.py:150
+#, python-brace-format
+msgid "recording to {path}"
+msgstr "gravando em {path}"
+
+#: src/dito/cli.py:447
+msgid "records a few seconds and proves the audio alarm"
+msgstr "grava alguns segundos e prova o alarme de áudio"
+
+#: src/dito/update.py:156
+#, python-brace-format
+msgid "release {tag} carries no Windows installer"
+msgstr ""
+
+#: src/dito/update.py:163
+#, python-brace-format
+msgid "release {tag} publishes no checksum — refusing to run it"
+msgstr ""
+
+#: src/dito/cli.py:196
+msgid "result"
+msgstr "resultado"
+
+#: src/dito/cli.py:417
+msgid "run «dito update» to install it"
+msgstr ""
+
+#: src/dito/app.py:440
+msgid "saving the recording…"
+msgstr "salvando a gravação…"
+
+#: src/dito/cli.py:466
+msgid "says whether dictation is listening, right now"
+msgstr "diz se o ditado está ouvindo, na hora"
+
+#: src/dito/cli.py:148
+#, python-brace-format
+msgid "selftest — source «{source}», {seconds}s"
+msgstr "selftest — fonte «{source}», {seconds}s"
+
+#: src/dito/ui/window.py:266
+msgid "settings saved"
+msgstr "configuração salva"
+
+#: src/dito/cli.py:469
+msgid "shuts down the dictation that is running"
+msgstr "encerra o ditado que está rodando"
+
+#: src/dito/cli.py:92
+msgid "silent"
+msgstr "silencioso"
+
+#: src/dito/ui/settings_page.py:33
+msgid "small — the balance (default)"
+msgstr "small — equilíbrio (padrão)"
+
+#: src/dito/app.py:526
+msgid "speak again to check"
+msgstr "fale de novo para conferir"
+
+#: src/dito/cli.py:457
+msgid "starts dictation in the tray, with no window"
+msgstr "sobe o ditado na bandeja, sem abrir janela"
+
+#: src/dito/cli.py:382
+msgid "stopped"
+msgstr "parado"
+
+#: src/dito/cli.py:394
+msgid "stopped."
+msgstr "parado."
+
+#: src/dito/ui/keycapture.py:133
+msgid "that key cannot be a global shortcut — use F1–F12, Scroll Lock, Pause, Insert or Space"
+msgstr "essa tecla não serve como atalho global — use F1–F12, Scroll Lock, Pause, Insert ou Espaço"
+
+#: src/dito/ui/settings_page.py:313
+msgid "that key is already the dictation one"
+msgstr "essa tecla já é a de ditar"
+
+#: src/dito/ui/settings_page.py:315
+msgid "that key is already the meeting one"
+msgstr "essa tecla já é a de reunião"
+
+#: src/dito/cli.py:302
+#, python-brace-format
+msgid "the audio is in {folder}"
+msgstr "o áudio está em {folder}"
+
+#: src/dito/core/session.py:312
+msgid "the audio is too low"
+msgstr "o áudio está muito baixo"
+
+#: src/dito/cli.py:330
+#, python-brace-format
+msgid "the audio was kept in {folder}"
+msgstr "o áudio ficou guardado em {folder}"
+
+#: src/dito/update.py:191
+msgid "the checksum does not match — the download was discarded"
+msgstr ""
+
+#: src/dito/update.py:183
+msgid "the download is far bigger than an installer — stopped"
+msgstr ""
+
+#: src/dito/bootstrap.py:121
+msgid "the environment was created but the components do not load"
+msgstr "o ambiente foi criado mas os componentes não carregam"
+
+#: src/dito/platform/mixer.py:40
+msgid "the hardware capture gain is at 0%"
+msgstr "o ganho de captura do hardware está em 0%"
+
+#: src/dito/platform/source_health.py:28
+#, python-brace-format
+msgid "the input volume is at {pct}%"
+msgstr "o volume de entrada está em {pct}%"
+
+#: src/dito/app.py:428
+#, python-brace-format
+msgid "the microphone delivered no audio. The recording is in {folder}"
+msgstr "o microfone não entregou áudio. A gravação está em {folder}"
+
+#: src/dito/platform/source_health.py:26
+msgid "the microphone is muted in the system"
+msgstr "o microfone está mudo no sistema"
+
+#: src/dito/app.py:402 src/dito/core/session.py:310 src/dito/ui/overlay.py:215
+#: src/dito/ui/overlay.py:267
+msgid "the microphone is not picking anything up"
+msgstr "o microfone não está captando nada"
+
+#: src/dito/app.py:379
+msgid "the microphone is not picking up"
+msgstr "o microfone não está captando"
+
+#: src/dito/core/session.py:273
+#, python-brace-format
+msgid "the microphone reported an error: {error}"
+msgstr "o microfone reportou um erro: {error}"
+
+#: src/dito/core/session.py:309
+msgid "the microphone stopped responding — the device may have dropped"
+msgstr "o microfone parou de responder — o dispositivo pode ter caído"
+
+#: src/dito/core/session.py:56
+#, python-brace-format
+msgid "the microphone «{device}» does not record at {rate} Hz"
+msgstr "o microfone «{device}» não grava a {rate} Hz"
+
+#: src/dito/core/session.py:48
+#, python-brace-format
+msgid "the microphone «{device}» is not connected"
+msgstr "o microfone «{device}» não está conectado"
+
+#: src/dito/ui/settings_page.py:354
+msgid "the rest of the window changes language next time it opens"
+msgstr "o resto da janela muda de idioma na próxima vez que abrir"
+
+#: src/dito/core/session.py:181
+#, python-brace-format
+msgid "the transcription failed: {error}"
+msgstr "a transcrição falhou: {error}"
+
+#: src/dito/output/notes.py:79
+#, python-brace-format
+msgid "the vault {vault} does not exist — the note stayed next to the recording"
+msgstr "o cofre {vault} não existe — a nota ficou junto da gravação"
+
+#: src/dito/cli.py:421
+msgid "this Dito did not come from the installer — update it the same way you installed it"
+msgstr ""
+
+#: src/dito/ui/settings_page.py:31
+msgid "tiny — the fastest, gets more wrong"
+msgstr "tiny — o mais rápido, erra mais"
+
+#: src/dito/ui/window.py:67
+#, python-brace-format
+msgid "today, {time}"
+msgstr "hoje, {time}"
+
+#: src/dito/cli.py:322 src/dito/ui/tray.py:111
+msgid "transcribing…"
+msgstr "transcrevendo…"
+
+#: src/dito/ui/window.py:37
+msgid "transcription failed"
+msgstr "transcrição falhou"
+
+#: src/dito/cli.py:73
+msgid "unavailable — no mute detection"
+msgstr "indisponível — sem detecção de mute"
+
+#: src/dito/cli.py:76 src/dito/ui/window.py:38
+msgid "unknown"
+msgstr "desconhecido"
+
+#: src/dito/ui/window.py:64
+msgid "unknown date"
+msgstr "data desconhecida"
+
+#: src/dito/core/session.py:64
+msgid "unmute"
+msgstr "desmutar"
+
+#: src/dito/ui/window.py:233
+msgid "voice dictation, offline"
+msgstr "ditado por voz, offline"
+
+#: src/dito/cli.py:81
+msgid "volume"
+msgstr "volume"
+
+#: src/dito/core/session.py:299
+#, python-brace-format
+msgid "writing to disk failed: {error}"
+msgstr "falha ao gravar em disco: {error}"
+
+#: src/dito/ui/window.py:70
+#, python-brace-format
+msgid "yesterday, {time}"
+msgstr "ontem, {time}"
+
+#: src/dito/cli.py:117
+#, python-brace-format
+msgid "{count} problem(s) preventing or hurting dictation."
+msgstr "{count} problema(s) que impedem ou prejudicam o ditado."
+
+#: src/dito/ui/window.py:194
+#, python-brace-format
+msgid "{count} recordings"
+msgstr "{count} gravações"
+
+#: src/dito/ui/window.py:196
+#, python-brace-format
+msgid "{count} to recover"
+msgstr "{count} para recuperar"
+
+#: src/dito/ui/window.py:72
+#, python-brace-format
+msgid "{days} days ago, {time}"
+msgstr "{days} dias atrás, {time}"
+
+#: src/dito/ui/settings_page.py:59
+#, python-brace-format
+msgid "{device} — does not record at 16 kHz"
+msgstr "{device} — não grava a 16 kHz"
+
+#: src/dito/cli.py:355
+#, python-brace-format
+msgid "{key} starts and stops the meeting (no time limit)"
+msgstr "{key} liga e desliga a reunião (sem limite de tempo)"
+
+#: src/dito/app.py:360
+#, python-brace-format
+msgid "{minutes} min transcribed"
+msgstr "{minutes} min transcritos"
+
+#: src/dito/app.py:473
+#, python-brace-format
+msgid "{minutes} min · {words} words"
+msgstr "{minutes} min · {words} palavras"
+
+#: src/dito/cli.py:50
+#, python-brace-format
+msgid "{path} (does not exist yet)"
+msgstr "{path} (ainda não existe)"
+
+#: src/dito/app.py:587
+#, python-brace-format
+msgid "{state} · {dictation_key} hold to dictate, {meeting_key} press to dictate · model {model} ({backend})"
+msgstr "{state} · segure {dictation_key} para ditar, aperte {meeting_key} para ditar · modelo {model} ({backend})"
+
+#: src/dito/cli.py:450
+msgid "«zeros» simulates a muted microphone with no microphone needed"
+msgstr "«zeros» simula o microfone mudo sem precisar de microfone"
+
+#: src/dito/audio/devices.py:92
+#, python-brace-format
+msgid "«{device}» is not connected"
+msgstr "«{device}» não está conectado"
+
+#: src/dito/ui/window.py:130
+msgid "— no text —"
+msgstr "— sem texto —"
+
+#: src/dito/ui/review.py:122
+msgid "⏎ sends · Tab discards"
+msgstr "⏎ envia · Tab descarta"
+
+#: src/dito/platform/windows/cuda_pack.py:88
+#, python-brace-format
+msgid "could not reach PyPI: {error}"
+msgstr "não consegui alcançar o PyPI: {error}"
+
+#: src/dito/platform/windows/cuda_pack.py:97
+msgid "PyPI answered something that is not an index"
+msgstr "o PyPI respondeu algo que não é um índice"
+
+#: src/dito/platform/windows/cuda_pack.py:102
+#, python-brace-format
+msgid "PyPI has no Windows build of {package} {major}.x"
+msgstr "o PyPI não tem versão de Windows do {package} {major}.x"
+
+#: src/dito/platform/windows/cuda_pack.py:129
+msgid "the download is far bigger than the wheel — stopped"
+msgstr "o download está muito maior que o pacote — parei"
+
+#: src/dito/platform/windows/cuda_pack.py:152
+msgid "the wheel names a file outside the folder — stopped"
+msgstr "o pacote aponta um arquivo fora da pasta — parei"
+
+#: src/dito/platform/windows/cuda_pack.py:160
+msgid "the wheel carries no DLL — nothing was installed"
+msgstr "o pacote não traz nenhuma DLL — nada foi instalado"
+
+#: src/dito/platform/windows/cuda_pack.py:199
+msgid "asking PyPI which build to take…"
+msgstr "perguntando ao PyPI qual versão pegar…"
+
+#: src/dito/platform/windows/cuda_pack.py:211
+#, python-brace-format
+msgid "unpacking {name}…"
+msgstr "descompactando {name}…"
+
+#: src/dito/platform/windows/cuda_pack.py:219
+msgid "the libraries were installed but do not load — Dito will use the CPU"
+msgstr "as bibliotecas foram instaladas mas não carregam — o Dito vai usar a CPU"
+
+#: src/dito/gpu_setup.py:36
+msgid "this command is for Windows; on Linux the packages come from apt"
+msgstr "este comando é do Windows; no Linux os pacotes vêm do apt"
+
+#: src/dito/gpu_setup.py:38
+msgid "GPU acceleration is already installed."
+msgstr "a aceleração por placa de vídeo já está instalada."
+
+#: src/dito/gpu_setup.py:41
+msgid "No NVIDIA card found — nothing was downloaded. Dito will use the processor."
+msgstr "Nenhuma placa NVIDIA encontrada — nada foi baixado. O Dito vai usar o processador."
+
+#: src/dito/gpu_setup.py:48
+msgid "GPU acceleration removed."
+msgstr "aceleração por placa de vídeo removida."
+
+#: src/dito/gpu_setup.py:48
+msgid "there was nothing to remove"
+msgstr "não havia nada para remover"
+
+#: src/dito/gpu_setup.py:53
+#, python-brace-format
+msgid "GPU acceleration is installed: {path}"
+msgstr "a aceleração por placa de vídeo está instalada: {path}"
+
+#: src/dito/gpu_setup.py:55
+msgid "GPU acceleration is not installed. Run «dito gpu --install»."
+msgstr "a aceleração por placa de vídeo não está instalada. Rode «dito gpu --install»."
+
+#: src/dito/gpu_setup.py:86 src/dito/gpu_setup.py:134
+msgid "GPU acceleration"
+msgstr "Aceleração por placa de vídeo"
+
+#: src/dito/gpu_setup.py:148
+msgid "Enabling GPU acceleration"
+msgstr "Ligando a aceleração por placa de vídeo"
+
+#: src/dito/gpu_setup.py:153
+msgid "Downloading the NVIDIA libraries that put transcription on the graphics card instead of the processor — about 1.3 GB, once. Dito works either way; this only makes it roughly three times faster."
+msgstr "Baixando as bibliotecas da NVIDIA que põem a transcrição na placa de vídeo em vez do processador — cerca de 1,3 GB, uma vez só. O Dito funciona dos dois jeitos; isto só o deixa umas três vezes mais rápido."
+
+#: src/dito/gpu_setup.py:193
+#, python-brace-format
+msgid "{done} MB of {total} MB"
+msgstr "{done} MB de {total} MB"
+
+#: src/dito/gpu_setup.py:208
+msgid "All set. Dictation will run on the graphics card."
+msgstr "Pronto. O ditado vai rodar na placa de vídeo."
+
+#: src/dito/cli.py:485
+msgid "GPU acceleration: says how it is, downloads it, drops it"
+msgstr "aceleração por placa de vídeo: diz como está, baixa, remove"
+
+#: src/dito/cli.py:487
+msgid "downloads the NVIDIA libraries (~1.3 GB) and unpacks them"
+msgstr "baixa as bibliotecas da NVIDIA (~1,3 GB) e as descompacta"
+
+#: src/dito/cli.py:489
+msgid "shows the progress in a window instead of the terminal"
+msgstr "mostra o progresso numa janela em vez do terminal"
+
+#: src/dito/cli.py:491
+msgid "downloads even with no NVIDIA card detected"
+msgstr "baixa mesmo sem detectar placa NVIDIA"
+
+#: src/dito/cli.py:493
+msgid "deletes the downloaded libraries and gives the 1.9 GB back"
+msgstr "apaga as bibliotecas baixadas e devolve os 1,9 GB"
+
+#, python-brace-format
+msgid "the «{model}» model is still downloading — try again in a moment"
+msgstr "o modelo «{model}» ainda está baixando — tente de novo daqui a pouco"
+
+#, python-brace-format
+msgid "the «{model}» model did not load. Pick another one in Settings, or delete it from the cache so it downloads again."
+msgstr "o modelo «{model}» não carregou. Escolha outro nas Configurações, ou apague-o do cache para ele baixar de novo."
+
+msgid "Check for updates"
+msgstr "Verificar atualização"
+
+#, python-brace-format
+msgid "version {version} is out — run «dito update» to install it"
+msgstr "a versão {version} saiu — rode «dito update» para instalar"
+
+msgid "Updates"
+msgstr "Atualizações"
+
+#, python-brace-format
+msgid "You have Dito {version}."
+msgstr "Você tem o Dito {version}."
+
+#~ msgid "could not download the components."
+#~ msgstr "não consegui baixar os componentes."
+
+#~ msgid "warning"
+#~ msgstr "aviso"
+
+#, fuzzy
+#~ msgid "Dito found an NVIDIA card. Moving transcription onto it needs about 1.5 GB of libraries, downloaded once. Without them Dito keeps working on the CPU."
+#~ msgstr ""
+#~ "O Dito encontrou uma placa NVIDIA. Levar a transcrição para ela precisa de cerca de 1,5 GB de bibliotecas, baixadas uma vez só. Sem elas o Dito segue na CPU.O Dito encontrou uma placa NVIDIA. Levar a transcrição para ela precisa de cerca\n"
+#~ "de 1,5 GB de bibliotecas, baixadas uma vez só. Sem elas o Dito segue na CPU."
+
+#~ msgid "Enable"
+#~ msgstr "Ativar"
+
+#~ msgid "Not now"
+#~ msgstr "Agora não"
+
+#~ msgid "nothing was picked up — the audio is saved, you can try again"
+#~ msgstr "nada foi captado — o áudio está guardado, dá para tentar de novo"
+
+#~ msgid "Dito — meeting saved"
+#~ msgstr "Dito — reunião salva"
+
+#~ msgid "Meeting saved"
+#~ msgstr "Reunião salva"
+
+#~ msgid "meeting saved"
+#~ msgstr "reunião salva"
+
+#~ msgid "Meeting subject:"
+#~ msgstr "Assunto da reunião:"
