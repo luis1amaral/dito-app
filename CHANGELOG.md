@@ -4,6 +4,14 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.3: eliminação da área preta no topo do cartão de revisão (estilos WS_POPUP e sem moldura nativa)
+
+**Remoção de moldura e área preta parasita na janela de revisão.** A sub-janela do cartão de revisão (`ReviewWindow`) agora é instanciada com estilo `WS_POPUP` e `WS_EX_TOOLWINDOW | WS_EX_TOPMOST` em `desktop_multi_window` (em vez de herdar `WS_OVERLAPPEDWINDOW`), e `adoptAsPanel` no plugin Win32 garante a remoção de caption/bordas nativas (`WS_CAPTION`, `WS_THICKFRAME`). Isso alinha a área cliente do Flutter à área da janela pixel a pixel, eliminando o retângulo preto não-renderizado no topo do cartão.
+
+**Como foi verificado.** `flutter analyze` sem erros (0 issues), bateria de testes de interface e forma (`review_card_test.dart`, `hud_shape_test.dart`, `window_sizer_test.dart`) 100% aprovada.
+
+---
+
 ## 2026-08-18 — 1.2.2: refinamento visual do modal de atualização com tema escuro unificado e progresso ao vivo
 
 **Design unificado do modal de atualização.** Atualizado o diálogo de atualização (`showUpdateDialog`) e o banner (`UpdateBanner`) para adotar a superfície escura uniforme (`hudSurface` / tom grafite profundo), eliminando fundos cinza-claros desajustados. O modal agora possui contornos suaves em hairline, badge de versão destacado, caixa estilizada para notas de lançamento e barra de progresso em tempo real integrada.

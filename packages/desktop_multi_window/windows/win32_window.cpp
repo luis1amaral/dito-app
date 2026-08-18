@@ -149,8 +149,11 @@ bool Win32Window::Create(const std::wstring& title,
 
   // Fork: NOACTIVATE only works when set at creation — SetWindowLongPtr afterwards is too late,
   // because SetChildContent has already called SetFocus by then.
-  DWORD ex_style = focusable_ ? 0 : (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
-  DWORD style = focusable_ ? WS_OVERLAPPEDWINDOW : WS_POPUP;
+  // Both HUD and Review overlays are frameless popup windows (WS_POPUP). Review is focusable; HUD is not.
+  DWORD ex_style = focusable_
+      ? (WS_EX_TOOLWINDOW | WS_EX_TOPMOST)
+      : (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
+  DWORD style = WS_POPUP;
 
   HWND window = CreateWindowEx(
       ex_style, window_class, title.c_str(), style,
@@ -177,7 +180,8 @@ bool Win32Window::Show() {
                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
                             SWP_SHOWWINDOW);
   }
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  return SetWindowPos(window_handle_, HWND_TOPMOST, 0, 0, 0, 0,
+                      SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
 }
 
 // static

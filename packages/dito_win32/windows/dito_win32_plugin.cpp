@@ -317,6 +317,11 @@ void DitoWin32Plugin::HandleMethod(
     if (method == "window.adoptAsHud") ex |= WS_EX_NOACTIVATE;
     SetWindowLongPtr(hwnd, GWL_EXSTYLE, ex);
 
+    LONG_PTR st = GetWindowLongPtr(hwnd, GWL_STYLE);
+    st &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
+    st |= WS_POPUP;
+    SetWindowLongPtr(hwnd, GWL_STYLE, st);
+
     // No DWM alpha trick here: Flutter's release swapchain composes opaque, so blur-behind
     // rendered these windows fully invisible. Shape comes from SetWindowRgn instead.
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
