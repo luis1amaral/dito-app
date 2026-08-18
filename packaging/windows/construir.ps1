@@ -1,0 +1,137 @@
+# Monta o instalador do Dito para Windows, do zero e sem passo manual.
+#
+#   powershell -ExecutionPolicy Bypass -File packaging\windows\construir.ps1
+#
+# Passos: portao (analyze + test) -> build Flutter -> motor PyInstaller ->
+# copia o motor PARA DENTRO do bundle -> Inno Setup -> SHA256SUMS.txt
+#
+# O passo de copiar o motor e o que faltava: o .iss antigo declarava o bundle do motor
+# e nunca o usava, e o instalador so funcionava porque alguem copiava a pasta na mao.
+
+[CmdletBinding()]
+param(
+    [switch]$SemPortao,
+    [switch]$SoBundle,
+    [string]$Destino
+)
+
+$ErrorActionPreference = 'Stop'
+trap {
+    Write-Host ''
+    Write-Host "FALHOU: $_" -ForegroundColor Red
+    exit 1
+}
+
+$Raiz = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+$RepoMotor = Resolve-Path (Join-Path $Raiz '..\dito-app')
+$MotorRaiz = Join-Path $RepoMotor 'engine'
+Set-Location $Raiz
+
+function Etapa($texto) {
+    Write-Host ''
+    Write-Host "== $texto" -ForegroundColor Cyan
+}
+
+# --- versao: uma fonte so ---------------------------------------------------
+$pubspec = Get-Content (Join-Path $Raiz 'pubspec.yaml') -Raw
+if ($pubspec -notmatch '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)') {
+    throw 'nao achei a versao no pubspec.yaml'
+}
+$Versao = $Matches[1]
+Write-Host "Dito $Versao" -ForegroundColor Green
+
+# --- portao -----------------------------------------------------------------
+if (-not $SemPortao) {
+    Etapa 'Portao: analyze e test'
+    & flutter analyze
+    if ($LASTEXITCODE -ne 0) { throw 'flutter analyze reprovou' }
+    & flutter test
+    if ($LASTEXITCODE -ne 0) { throw 'flutter test reprovou' }
+}
+
+# --- app --------------------------------------------------------------------
+Etapa 'Compilando o app'
+& flutter build windows --release
+if ($LASTEXITCODE -ne 0) { throw 'flutter build reprovou' }
+
+$Bundle = Join-Path $Raiz 'build\windows\x64\runner\Release'
+if (-not (Test-Path (Join-Path $Bundle 'dito_app.exe'))) {
+    throw "o bundle nao tem dito_app.exe: $Bundle"
+}
+
+# --- motor ------------------------------------------------------------------
+Etapa 'Compilando o motor'
+# A venv fica na raiz do repositorio, nao dentro de engine/: venv movida quebra em silencio.
+$Venv = Join-Path $RepoMotor '.venv\Scripts\python.exe'
+if (-not (Test-Path $Venv)) { throw "sem venv do motor em $Venv" }
+
+$MotorDist = Join-Path $RepoMotor 'build\engine\dist\dito-engine'
+$MotorSpec = Join-Path $MotorRaiz 'packaging\engine.spec'
+
+Push-Location $MotorRaiz
+try {
+    & $Venv -m PyInstaller --noconfirm `
+        --distpath (Join-Path $RepoMotor 'build\engine\dist') `
+        --workpath (Join-Path $RepoMotor 'build\engine\work') `
+        $MotorSpec
+    if ($LASTEXITCODE -ne 0) { throw 'PyInstaller reprovou' }
+} finally {
+    Pop-Location
+}
+
+if (-not (Test-Path (Join-Path $MotorDist 'dito-engine.exe'))) {
+    throw "o motor nao foi gerado em $MotorDist"
+}
+
+# --- o passo que faltava ----------------------------------------------------
+Etapa 'Copiando o motor para dentro do bundle'
+$MotorNoBundle = Join-Path $Bundle 'dito-engine'
+if (Test-Path $MotorNoBundle) { Remove-Item $MotorNoBundle -Recurse -Force }
+Copy-Item $MotorDist $MotorNoBundle -Recurse
+
+$tamanho = [math]::Round((Get-ChildItem $Bundle -Recurse | Measure-Object Length -Sum).Sum / 1MB)
+Write-Host "bundle completo: $tamanho MB"
+
+if ($SoBundle) { exit 0 }
+
+# --- instalador -------------------------------------------------------------
+Etapa 'Gerando o instalador'
+$candidatos = @(
+    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+)
+$ISCC = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $ISCC) {
+    $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    if ($cmd) { $ISCC = $cmd.Source }
+}
+if (-not $ISCC) { throw 'Inno Setup 6 nao encontrado (ISCC.exe)' }
+
+& $ISCC "/DMyAppVersion=$Versao" (Join-Path $PSScriptRoot 'dito.iss')
+if ($LASTEXITCODE -ne 0) { throw 'Inno Setup reprovou' }
+
+$Instalador = Join-Path $Raiz "build\windows\installer\dito-$Versao-setup.exe"
+if (-not (Test-Path $Instalador)) { throw "o instalador nao apareceu em $Instalador" }
+
+# --- checksum ---------------------------------------------------------------
+# O updater recusa instalar sem hash publicado, entao isto nao e opcional.
+Etapa 'Calculando o SHA256'
+$hash = (Get-FileHash -Algorithm SHA256 $Instalador).Hash.ToLower()
+$nome = Split-Path $Instalador -Leaf
+$sums = Join-Path $Raiz 'build\windows\installer\SHA256SUMS.txt'
+"$hash  $nome" | Set-Content -Path $sums -Encoding ASCII
+
+$mb = [math]::Round((Get-Item $Instalador).Length / 1MB, 1)
+Write-Host ''
+Write-Host "instalador: $Instalador ($mb MB)" -ForegroundColor Green
+Write-Host "sha256: $hash"
+
+# --- entrega ----------------------------------------------------------------
+if ($Destino) {
+    Etapa "Copiando para $Destino"
+    New-Item -ItemType Directory -Force $Destino | Out-Null
+    Copy-Item $Instalador $Destino -Force
+    Copy-Item $sums $Destino -Force
+    Write-Host "pronto em $Destino" -ForegroundColor Green
+}

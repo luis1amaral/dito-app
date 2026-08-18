@@ -1,0 +1,431 @@
+{
+  "@@locale": "pt",
+  "appTitle": "Dito",
+  "@appTitle": {},
+  "appSubtitle": "Ditado por voz offline",
+  "@appSubtitle": {},
+  "tabHistory": "Histórico",
+  "@tabHistory": {},
+  "tabSettings": "Configurações",
+  "@tabSettings": {},
+  "statusReady": "Pronto",
+  "@statusReady": {},
+  "statusReadyHotkey": "Pronto ({hotkey} para ditar)",
+  "@statusReadyHotkey": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "statusRecordingDictation": "Gravando ditado...",
+  "@statusRecordingDictation": {},
+  "statusRecordingMeeting": "Gravando reunião...",
+  "@statusRecordingMeeting": {},
+  "statusTranscribing": "Transcrevendo...",
+  "@statusTranscribing": {},
+  "statusPaused": "Pausado",
+  "@statusPaused": {},
+  "statusNoAudio": "SEM ÁUDIO - {reason}",
+  "@statusNoAudio": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "dictatingDuration": "Ditando ({duration})",
+  "@dictatingDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "meetingDuration": "Reunião ({duration})",
+  "@meetingDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "btnDictate": "Ditar ({hotkey})",
+  "@btnDictate": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "btnStopDictate": "Parar Ditado",
+  "@btnStopDictate": {},
+  "btnMeeting": "Reunião ({hotkey})",
+  "@btnMeeting": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "btnStopMeeting": "Parar Reunião",
+  "@btnStopMeeting": {},
+  "btnListening": "Ouvindo...",
+  "@btnListening": {},
+  "historyEmptyTitle": "Nenhuma gravação recente",
+  "@historyEmptyTitle": {},
+  "historyEmptySubtitle": "Use os botões acima ou segure {hotkey} para ditar.",
+  "@historyEmptySubtitle": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "dictationLabel": "Ditado",
+  "@dictationLabel": {},
+  "meetingLabel": "Reunião",
+  "@meetingLabel": {},
+  "copyText": "Copiar texto",
+  "@copyText": {},
+  "textCopied": "Texto copiado para a área de transferência",
+  "@textCopied": {},
+  "deleteSession": "Apagar gravação",
+  "@deleteSession": {},
+  "noTranscriptionText": "(sem transcrição reconhecida)",
+  "@noTranscriptionText": {},
+  "formatTodayAt": "Hoje às {time}",
+  "@formatTodayAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "formatDateAt": "{date} às {time}",
+  "@formatDateAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "formatSeconds": "{sec}s",
+  "@formatSeconds": {
+    "placeholders": {
+      "sec": {
+        "type": "String"
+      }
+    }
+  },
+  "formatMinutesSeconds": "{min} min {sec}s",
+  "@formatMinutesSeconds": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "sec": {
+        "type": "int"
+      }
+    }
+  },
+  "sectionModel": "Modelo de Voz (Whisper)",
+  "@sectionModel": {},
+  "modelSize": "Tamanho do Modelo",
+  "@modelSize": {},
+  "modelSizeSubtitle": "Modelos maiores têm maior precisão, mas requerem mais memória.",
+  "@modelSizeSubtitle": {},
+  "transcriptionLanguage": "Idioma de Transcrição",
+  "@transcriptionLanguage": {},
+  "transcriptionLanguageSubtitle": "Idioma falado que o modelo irá reconhecer.",
+  "@transcriptionLanguageSubtitle": {},
+  "hardwareAcceleration": "Aceleração de Hardware",
+  "@hardwareAcceleration": {},
+  "hardwareAccelerationSubtitle": "Usa placa de vídeo NVIDIA se disponível.",
+  "@hardwareAccelerationSubtitle": {},
+  "optModelTiny": "tiny (~75 MB - ultra rápido)",
+  "@optModelTiny": {},
+  "optModelBase": "base (~145 MB - recomendado)",
+  "@optModelBase": {},
+  "optModelSmall": "small (~480 MB - alta precisão)",
+  "@optModelSmall": {},
+  "optModelMedium": "medium (~1.5 GB)",
+  "@optModelMedium": {},
+  "optModelLarge": "large-v3 (~3 GB)",
+  "@optModelLarge": {},
+  "optLangPt": "Português (Brasil)",
+  "@optLangPt": {},
+  "optLangEn": "Inglês (English)",
+  "@optLangEn": {},
+  "optLangEs": "Espanhol (Español)",
+  "@optLangEs": {},
+  "optDeviceAuto": "Automático (GPU se disponível, senão CPU)",
+  "@optDeviceAuto": {},
+  "optDeviceCuda": "GPU NVIDIA (CUDA)",
+  "@optDeviceCuda": {},
+  "optDeviceCpu": "Processador (CPU)",
+  "@optDeviceCpu": {},
+  "sectionMicrophone": "Microfone",
+  "@sectionMicrophone": {},
+  "inputDevice": "Dispositivo de Entrada",
+  "@inputDevice": {},
+  "inputDeviceSubtitle": "Escolha qual microfone gravar.",
+  "@inputDeviceSubtitle": {},
+  "systemDefaultDevice": "Padrão do Sistema",
+  "@systemDefaultDevice": {},
+  "refreshDevices": "Atualizar lista",
+  "@refreshDevices": {},
+  "muteAlertTitle": "Alerta de microfone mudo / sem áudio",
+  "@muteAlertTitle": {},
+  "muteAlertSubtitle": "Avisa visualmente quando o microfone não capta som.",
+  "@muteAlertSubtitle": {},
+  "sectionHotkeys": "Teclas de Atalho",
+  "@sectionHotkeys": {},
+  "hotkeyDictation": "Ditado Rápido (Segurar)",
+  "@hotkeyDictation": {},
+  "hotkeyDictationSubtitle": "Mantenha pressionado enquanto fala.",
+  "@hotkeyDictationSubtitle": {},
+  "hotkeyMeeting": "Modo Reunião (Alternar)",
+  "@hotkeyMeeting": {},
+  "hotkeyMeetingSubtitle": "Pressione para iniciar, pressione de novo para parar.",
+  "@hotkeyMeetingSubtitle": {},
+  "sectionOutput": "Comportamento de Saída",
+  "@sectionOutput": {},
+  "autoPasteTitle": "Colar automaticamente",
+  "@autoPasteTitle": {},
+  "autoPasteSubtitle": "Cola o texto direto onde o cursor estiver posicionado.",
+  "@autoPasteSubtitle": {},
+  "pressEnterTitle": "Pressionar Enter após colar",
+  "@pressEnterTitle": {},
+  "pressEnterSubtitle": "Útil para enviar mensagens imediatamente.",
+  "@pressEnterSubtitle": {},
+  "reviewBeforePasteTitle": "Revisar antes de colar",
+  "@reviewBeforePasteTitle": {},
+  "reviewBeforePasteSubtitle": "Exibe uma janela para editar a transcrição antes de colar.",
+  "@reviewBeforePasteSubtitle": {},
+  "sectionInterface": "Interface e Idioma",
+  "@sectionInterface": {},
+  "interfaceTheme": "Tema Visual",
+  "@interfaceTheme": {},
+  "interfaceThemeSubtitle": "Escolha entre modo claro, escuro ou padrão do sistema.",
+  "@interfaceThemeSubtitle": {},
+  "themeAuto": "Padrão do Sistema",
+  "@themeAuto": {},
+  "themeLight": "Claro",
+  "@themeLight": {},
+  "themeDark": "Escuro",
+  "@themeDark": {},
+  "interfaceLanguage": "Idioma da Interface",
+  "@interfaceLanguage": {},
+  "interfaceLanguageSubtitle": "Escolha o idioma dos textos do aplicativo.",
+  "@interfaceLanguageSubtitle": {},
+  "langAuto": "Padrão do Sistema",
+  "@langAuto": {},
+  "langPt": "Português (Brasil)",
+  "@langPt": {},
+  "langEn": "English",
+  "@langEn": {},
+  "sectionUpdates": "Atualizações e Versão",
+  "@sectionUpdates": {},
+  "installedVersion": "Versão instalada: v1.0.0 (Flutter)",
+  "@installedVersion": {},
+  "btnCheckUpdates": "Verificar agora",
+  "@btnCheckUpdates": {},
+  "checkingUpdates": "Verificando...",
+  "@checkingUpdates": {},
+  "upToDateMessage": "Você está usando a versão mais recente.",
+  "@upToDateMessage": {},
+  "updateAvailable": "Nova versão disponível: v",
+  "@updateAvailable": {},
+  "updateReady": "Atualização pronta: v",
+  "@updateReady": {},
+  "downloadingUpdate": "Baixando atualização",
+  "@downloadingUpdate": {},
+  "installingUpdate": "Instalando atualização...",
+  "@installingUpdate": {},
+  "btnDownload": "Baixar",
+  "@btnDownload": {},
+  "btnInstall": "Instalar",
+  "@btnInstall": {},
+  "btnSkip": "Pular versão",
+  "@btnSkip": {},
+  "btnLater": "Depois",
+  "@btnLater": {},
+  "btnDownloadNow": "Baixar agora",
+  "@btnDownloadNow": {},
+  "reviewDialogTitle": "Revisar Transcrição",
+  "@reviewDialogTitle": {},
+  "btnDiscard": "Descartar",
+  "@btnDiscard": {},
+  "btnPasteSend": "Colar / Enviar",
+  "@btnPasteSend": {},
+  "trayOpen": "Abrir Dito",
+  "@trayOpen": {},
+  "trayCopyLast": "Copiar último texto",
+  "@trayCopyLast": {},
+  "trayPause": "Pausar ditado",
+  "@trayPause": {},
+  "trayCheckUpdates": "Verificar atualizações...",
+  "@trayCheckUpdates": {},
+  "trayQuit": "Sair do Dito",
+  "@trayQuit": {},
+  "hudRecording": "Gravando",
+  "@hudRecording": {},
+  "hudQuiet": "Áudio muito baixo",
+  "@hudQuiet": {},
+  "hudNoAudio": "SEM ÁUDIO",
+  "@hudNoAudio": {},
+  "hudTranscribing": "Transcrevendo...",
+  "@hudTranscribing": {},
+  "hudSaving": "Salvando a gravação...",
+  "@hudSaving": {},
+  "hudStop": "Parar",
+  "@hudStop": {},
+  "hudFix": "Corrigir",
+  "@hudFix": {},
+  "toastEngineStarting": "O motor ainda está subindo",
+  "@toastEngineStarting": {},
+  "toastEngineUnreachable": "Não consegui falar com o motor",
+  "@toastEngineUnreachable": {},
+  "toastRecordingEnded": "Gravação encerrada",
+  "@toastRecordingEnded": {},
+  "toastRecordingEndedWhy": "A tecla ficou presa por 10 minutos.",
+  "@toastRecordingEndedWhy": {},
+  "toastFailed": "Não deu certo",
+  "@toastFailed": {},
+  "toastPasteFailed": "Não consegui colar",
+  "@toastPasteFailed": {},
+  "toastDiscarded": "Descartado",
+  "@toastDiscarded": {},
+  "toastCopied": "Copiado",
+  "@toastCopied": {},
+  "toastPasted": "Texto colado",
+  "@toastPasted": {},
+  "reviewHintSend": "Enter envia",
+  "@reviewHintSend": {},
+  "reviewHintDiscard": "Tab descarta",
+  "@reviewHintDiscard": {},
+  "reviewObsidianOn": "Obsidian: sim",
+  "@reviewObsidianOn": {},
+  "reviewObsidianOff": "Obsidian: não",
+  "@reviewObsidianOff": {},
+  "reviewObsidianLabel": "Obsidian",
+  "@reviewObsidianLabel": {},
+  "hudMinutesDone": "{minutes} min transcritos",
+  "@hudMinutesDone": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "sectionAlerts": "Alertas",
+  "@sectionAlerts": {},
+  "sectionLibrary": "Biblioteca",
+  "@sectionLibrary": {},
+  "sectionTranscription": "Transcrição",
+  "@sectionTranscription": {},
+  "restoreClipboardTitle": "Devolver a área de transferência",
+  "@restoreClipboardTitle": {},
+  "notifyAlertTitle": "Notificação",
+  "@notifyAlertTitle": {},
+  "libraryFolder": "Pasta das gravações",
+  "@libraryFolder": {},
+  "libraryKeep": "Guardar por",
+  "@libraryKeep": {},
+  "modelHint": "Maior transcreve melhor e demora mais.",
+  "@modelHint": {},
+  "deviceLabel": "Processamento",
+  "@deviceLabel": {},
+  "deviceHint": "A placa de vídeo NVIDIA transcreve cerca de 3x mais rápido.",
+  "@deviceHint": {},
+  "optModelTinyName": "Mínimo",
+  "@optModelTinyName": {},
+  "optModelBaseName": "Básico",
+  "@optModelBaseName": {},
+  "optModelSmallName": "Equilibrado",
+  "@optModelSmallName": {},
+  "optModelMediumName": "Bom",
+  "@optModelMediumName": {},
+  "optModelLargeName": "Melhor",
+  "@optModelLargeName": {},
+  "keyCaptureHint": "Aperte a tecla desejada | Esc cancela",
+  "@keyCaptureHint": {},
+  "keyConflictOther": "a outra tecla",
+  "@keyConflictOther": {},
+  "booting": "Iniciando...",
+  "@booting": {},
+  "themeFollowSystem": "Seguir o sistema",
+  "@themeFollowSystem": {},
+  "libraryKeepDays": "{days} dias",
+  "@libraryKeepDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "trayTipRecording": "Gravando - solte para transcrever",
+  "@trayTipRecording": {},
+  "trayTipMeeting": "Gravando - aperte de novo para parar",
+  "@trayTipMeeting": {},
+  "trayTipNoAudio": "Sem áudio - verifique o microfone",
+  "@trayTipNoAudio": {},
+  "trayTipPaused": "Ditado pausado",
+  "@trayTipPaused": {},
+  "notifyEngineDied": "Dito - o motor caiu",
+  "@notifyEngineDied": {},
+  "notifyEngineDiedWhy": "O áudio está salvo na pasta da sessão.",
+  "@notifyEngineDiedWhy": {},
+  "notifyNoAudio": "o microfone parou de captar",
+  "@notifyNoAudio": {},
+  "keyErrorTypes": "Essa tecla digita - use uma que nao digita nada.",
+  "@keyErrorTypes": {},
+  "warnKeysFailed": "Nao consegui registrar as teclas: elas nao vao funcionar.",
+  "@warnKeysFailed": {},
+  "warnUnknownReason": "motivo desconhecido",
+  "@warnUnknownReason": {},
+  "openFolder": "Abrir a pasta",
+  "@openFolder": {},
+  "toastPasteToClipboard": "Nao consegui colar - o texto esta na area de transferencia",
+  "@toastPasteToClipboard": {},
+  "toastPasteToFolder": "Nao consegui colar nem copiar - o texto esta na pasta da sessao",
+  "@toastPasteToFolder": {},
+  "trayTipReady": "Pronto - segure {hotkey} para ditar",
+  "@trayTipReady": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "keyErrorTaken": "Essa tecla ja e usada por {other}.",
+  "@keyErrorTaken": {
+    "placeholders": {
+      "other": {
+        "type": "String"
+      }
+    }
+  },
+  "warnEngineDown": "O motor de transcricao parou: {reason}.",
+  "@warnEngineDown": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "warnNoAudio": "Sem audio: {reason}.",
+  "@warnNoAudio": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "toastStillBusy": "Ainda terminando o anterior",
+  "@toastStillBusy": {}
+}

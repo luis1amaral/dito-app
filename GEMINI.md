@@ -1,51 +1,43 @@
-# Dito — regras deste projeto
+# dito-flutter
 
-Valem junto com o `~/.claude/CLAUDE.md`. Onde houver conflito, o global manda.
+Porte do Dito (ditado por voz offline) para Flutter/Windows. O motor Python (`../dito-app`) roda
+como **sidecar** e é a verdade do produto: áudio, Whisper, watchdog, sessão e biblioteca vivem lá.
+O Flutter é interface, teclas, colagem e janelas.
 
-## Comentário: no máximo 1 LINHA
+## Regras de código — sem exceção
 
-Sem exceção, e vale para docstring também. O porquê longo **não mora no código** — mora em
-`docs/armadilhas.md`, e o comentário vira um ponteiro de uma linha:
+- **Comentário só em INGLÊS, e no máximo 1 LINHA.** Vale para `//`, `///` e docstring. Se o porquê
+  não cabe numa linha, ele não é comentário: vai para `CHANGELOG.md` ou `docs/`, e o comentário
+  vira um ponteiro de uma linha para lá.
+- **Comentário só quando carrega um *porquê*** que o código não diz sozinho. Nada de narrar a linha.
+- `CHANGELOG.md`, `README.md` e documentação: **pt-BR**.
+- Nada de cor, espaçamento, raio ou duração cru em `lib/ui/**` — só de `ui/tokens.dart` e
+  `ui/palette.dart`. Há teste que varre isso.
 
-```python
-# See docs/armadilhas.md 1.4: the stdlib `wave` writer only fixes sizes on close.
-self._patch_sizes()
+## As 4 garantias inegociáveis (herdadas do dito-app)
+
+1. Áudio nunca se perde — vai ao disco desde o 1º bloco, WAV válido a qualquer instante.
+2. Quando não capta, **grita em ~1 s** por forma + cor + som + notificação.
+3. Reunião **não tem limite de tempo** (deliberadamente não existe config para isso).
+4. Nada aparece no login além do ícone da bandeja.
+
+## Armadilhas que este porte já pagou
+
+- **Push-to-talk não sai de `hotkey_manager`.** `RegisterHotKey`/`WM_HOTKEY` só entrega key-down;
+  `keyUpHandler` é código morto no Windows. Precisa de `WH_KEYBOARD_LL` nativo.
+- **Não use o evento de release da tecla.** Estado físico + 300 ms contínuos solto.
+- **Tecla suprimida some do `GetAsyncKeyState`** — o hook é a autoridade, `GetAsyncKeyState` é só
+  resgate para tecla que nunca passou pelo hook.
+- **A janela do HUD só não rouba foco se nascer com `WS_EX_NOACTIVATE`** — aplicar depois não
+  retroage. Ver `packages/desktop_multi_window/FORK.md`.
+- **`started` com `session_id == "engine_ready"` é handshake, não gravação.** Separado no parsing.
+- Sessões no disco são `<lib>/YYYY/MM/DD/<HH-MM-SS>.json`, **não** `session.json`.
+
+## Portão
+
+```
+flutter analyze && flutter test
 ```
 
-Motivo: parágrafo dentro do código envelhece junto com ele e ninguém revisa. Em `docs/` alguém lê.
-
-## O que este projeto garante (e nenhuma mudança pode enfraquecer)
-
-1. **Áudio nunca se perde.** Vai para o disco desde o primeiro bloco e o WAV é válido a qualquer
-   instante, inclusive depois de `kill -9`. Nada apaga áudio sem antes conseguir ler a substituição.
-2. **Quando não está captando, ele grita** — em ~1 s, por forma, cor e som. Falha silenciosa é o
-   defeito que originou o projeto (99 s de fala perdidos).
-3. **A reunião não tem limite de tempo.** Grava até mandarem parar.
-4. **Nada aparece no login** além do ícone da bandeja.
-
-Mexeu em `audio/`, `core/session.py` ou `audio/level.py`? Rode `tests/test_session.py`,
-`test_writer.py` e `test_watchdog.py` — eles existem porque cada um desses pontos já quebrou.
-
-## Camadas
-
-```
-ui/  app.py  cli.py        ← podem conhecer qualquer coisa abaixo
-core/ stt/ output/ audio/ platform/   ← não conhecem ui/ nem app.py. NUNCA.
-```
-
-`platform/linux_x11/` é o único lugar com X11, `pactl`, `amixer` ou `pynput`. Vazou para fora, é bug.
-
-## Cor, espaço, raio, duração
-
-Saem de `ui/theme.py`, sempre. Hex ou px escrito numa tela é bug — há teste que reprova.
-A pílula flutuante tem paleta própria (`hud_*`), igual nos dois temas, porque a superfície dela é
-escura independente do tema do sistema.
-
-## Antes de dizer que está pronto
-
-```bash
-.venv/bin/ruff check . && .venv/bin/python -m pytest -q
-```
-
-Teste de X11 injeta tecla de verdade; `pytest -m "not x11"` pula. Para ver a interface sem abrir o
-app: `python tools/render_ui.py`.
+Prova do fork de janela: `flutter build windows --debug --target=tool/spike_focus.dart` e rodar o
+executável — `VEREDITO ... PASSA`.
