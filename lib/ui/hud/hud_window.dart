@@ -143,9 +143,9 @@ class _HudAppState extends State<_HudApp> {
     if (!mounted) return;
     final box = _pill.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
-    // Leave 1px clearance outside the surface so GDI clipping does not truncate anti-aliasing.
+    // Region matches the pill surface exactly to avoid black edge cuts.
     final rect = (box.localToGlobal(Offset.zero) & box.size)
-        .deflate(AppShadow.margin - 1);
+        .deflate(AppShadow.margin);
     if (rect.isEmpty || rect == _hit) return;
     _hit = rect;
     await DitoWin32.setHitRect(

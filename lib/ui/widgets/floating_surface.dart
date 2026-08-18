@@ -48,17 +48,6 @@ class _SurfacePainter extends CustomPainter {
     );
     if (card.isEmpty) return;
 
-    for (var i = 0; i < AppShadow.layers; i++) {
-      final t = i / AppShadow.layers;
-      final alpha = (AppShadow.alpha * (1 - t) * (1 - t)).round() + 2;
-      final grow = AppShadow.spread * t;
-      final rect = RRect.fromRectAndRadius(
-        card.inflate(grow).translate(0, AppShadow.offset * t),
-        Radius.circular(radius + grow),
-      );
-      canvas.drawRRect(rect, Paint()..color = Color.fromARGB(alpha, 0, 0, 0));
-    }
-
     final body = RRect.fromRectAndRadius(card, Radius.circular(radius));
     canvas.drawRRect(body, Paint()..color = fill);
 

@@ -177,7 +177,13 @@ class _ReviewCardState extends State<ReviewCard> {
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: Container(
+                  height: AppSize.hairline,
+                  color: c.hudWash,
+                ),
+              ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[

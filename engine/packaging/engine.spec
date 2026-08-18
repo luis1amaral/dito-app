@@ -7,7 +7,7 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dyn
 # O spec mora em engine/packaging/, entao a raiz do motor e um nivel acima.
 ROOT = Path(SPECPATH).resolve().parent
 SRC = ROOT / "src"
-ICON = SRC / "dito" / "ui" / "assets" / "dito.ico"
+ICON = ROOT.parent / "assets" / "icons" / "dito.ico"
 
 with open(ROOT / "pyproject.toml", "rb") as _f:
     VERSION = tomllib.load(_f)["project"]["version"]

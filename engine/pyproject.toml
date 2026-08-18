@@ -21,7 +21,6 @@ dependencies = [
     "sounddevice>=0.5",      # PyPI: nao existe no apt
     "tomli-w>=1.0",
     "numpy>=2",
-    "PySide6>=6.8",
     "pynput>=1.8",
     "pyperclip>=1.8",
     "python-xlib>=0.33; sys_platform != 'win32'",

@@ -285,130 +285,19 @@ def has_display() -> bool:
     return sys.platform == "win32" or bool(os.environ.get("DISPLAY"))
 
 
-def _run_with_window() -> int:
-    from PySide6.QtCore import QObject, Qt, QTimer, Signal
-    from PySide6.QtWidgets import (
-        QApplication,
-        QHBoxLayout,
-        QLabel,
-        QProgressBar,
-        QPushButton,
-        QVBoxLayout,
-        QWidget,
-    )
-
-    class Signals(QObject):
-        step = Signal(str)
-        done = Signal(bool, str)
-
-    app = QApplication.instance() or QApplication(sys.argv)
-    signals = Signals()
-
-    from .ui.theme import Size
-
-    window = QWidget()
-    window.setWindowTitle(_("Setting up Dito"))
-    # Largura fixa e não `resize`: um QLabel com quebra de linha não tem largura preferida, e a
-    # janela saía com 922 px em vez das 460 pedidas. A altura continua livre.
-    window.setFixedWidth(Size.DIALOG_W)
-    layout = QVBoxLayout(window)
-    layout.setContentsMargins(28, 24, 28, 24)
-    layout.setSpacing(12)
-
-    heading = QLabel(_("Setting up Dito"))
-    heading.setStyleSheet("font-size: 20px; font-weight: 600;")
-    layout.addWidget(heading)
-
-    body = QLabel(
-        _("A few components are missing that Debian does not package. About 1.5 GB to download "
-          "and 2.5 GB on disk, once — most of it is what puts transcription on your NVIDIA card "
-          "instead of the CPU.")
-        if gpu_extras_missing()
-        else _("A few components are missing that Debian does not package.\n"
-               "About 50 MB, once.")
-    )
-    body.setWordWrap(True)
-    layout.addWidget(body)
-
-    bar = QProgressBar()
-    bar.setRange(0, 0)          # indeterminate: pip reports no usable total
-    layout.addWidget(bar)
-
-    status = QLabel("")
-    status.setWordWrap(True)
-    layout.addWidget(status)
-
-    buttons = QHBoxLayout()
-    buttons.addStretch(1)
-    go = QPushButton(_("Try again"))
-    dismiss = QPushButton(_("Close"))
-    buttons.addWidget(go)
-    buttons.addWidget(dismiss)
-    layout.addLayout(buttons)
-
-    state = {"code": 1}
-
-    def work() -> None:
-        ok, message = install(progress=signals.step.emit)
-        signals.done.emit(ok, message)
-
-    def start() -> None:
-        go.hide()
-        dismiss.hide()
-        bar.show()
-        status.setText("")
-        threading.Thread(target=work, daemon=True).start()
-
-    def finished(ok: bool, message: str) -> None:
-        bar.hide()
-        if ok:
-            state["code"] = 0
-            status.setText(_("All set. Opening Dito…"))
-            QTimer.singleShot(600, app.quit)
-            return
-        status.setText(message)
-        status.setStyleSheet("color: #c62a30;")
-        go.setText(_("Try again"))
-        dismiss.setText(_("Close"))
-        go.show()
-        dismiss.show()
-
-    signals.step.connect(status.setText, Qt.ConnectionType.QueuedConnection)
-    signals.done.connect(finished, Qt.ConnectionType.QueuedConnection)
-    go.clicked.connect(start)
-    dismiss.clicked.connect(app.quit)
-
-    window.show()
-    go.hide()
-    dismiss.hide()
-    start()
-    app.exec()
-    return state["code"]
-
-
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     setup_language(os.environ.get("DITO_LANG", "auto"))
 
-    # Set by the autostart entry: a login must never start a large download with no window.
     if os.environ.get("DITO_BOOTSTRAP") == "never":
         return 0
 
     if ready():
         return 0
 
-    if "--headless" in argv or not has_display():
-        ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
-        print(message)
-        return 0 if ok else 1
-
-    try:
-        return _run_with_window()
-    except Exception as exc:      # noqa: BLE001 - last resort, the install still has to happen
-        print(f"[{_('warning')}] {type(exc).__name__}", flush=True)
-        ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
-        print(message)
-        return 0 if ok else 1
+    ok, message = install(progress=lambda m: print(f"  {m}", flush=True))
+    print(message)
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

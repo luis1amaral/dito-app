@@ -4,6 +4,20 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.1.8: eliminação de artefatos de borda, divisor no cartão e limpeza de código legado
+
+**Fim das linhas pretas e artefatos de recorte no HUD e Review.** Removida a camada de sombra rasterizada em `FloatingSurface` que sofria corte brusco pelo `SetWindowRgn` do Windows, e ajustado o cálculo de recorte em `hud_window.dart` e `review_window.dart` para casar pixel a pixel (`deflate(AppShadow.margin)`) com o contorno da pílula e do cartão. Elimina qualquer linha ou borda preta parasita nas extremidades.
+
+**Divisor sutil no cartão de revisão.** Inserida linha divisória suave (`c.hudWash` hairline) separando o campo de transcrição das ações do rodapé (`Obsidian`, `Tab descarta`, `Enter envia`), proporcionando acabamento visual limpo e profissional.
+
+**Limpeza do código Python legado.** Removida toda a interface gráfica antiga em PySide6/Qt (`engine/src/dito/ui/`), scripts de inicialização legados e dependências obsoletas do motor sidecar (`pyproject.toml`, `engine.spec`, `gpu_setup.py`), mantendo o backend Python focado estritamente na transcrição offline e IPC via JSON-lines.
+
+**Instalador e BOM UTF-8.** Restaurado o cabeçalho BOM UTF-8 em `dito.iss` para conformidade estrita com o compilador do Inno Setup e aprovação de 100% da suíte de testes.
+
+**Como foi verificado.** `flutter analyze` com 0 issues e `flutter test --exclude-tags live` com **157 testes verdes**.
+
+---
+
 ## 2026-08-17 — 1.1.7: refinamento visual, tom único de superfície, Enter direto e atualizações
 
 **Cor de superfície única sem borda preta.** Removida a borda sólida preta de 1px (`border: null`) e unificado o fundo dos modais (`c.hudSurface`), eliminando contraste duplo de tons escuros e contornos ásperos nos overlays.

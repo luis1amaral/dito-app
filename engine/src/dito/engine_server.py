@@ -237,6 +237,18 @@ class EngineServer:
                 self.status()
             elif cmd == "list_devices":
                 self.list_devices()
+            elif cmd == "set_model":
+                model_name = msg.get("model")
+                if model_name:
+                    def do_preload():
+                        try:
+                            self._log(f"pre-carregando modelo {model_name}...")
+                            self.engine.model_name = model_name
+                            self.engine.load()
+                            self.status()
+                        except Exception as exc:
+                            self._log(f"erro ao pre-carregar modelo {model_name}: {exc}")
+                    threading.Thread(target=do_preload, daemon=True, name="dito-engine-preload").start()
             elif cmd == "quit":
                 self.stop_session()
                 break

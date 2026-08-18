@@ -1,4 +1,4 @@
-; Instalador do Dito para Windows: app Flutter + motor de transcrição.
+﻿; Instalador do Dito para Windows: app Flutter + motor de transcrição.
 ;
 ;   ISCC.exe /DMyAppVersion=1.0.0 packaging\windows\dito.iss
 ;

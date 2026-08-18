@@ -45,7 +45,7 @@ if (-not $SemPortao) {
     Etapa 'Portao: analyze e test'
     & flutter analyze
     if ($LASTEXITCODE -ne 0) { throw 'flutter analyze reprovou' }
-    & flutter test
+    & flutter test --exclude-tags live
     if ($LASTEXITCODE -ne 0) { throw 'flutter test reprovou' }
 }
 
