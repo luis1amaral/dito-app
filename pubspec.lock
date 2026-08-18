@@ -79,6 +79,13 @@ packages:
       relative: true
     source: path
     version: "0.3.0-dito.1"
+  dito_whisper:
+    dependency: "direct main"
+    description:
+      path: "packages/dito_whisper"
+      relative: true
+    source: path
+    version: "1.0.0"
   dito_win32:
     dependency: "direct main"
     description:

@@ -4,6 +4,20 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.0: migração 100% nativa C++ (whisper.cpp + GGML + WASAPI) e remoção total do Python
+
+**Remoção total do backend Python.** Eliminado completamente o processo externo Python (`dito-engine.exe`, PyInstaller, faster-whisper, ctranslate2, sounddevice). O Dito agora executa 100% in-process via C++ nativo e Dart FFI, reduzindo o tamanho do instalador de mais de 100 MB para apenas **11.3 MB**, iniciando instantaneamente e eliminando qualquer risco de travamento de subprocesso, janelas de console ou dependências externas.
+
+**Plugin nativo `dito_whisper` (C++ / MSVC).** Integrado o `whisper.cpp` com aceleração GGML CPU AVX2/FMA/F16C e captura de áudio nativa de baixa latência via WASAPI/miniaudio no Windows. O plugin gerencia amostragem 16kHz mono float, cálculo de níveis RMS e pico em tempo real a 20Hz, e salvamento padronizado de arquivos WAV 16-bit.
+
+**Motor nativo in-process (`NativeEngine`) e `ModelManager`.** Implementado o motor de transcrição diretamente no app, emitindo todos os eventos do protocolo (`EngineReadyEvent`, `StartedEvent`, `LevelEvent`, `PhaseEvent`, `FinishedEvent`, `DevicesEvent`). O `ModelManager` gerencia e baixa sob demanda os modelos GGML oficiais (`ggml-tiny.bin`, `ggml-base.bin`, `ggml-small.bin`, `ggml-medium.bin`, `ggml-large-v3.bin`) com verificação local e progresso em streaming.
+
+**Pipeline de build e instalador simplificados.** O script `construir.ps1` e o instalador Inno Setup (`dito.iss`) agora compilam exclusivamente o bundle nativo do Flutter e geram o instalador assinado com SHA256SUMS em menos de 1 minuto.
+
+**Como foi verificado.** `flutter analyze` sem erros (0 issues), suíte de testes unitários com **157 testes aprovados**, compilação completa do executável nativo `dito_app.exe` e instalador `dito-1.2.0-setup.exe` gerado com sucesso.
+
+---
+
 ## 2026-08-18 — 1.1.8: eliminação de artefatos de borda, divisor no cartão e limpeza de código legado
 
 **Fim das linhas pretas e artefatos de recorte no HUD e Review.** Removida a camada de sombra rasterizada em `FloatingSurface` que sofria corte brusco pelo `SetWindowRgn` do Windows, e ajustado o cálculo de recorte em `hud_window.dart` e `review_window.dart` para casar pixel a pixel (`deflate(AppShadow.margin)`) com o contorno da pílula e do cartão. Elimina qualquer linha ou borda preta parasita nas extremidades.

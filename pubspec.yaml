@@ -1,7 +1,7 @@
 name: dito_app
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.1.8+1
+version: 1.2.0+1
 
 environment:
   sdk: ^3.12.2
@@ -24,6 +24,8 @@ dependencies:
     path: packages/desktop_multi_window
   dito_win32:
     path: packages/dito_win32
+  dito_whisper:
+    path: packages/dito_whisper
   package_info_plus: ^9.0.1
   ffi: ^2.2.0
 

@@ -1,12 +1,8 @@
-# Monta o instalador do Dito para Windows, do zero e sem passo manual.
+# Monta o instalador do Dito para Windows, 100% nativo C++ e sem Python.
 #
 #   powershell -ExecutionPolicy Bypass -File packaging\windows\construir.ps1
 #
-# Passos: portao (analyze + test) -> build Flutter -> motor PyInstaller ->
-# copia o motor PARA DENTRO do bundle -> Inno Setup -> SHA256SUMS.txt
-#
-# O passo de copiar o motor e o que faltava: o .iss antigo declarava o bundle do motor
-# e nunca o usava, e o instalador so funcionava porque alguem copiava a pasta na mao.
+# Passos: portao (analyze + test) -> build Flutter (inclui C++ whisper) -> Inno Setup -> SHA256SUMS.txt
 
 [CmdletBinding()]
 param(
@@ -23,8 +19,6 @@ trap {
 }
 
 $Raiz = Resolve-Path (Join-Path $PSScriptRoot '..\..')
-$RepoMotor = $Raiz
-$MotorRaiz = Join-Path $RepoMotor 'engine'
 Set-Location $Raiz
 
 function Etapa($texto) {
@@ -38,7 +32,7 @@ if ($pubspec -notmatch '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)') {
     throw 'nao achei a versao no pubspec.yaml'
 }
 $Versao = $Matches[1]
-Write-Host "Dito $Versao" -ForegroundColor Green
+Write-Host "Dito $Versao (Motor C++ Nativo)" -ForegroundColor Green
 
 # --- portao -----------------------------------------------------------------
 if (-not $SemPortao) {
@@ -50,7 +44,7 @@ if (-not $SemPortao) {
 }
 
 # --- app --------------------------------------------------------------------
-Etapa 'Compilando o app'
+Etapa 'Compilando o app Flutter e plugins C++ nativos'
 & flutter build windows --release
 if ($LASTEXITCODE -ne 0) { throw 'flutter build reprovou' }
 
@@ -59,43 +53,13 @@ if (-not (Test-Path (Join-Path $Bundle 'dito_app.exe'))) {
     throw "o bundle nao tem dito_app.exe: $Bundle"
 }
 
-# --- motor ------------------------------------------------------------------
-Etapa 'Compilando o motor'
-# A venv fica na raiz do repositorio, nao dentro de engine/: venv movida quebra em silencio.
-$Venv = Join-Path $RepoMotor '.venv\Scripts\python.exe'
-if (-not (Test-Path $Venv)) { throw "sem venv do motor em $Venv" }
-
-$MotorDist = Join-Path $RepoMotor 'build\engine\dist\dito-engine'
-$MotorSpec = Join-Path $MotorRaiz 'packaging\engine.spec'
-
-Push-Location $MotorRaiz
-try {
-    & $Venv -m PyInstaller --noconfirm `
-        --distpath (Join-Path $RepoMotor 'build\engine\dist') `
-        --workpath (Join-Path $RepoMotor 'build\engine\work') `
-        $MotorSpec
-    if ($LASTEXITCODE -ne 0) { throw 'PyInstaller reprovou' }
-} finally {
-    Pop-Location
-}
-
-if (-not (Test-Path (Join-Path $MotorDist 'dito-engine.exe'))) {
-    throw "o motor nao foi gerado em $MotorDist"
-}
-
-# --- o passo que faltava ----------------------------------------------------
-Etapa 'Copiando o motor para dentro do bundle'
-$MotorNoBundle = Join-Path $Bundle 'dito-engine'
-if (Test-Path $MotorNoBundle) { Remove-Item $MotorNoBundle -Recurse -Force }
-Copy-Item $MotorDist $MotorNoBundle -Recurse
-
 $tamanho = [math]::Round((Get-ChildItem $Bundle -Recurse | Measure-Object Length -Sum).Sum / 1MB)
-Write-Host "bundle completo: $tamanho MB"
+Write-Host "bundle nativo completo: $tamanho MB"
 
 if ($SoBundle) { exit 0 }
 
 # --- instalador -------------------------------------------------------------
-Etapa 'Gerando o instalador'
+Etapa 'Gerando o instalador Inno Setup'
 $candidatos = @(
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",

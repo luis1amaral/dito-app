@@ -1,5 +1,0 @@
-[console_scripts]
-dito = dito.cli:main
-
-[gui_scripts]
-ditow = dito.cli:main

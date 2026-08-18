@@ -1,16 +1,16 @@
-﻿; Instalador do Dito para Windows: app Flutter + motor de transcrição.
+﻿; Instalador do Dito para Windows: app Flutter nativo C++ (sem Python).
 ;
-;   ISCC.exe /DMyAppVersion=1.0.0 packaging\windows\dito.iss
+;   ISCC.exe /DMyAppVersion=1.2.0 packaging\windows\dito.iss
 ;
 ; Instala em %LOCALAPPDATA%\Programs\Dito, sem pedir UAC.
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.0"
+  #define MyAppVersion "1.2.0"
 #endif
 #define MyAppName "Dito"
 #define MyAppExe "dito_app.exe"
 
-; O build/ é montado por construir.ps1 e já traz o motor dentro.
+; O build/ é montado por construir.ps1 com os binários C++ nativos.
 #define AppBundle "..\..\build\windows\x64\runner\Release"
 #define IconFile "..\..\assets\icons\dito.ico"
 
@@ -44,19 +44,16 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 [Tasks]
 Name: "startup"; Description: "Iniciar o Dito junto com o Windows (fica só na bandeja)"; GroupDescription: "Ao ligar o computador:"
 Name: "desktopicon"; Description: "Criar um atalho na Área de Trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
-Name: "model_small"; Description: "Baixar o modelo de voz padrão agora (small - ~484 MB, recomendado)"; GroupDescription: "Modelos de transcrição:"
-Name: "model"; Description: "Baixar TODOS os outros modelos de voz (cerca de 5,3 GB no total)"; GroupDescription: "Modelos adicionais:"; Flags: unchecked
-Name: "gpu"; Description: "Baixar a aceleração por placa de vídeo NVIDIA (1,3 GB)"; GroupDescription: "Placa de vídeo:%nSó marque se esta máquina tem placa NVIDIA - a transcrição fica cerca de 3x mais rápida."; Flags: unchecked
 
 [InstallDelete]
-; Plugins removidos na 1.1.3: instalação antiga deixa a DLL órfã para trás.
+; Limpeza do motor Python legado e DLLs antigas
+Type: filesandordirs; Name: "{app}\dito-engine"
 Type: files; Name: "{app}\hotkey_manager_windows_plugin.dll"
 Type: files; Name: "{app}\local_notifier_plugin.dll"
 Type: files; Name: "{app}\system_tray_plugin.dll"
 Type: files; Name: "{app}\tray_manager_plugin.dll"
 
 [Files]
-; Um Source só: o motor já vem dentro do bundle, montado por construir.ps1.
 Source: "{#AppBundle}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
@@ -66,14 +63,6 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Comment: "Dit
 Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Parameters: "--startup"; Comment: "Dito - ditado por voz offline"; AppUserModelID: "com.defalt.dito"; Tasks: startup
 
 [Run]
-; Um por modelo, para o assistente mostrar de qual ele esta cuidando. runhidden: o motor e um
-; programa de console, e sem isso pisca uma janela preta na cara de quem instala.
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model small"; StatusMsg: "Baixando o modelo de voz padrão Small (~484 MB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model_small
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model tiny"; StatusMsg: "Baixando o modelo Mínimo (1 de 4, ~75 MB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model base"; StatusMsg: "Baixando o modelo Básico (2 de 4, ~145 MB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model medium"; StatusMsg: "Baixando o modelo Bom (3 de 4, ~1,5 GB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "download-model large-v3"; StatusMsg: "Baixando o modelo Melhor (4 de 4, ~3,1 GB)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: model
-Filename: "{app}\dito-engine\dito-engine.exe"; Parameters: "gpu --install"; StatusMsg: "Baixando a aceleração por placa de vídeo (~1,3 GB, pode demorar)..."; Flags: waituntilterminated runhidden skipifdoesntexist; Tasks: gpu
 Filename: "{app}\{#MyAppExe}"; Description: "Abrir o Dito"; Flags: nowait postinstall skipifsilent
 
 [Code]
@@ -86,7 +75,7 @@ var
   Code: Integer;
 begin
   Exec(ExpandConstant('{sys}\taskkill.exe'),
-       '/F /IM {#MyAppExe} /IM dito-engine.exe', '',
+       '/F /IM {#MyAppExe}', '',
        SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
@@ -103,21 +92,14 @@ begin
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var
-  Cuda: String;
 begin
   if CurUninstallStep = usUninstall then
     StopApp();
 
   if CurUninstallStep = usPostUninstall then
   begin
-    // A aceleração pesa 1,9 GB e não serve para mais nada sem o app.
-    Cuda := ExpandConstant('{localappdata}\dito\cuda');
-    if DirExists(Cuda) then
-      DelTree(Cuda, True, True, True);
-
     // As gravações e a configuração são do dono: essas nunca apagamos.
-    MsgBox('O Dito foi removido, junto com a aceleração de vídeo.' + #13#10 + #13#10 +
+    MsgBox('O Dito foi removido com sucesso.' + #13#10 + #13#10 +
            'Suas gravações continuam em Documentos\Dito e as configurações em ' +
            '%APPDATA%\dito.',
            mbInformation, MB_OK);

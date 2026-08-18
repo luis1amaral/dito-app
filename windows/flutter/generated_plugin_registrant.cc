@@ -7,6 +7,7 @@
 #include "generated_plugin_registrant.h"
 
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
+#include <dito_whisper/dito_whisper_plugin_c_api.h>
 #include <dito_win32/dito_win32_plugin_c_api.h>
 #include <screen_retriever_windows/screen_retriever_windows_plugin_c_api.h>
 #include <url_launcher_windows/url_launcher_windows.h>
@@ -15,6 +16,8 @@
 void RegisterPlugins(flutter::PluginRegistry* registry) {
   DesktopMultiWindowPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("DesktopMultiWindowPlugin"));
+  DitoWhisperPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("DitoWhisperPluginCApi"));
   DitoWin32PluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("DitoWin32PluginCApi"));
   ScreenRetrieverWindowsPluginCApiRegisterWithRegistrar(
