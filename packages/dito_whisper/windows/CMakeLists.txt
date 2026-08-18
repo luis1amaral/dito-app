@@ -79,6 +79,7 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE
   GGML_FMA
   GGML_F16C
   GGML_USE_LLAMAFILE
+  GGML_USE_CPU
 )
 
 if (MSVC)

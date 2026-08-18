@@ -8,6 +8,7 @@ class ModelManager {
   ModelManager({Logbook? log}) : _log = log ?? Logbook('models');
 
   final Logbook _log;
+  final Map<String, Future<String>> _activeDownloads = {};
 
   static const String _hfBaseUrl =
       'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
@@ -44,6 +45,25 @@ class ModelManager {
       return path;
     }
 
+    if (_activeDownloads.containsKey(model)) {
+      return _activeDownloads[model]!;
+    }
+
+    final future = _downloadModel(model, path, targetFile, onProgress: onProgress);
+    _activeDownloads[model] = future;
+    try {
+      return await future;
+    } finally {
+      _activeDownloads.remove(model);
+    }
+  }
+
+  Future<String> _downloadModel(
+    String model,
+    String path,
+    File targetFile, {
+    void Function(double progress, int received, int total)? onProgress,
+  }) async {
     targetFile.parent.createSync(recursive: true);
     final url = urlFor(model);
     _log('baixando modelo $model de $url');
@@ -82,7 +102,9 @@ class ModelManager {
       await sink.close();
 
       if (targetFile.existsSync()) {
-        targetFile.deleteSync();
+        try {
+          targetFile.deleteSync();
+        } catch (_) {}
       }
       tmpFile.renameSync(path);
       _log('download concluido: $path ($received bytes)');

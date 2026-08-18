@@ -12,6 +12,8 @@ import '../../state/app_snapshot.dart';
 import '../palette.dart';
 import '../theme.dart';
 import '../tokens.dart';
+import 'package:provider/provider.dart';
+import '../widgets/update_banner.dart';
 import 'sessions_page.dart';
 import 'settings_page.dart';
 
@@ -23,17 +25,20 @@ class DitoMainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: app.config,
-        builder: (_, _) => MaterialApp(
-          title: 'Dito',
-          debugShowCheckedModeBanner: false,
-          theme: appTheme(Brightness.light),
-          darkTheme: appTheme(Brightness.dark),
-          themeMode: themeModeFrom(app.config.config.ui.theme),
-          localizationsDelegates: AppStrings.localizationsDelegates,
-          supportedLocales: AppStrings.supportedLocales,
-          // null follows the system, which is what 'auto' means.
-          locale: localeFromCode(app.config.config.ui.language),
-          home: MainWindow(app: app),
+        builder: (_, _) => ChangeNotifierProvider.value(
+          value: app.updateController,
+          child: MaterialApp(
+            title: 'Dito',
+            debugShowCheckedModeBanner: false,
+            theme: appTheme(Brightness.light),
+            darkTheme: appTheme(Brightness.dark),
+            themeMode: themeModeFrom(app.config.config.ui.theme),
+            localizationsDelegates: AppStrings.localizationsDelegates,
+            supportedLocales: AppStrings.supportedLocales,
+            // null follows the system, which is what 'auto' means.
+            locale: localeFromCode(app.config.config.ui.language),
+            home: MainWindow(app: app),
+          ),
         ),
       );
 }
@@ -109,6 +114,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
   Widget _content() {
     return Column(
         children: [
+          const UpdateBanner(),
           ValueListenableBuilder<AppSnapshot>(
             valueListenable: widget.app.controller.snapshot,
             builder: (_, snapshot, _) => _Warnings(snapshot: snapshot),

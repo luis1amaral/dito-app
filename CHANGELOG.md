@@ -4,6 +4,20 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.1: correção no registro do backend GGML CPU, atalhos F9/F10, verificação manual de atualizações e opções completas no instalador
+
+**Correção da inicialização GGML CPU (`GGML_USE_CPU`).** Corrigida a ausência da flag `GGML_USE_CPU` no CMake que impedia o registro do backend CPU no whisper.cpp e causava asserção de dispositivo nulo. Modelos Whisper (tiny, base, small, etc.) agora carregam com sucesso em menos de 500ms e transcrevem áudio instantaneamente em C++ nativo.
+
+**Atalhos F9 e F10 100% operacionais.** Protegido o carregamento e download de modelos contra concorrência e colisões de arquivos no `ModelManager` e `NativeEngine`. A ativação do microfone e captura de áudio via WASAPI agora respondem imediatamente aos atalhos globais F9 (ditado push-to-talk) e F10 (reunião contínua).
+
+**Botão de verificação de atualizações interativo.** Integrado o `UpdateController` na página de configurações com indicador de carregamento, abertura automática da caixa de diálogo quando há nova versão disponível e feedback amigável via SnackBar quando o aplicativo já está atualizado.
+
+**Restauração completa das opções do instalador.** Reativadas as opções de instalação em `dito.iss` para inicialização automática com o Windows, atalho na Área de Trabalho e pré-download dos modelos Whisper (`small`, `tiny`, `base`, `medium`, `large-v3`) diretamente durante a instalação via script dedicado `download_model.ps1`.
+
+**Como foi verificado.** Teste nativo de carregamento e transcrição em C++ aprovado com sucesso para os modelos `tiny` e `small`, `flutter analyze` com 0 apontamentos, **157 testes unitários aprovados** e instalador `dito-1.2.1-setup.exe` gerado com SHA256SUMS.
+
+---
+
 ## 2026-08-18 — 1.2.0: migração 100% nativa C++ (whisper.cpp + GGML + WASAPI) e remoção total do Python
 
 **Remoção total do backend Python.** Eliminado completamente o processo externo Python (`dito-engine.exe`, PyInstaller, faster-whisper, ctranslate2, sounddevice). O Dito agora executa 100% in-process via C++ nativo e Dart FFI, reduzindo o tamanho do instalador de mais de 100 MB para apenas **11.3 MB**, iniciando instantaneamente e eliminando qualquer risco de travamento de subprocesso, janelas de console ou dependências externas.

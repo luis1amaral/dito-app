@@ -27,6 +27,7 @@ class NativeEngine {
 
   Pointer<Void> _modelHandle = nullptr;
   String _loadedModelName = '';
+  Future<void>? _loadFuture;
   bool _isRecording = false;
   String _currentMode = 'dictation';
   String _currentSessionId = '';
@@ -45,8 +46,8 @@ class NativeEngine {
 
   Future<void> init() async {
     _log('iniciando motor nativo C++ (whisper.cpp ${DitoWhisper.version})');
-    // Announce ready event to the app
-    _events.add(const EngineReadyEvent());
+    _emit(const EngineReadyEvent());
+    _handleStatus();
   }
 
   void _emit(EngineEvent event) {
@@ -87,6 +88,23 @@ class NativeEngine {
       return;
     }
 
+    if (_loadFuture != null) {
+      await _loadFuture;
+      if (_modelHandle != nullptr && _loadedModelName == model) {
+        return;
+      }
+    }
+
+    final future = _loadModelInternal(model);
+    _loadFuture = future;
+    try {
+      await future;
+    } finally {
+      _loadFuture = null;
+    }
+  }
+
+  Future<void> _loadModelInternal(String model) async {
     if (_modelHandle != nullptr) {
       DitoWhisper.freeModel(_modelHandle);
       _modelHandle = nullptr;

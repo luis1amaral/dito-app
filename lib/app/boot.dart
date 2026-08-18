@@ -46,6 +46,7 @@ class DitoApp {
   final TrayController tray = TrayController();
   final AlertService alerts = createAlertService();
   late final DefaltUpdater updater = buildDitoUpdater();
+  late final UpdateController updateController = UpdateController(updater: updater);
   late final DitoController controller = DitoController(
     client: client,
     supervisor: supervisor,

@@ -70,9 +70,14 @@ if (-not $ISCC) {
     $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
     if ($cmd) { $ISCC = $cmd.Source }
 }
-if (-not $ISCC) { throw 'Inno Setup 6 nao encontrado (ISCC.exe)' }
+$issPath = Join-Path $PSScriptRoot 'dito.iss'
+$issBytes = [System.IO.File]::ReadAllBytes($issPath)
+if ($issBytes.Length -ge 3 -and ($issBytes[0] -ne 0xEF -or $issBytes[1] -ne 0xBB -or $issBytes[2] -ne 0xBF)) {
+    $bom = [byte[]]@(0xEF, 0xBB, 0xBF)
+    [System.IO.File]::WriteAllBytes($issPath, $bom + $issBytes)
+}
 
-& $ISCC "/DMyAppVersion=$Versao" (Join-Path $PSScriptRoot 'dito.iss')
+& $ISCC "/DMyAppVersion=$Versao" $issPath
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup reprovou' }
 
 $Instalador = Join-Path $Raiz "build\windows\installer\dito-$Versao-setup.exe"

@@ -7,6 +7,7 @@ import '../../l10n/app_strings.dart';
 import 'key_capture_field.dart';
 import '../palette.dart';
 import '../tokens.dart';
+import '../widgets/update_banner.dart';
 
 /// Every setting applies and persists on change; there is no Save button on purpose.
 class SettingsPage extends StatelessWidget {
@@ -39,10 +40,44 @@ class SettingsPage extends StatelessWidget {
                       return Text(version.isEmpty ? '...' : 'v$version');
                     },
                   ),
-                  trailing: FilledButton.icon(
-                    onPressed: () => app.updater.check(),
-                    icon: const Icon(Icons.system_update_rounded, size: 16),
-                    label: Text(s.btnCheckUpdates),
+                  trailing: ListenableBuilder(
+                    listenable: app.updateController,
+                    builder: (context, _) {
+                      final isBusy = app.updateController.isBusy;
+                      return FilledButton.icon(
+                        onPressed: isBusy
+                            ? null
+                            : () async {
+                                final info = await app.updateController.checkManual();
+                                if (!context.mounted) return;
+                                if (info != null) {
+                                  await showUpdateDialog(context, app.updateController);
+                                } else if (app.updateController.error != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Falha ao verificar atualizações: ${app.updateController.error}'),
+                                    ),
+                                  );
+                                } else {
+                                  final v = app.updateController.currentVersion;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Você já está usando a versão mais recente${v.isEmpty ? "" : " (v$v)"}.'),
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              },
+                        icon: isBusy
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.system_update_rounded, size: 16),
+                        label: Text(isBusy ? s.booting : s.btnCheckUpdates),
+                      );
+                    },
                   ),
                 ),
               ]),
