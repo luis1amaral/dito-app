@@ -351,5 +351,6 @@ class DitoApp {
     await supervisor.stop();
     await controller.dispose();
     await log.close();
+    exit(0);
   }
 }

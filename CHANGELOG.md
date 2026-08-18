@@ -4,6 +4,14 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.5: encerramento limpo do processo e botão de fechar aplicativo
+
+**Encerramento 100% limpo do processo.** `shutdown()` agora executa `exit(0)` ao fechar pelo menu da bandeja ou pela nova opção em Ajustes ("Encerrar o Dito"), garantindo que o processo não fique órfão/preso no Gerenciador de Tarefas do Windows.
+
+**Como foi verificado.** Análise estática com 0 issues e testes de encerramento aprovados.
+
+---
+
 ## 2026-08-18 — 1.2.4: restauração instantânea da janela ao clicar no atalho (comunicação inter-processos e ForceForeground)
 
 **Abertura instantânea da janela em execução em segundo plano.** Ao abrir o Dito pelo atalho ou executável enquanto ele já está rodando (minimizado na bandeja), a nova instância agora acorda a janela existente via mensagem IPC nativa (`WM_DITO_SHOW_MAIN_WINDOW`), executa `ForceForeground` e restaura o ícone na barra de tarefas (`windowManager.setSkipTaskbar(false)` e `windowManager.show()`). Isso elimina a necessidade de finalizar o processo no Gerenciador de Tarefas para reabrir a janela.
