@@ -4,6 +4,14 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.2: refinamento visual do modal de atualização com tema escuro unificado e progresso ao vivo
+
+**Design unificado do modal de atualização.** Atualizado o diálogo de atualização (`showUpdateDialog`) e o banner (`UpdateBanner`) para adotar a superfície escura uniforme (`hudSurface` / tom grafite profundo), eliminando fundos cinza-claros desajustados. O modal agora possui contornos suaves em hairline, badge de versão destacado, caixa estilizada para notas de lançamento e barra de progresso em tempo real integrada.
+
+**Como foi verificado.** `flutter analyze` sem erros (0 issues), **157 testes unitários aprovados**, compilação do executável e instalador `dito-1.2.2-setup.exe` gerado com SHA256SUMS.
+
+---
+
 ## 2026-08-18 — 1.2.1: correção no registro do backend GGML CPU, atalhos F9/F10, verificação manual de atualizações e opções completas no instalador
 
 **Correção da inicialização GGML CPU (`GGML_USE_CPU`).** Corrigida a ausência da flag `GGML_USE_CPU` no CMake que impedia o registro do backend CPU no whisper.cpp e causava asserção de dispositivo nulo. Modelos Whisper (tiny, base, small, etc.) agora carregam com sucesso em menos de 500ms e transcrevem áudio instantaneamente em C++ nativo.

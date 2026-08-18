@@ -28,6 +28,14 @@ ThemeData appTheme(Brightness brightness) {
       elevation: 0,
       margin: EdgeInsets.zero,
     ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: c.hudSurface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.overlay),
+        side: BorderSide(color: c.border.withValues(alpha: 0.35), width: AppSize.hairline),
+      ),
+    ),
     textTheme: TextTheme(
       displayLarge: TextStyle(
           fontSize: AppType.display, fontWeight: FontWeight.w700, color: c.textPrimary),

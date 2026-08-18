@@ -33,7 +33,13 @@ class UpdateBanner extends StatelessWidget {
     final size = info.sizeLabel;
 
     return Material(
-      color: colors.surfaceAlt,
+      color: colors.hudSurface,
+      shape: Border(
+        bottom: BorderSide(
+          color: colors.border.withValues(alpha: 0.4),
+          width: AppSize.hairline,
+        ),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -44,39 +50,59 @@ class UpdateBanner extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  failed ? Icons.error_outline_rounded : Icons.system_update_rounded,
-                  size: 18,
-                  color: failed ? colors.danger : colors.primary,
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: failed
+                        ? colors.danger.withValues(alpha: 0.15)
+                        : colors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.control),
+                  ),
+                  child: Icon(
+                    failed ? Icons.error_outline_rounded : Icons.system_update_rounded,
+                    size: 16,
+                    color: failed ? colors.danger : colors.primary,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: InkWell(
                     onTap: busy ? null : () => showUpdateDialog(context, c),
-                    child: Text(
-                      size.isEmpty || busy || failed ? label : '$label | $size',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                    borderRadius: BorderRadius.circular(AppRadius.control),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        size.isEmpty || busy || failed ? label : '$label | $size',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: colors.textPrimary,
+                            ),
+                      ),
                     ),
                   ),
                 ),
-                if (!busy && !failed)
+                if (!busy && !failed) ...[
+                  const SizedBox(width: AppSpacing.sm),
                   FilledButton(
                     onPressed: ready ? c.install : c.startDownload,
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md, vertical: 0),
                       minimumSize: const Size(60, 32),
+                      backgroundColor: colors.primary,
+                      foregroundColor: colors.textInverse,
                     ),
                     child: Text(ready ? strings.btnInstall : strings.btnDownload),
                   ),
+                ],
                 if (!installing)
                   IconButton(
                     tooltip: downloading ? strings.btnLater : strings.btnSkip,
-                    icon: Icon(Icons.close_rounded, size: 18, color: colors.textSecondary),
+                    icon: Icon(Icons.close_rounded,
+                        size: 18, color: colors.textSecondary),
                     onPressed: downloading ? c.cancelDownload : c.dismissBanner,
                   ),
               ],
@@ -86,7 +112,7 @@ class UpdateBanner extends StatelessWidget {
             LinearProgressIndicator(
               value: downloading && c.progress > 0 ? c.progress : null,
               minHeight: 2,
-              backgroundColor: colors.border,
+              backgroundColor: colors.hudWash,
               color: colors.primary,
             ),
         ],
@@ -98,70 +124,242 @@ class UpdateBanner extends StatelessWidget {
 Future<void> showUpdateDialog(BuildContext context, UpdateController c) async {
   final info = c.info;
   if (info == null) return;
-  final colors = context.appColors;
-  final strings = context.strings;
-  final size = info.sizeLabel;
 
   await showDialog<void>(
     context: context,
-    builder: (ctx) {
-      return AlertDialog(
-        backgroundColor: colors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
-        title: Row(
-          children: [
-            Icon(Icons.system_update_rounded, color: colors.primary),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: Text('${strings.appTitle} v${info.version}')),
-          ],
-        ),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    builder: (ctx) => _UpdateDialogContent(controller: c),
+  );
+}
+
+class _UpdateDialogContent extends StatelessWidget {
+  const _UpdateDialogContent({required this.controller});
+
+  final UpdateController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (ctx, _) {
+        final c = controller;
+        final info = c.info;
+        if (info == null) return const SizedBox.shrink();
+
+        final colors = ctx.appColors;
+        final strings = ctx.strings;
+        final size = info.sizeLabel;
+
+        final downloading = c.stage == UpdateStage.downloading;
+        final installing = c.stage == UpdateStage.installing;
+        final ready = c.stage == UpdateStage.ready;
+        final failed = c.stage == UpdateStage.error;
+
+        return AlertDialog(
+          backgroundColor: colors.hudSurface,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.overlay),
+            side: BorderSide(
+              color: colors.border.withValues(alpha: 0.35),
+              width: AppSize.hairline,
+            ),
+          ),
+          contentPadding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.md),
+          title: Row(
             children: [
-              Text(
-                size.isEmpty
-                    ? '${strings.installedVersion.split(':').first}: ${info.current}'
-                    : '${strings.installedVersion.split(':').first}: ${info.current} | $size',
-                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
-              ),
-              if (info.notes.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.lg),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
-                  child: SingleChildScrollView(
-                    child: Text(info.notes, style: Theme.of(ctx).textTheme.bodyMedium),
-                  ),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.card),
                 ),
-              ],
+                child: Icon(Icons.system_update_rounded,
+                    color: colors.primary, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${strings.appTitle} v${info.version}',
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: colors.textPrimary,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      size.isEmpty
+                          ? '${strings.installedVersion.split(':').first}: v${info.current}'
+                          : '${strings.installedVersion.split(':').first}: v${info.current} | $size',
+                      style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            color: colors.textMuted,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              c.skipCurrent();
-              Navigator.pop(ctx);
-            },
-            child: Text(strings.btnSkip, style: TextStyle(color: colors.textSecondary)),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (info.notes.isNotEmpty) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colors.hudField,
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                      border: Border.all(
+                        color: colors.border.withValues(alpha: 0.25),
+                        width: AppSize.hairline,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      child: SingleChildScrollView(
+                        child: Text(
+                          info.notes,
+                          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                color: colors.textSecondary,
+                                height: 1.45,
+                              ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                if (downloading || installing || failed) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  if (downloading) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          strings.downloadingUpdate,
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                color: colors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                        ),
+                        Text(
+                          '${(c.progress * 100).round()}%',
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                color: colors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: c.progress > 0 ? c.progress : null,
+                        minHeight: 6,
+                        backgroundColor: colors.hudWash,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ] else if (installing) ...[
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          strings.installingUpdate,
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ] else if (failed) ...[
+                    Text(
+                      c.error ?? 'Erro ao atualizar',
+                      style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            color: colors.danger,
+                          ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(strings.btnLater),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.pop(ctx);
-              c.startDownload();
-            },
-            icon: Icon(c.downloadsInApp ? Icons.download_rounded : Icons.system_update_rounded,
-                size: 18),
-            label: Text(c.downloadsInApp ? strings.btnDownloadNow : strings.btnInstall),
-          ),
-        ],
-      );
-    },
-  );
+          actionsPadding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.lg),
+          actions: [
+            if (!downloading && !installing) ...[
+              TextButton(
+                onPressed: () {
+                  c.skipCurrent();
+                  Navigator.pop(ctx);
+                },
+                child: Text(strings.btnSkip,
+                    style: TextStyle(color: colors.textMuted)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(strings.btnLater,
+                    style: TextStyle(color: colors.textSecondary)),
+              ),
+            ],
+            if (downloading) ...[
+              TextButton(
+                onPressed: () {
+                  c.cancelDownload();
+                },
+                child: Text(strings.btnDiscard,
+                    style: TextStyle(color: colors.danger)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(strings.btnLater,
+                    style: TextStyle(color: colors.textSecondary)),
+              ),
+            ],
+            if (!downloading && !installing)
+              FilledButton.icon(
+                onPressed: () {
+                  if (ready) {
+                    c.install();
+                  } else {
+                    c.startDownload();
+                  }
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: colors.textInverse,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+                ),
+                icon: Icon(
+                  ready
+                      ? Icons.restart_alt_rounded
+                      : (c.downloadsInApp
+                          ? Icons.download_rounded
+                          : Icons.system_update_rounded),
+                  size: 18,
+                ),
+                label: Text(ready
+                    ? strings.btnInstall
+                    : (c.downloadsInApp
+                        ? strings.btnDownloadNow
+                        : strings.btnInstall)),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
