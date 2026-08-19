@@ -5,6 +5,8 @@
 #
 set -euo pipefail
 
+export PATH="/opt/flutter/bin:$PATH"
+
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$RAIZ"
 

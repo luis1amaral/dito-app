@@ -69,6 +69,7 @@ target_include_directories(${PLUGIN_NAME} PUBLIC
 
 target_compile_definitions(${PLUGIN_NAME} PRIVATE
   FLUTTER_PLUGIN_IMPL
+  _GNU_SOURCE
   WHISPER_VERSION="1.9.2"
   GGML_VERSION="1.9.2"
   GGML_COMMIT="dito"
