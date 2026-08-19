@@ -351,7 +351,7 @@ class DitoController {
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
       }
-      final n = DateTime.fromMillisecondsSinceEpoch(now());
+      final n = DateTime.fromMicrosecondsSinceEpoch(now());
       final stamp = '${n.year.toString().padLeft(4, '0')}-'
           '${n.month.toString().padLeft(2, '0')}-'
           '${n.day.toString().padLeft(2, '0')}-'
