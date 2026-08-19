@@ -22,3 +22,5 @@ flutter:
     platforms:
       windows:
         pluginClass: DitoWhisperPluginCApi
+      linux:
+        pluginClass: DitoWhisperPlugin

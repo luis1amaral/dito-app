@@ -3,6 +3,9 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_multi_window
+  dito_whisper
+  dito_win32
   screen_retriever_linux
   url_launcher_linux
   window_manager

@@ -22,3 +22,5 @@ flutter:
     platforms:
       windows:
         pluginClass: DesktopMultiWindowPlugin
+      linux:
+        pluginClass: DesktopMultiWindowPlugin
