@@ -4,6 +4,14 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.9: notas no Obsidian com carimbo de data/hora preciso e estabilidade geral
+
+**Notas no Obsidian com timestamp exato.** Conversão de microsegundos para data/hora exata no nome dos arquivos e no cabeçalho das notas salvas no Obsidian (`~/notas/trabalho/YYYY-MM-DD-HHmmss.md`).
+
+**Como foi verificado.** Teste prático de ditado com salvamento direto no vault e validação dos 157 testes automatizados.
+
+---
+
 ## 2026-08-18 — 1.2.8: salvamento em markdown no vault do Obsidian e encerramento do HUD
 
 **Salvamento no Obsidian corrigido.** O envio do cartão de revisão com a opção do Obsidian ativada agora cria a nota Markdown estruturada no vault configurado e finaliza o status da pílula do HUD com toast de confirmação, evitando que o indicador fique preso em "Salvando a gravação...".
