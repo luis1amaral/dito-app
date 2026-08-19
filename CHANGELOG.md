@@ -4,6 +4,14 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-18 — 1.2.8: salvamento em markdown no vault do Obsidian e encerramento do HUD
+
+**Salvamento no Obsidian corrigido.** O envio do cartão de revisão com a opção do Obsidian ativada agora cria a nota Markdown estruturada no vault configurado e finaliza o status da pílula do HUD com toast de confirmação, evitando que o indicador fique preso em "Salvando a gravação...".
+
+**Como foi verificado.** Testes unitários do controller, teste de caminhos e validação dos 157 testes automatizados.
+
+---
+
 ## 2026-08-18 — 1.2.7: release de teste para validação do fluxo completo de auto-atualização
 
 **Validação do auto-updater.** Release com manifesto enriquecido (tamanho e SHA-256 de instalador e pacote zip), permitindo que o usuário teste a verificação e o download de atualização diretamente pela interface do aplicativo.

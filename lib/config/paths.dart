@@ -44,6 +44,14 @@ class DitoPaths {
 
   static String get defaultLibrary => '$documents\\Dito';
 
+  static String resolveObsidianPath(String vault, String folder) {
+    var v = vault.trim();
+    if (v.startsWith('~')) {
+      v = v.replaceFirst('~', _home);
+    }
+    return folder.trim().isEmpty ? v : '$v\\${folder.trim()}';
+  }
+
   static void ensureDirs() {
     for (final dir in <String>[configDir, dataDir, stateDir, logsDir]) {
       try {

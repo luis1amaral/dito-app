@@ -5,7 +5,7 @@
 ; Instala em %LOCALAPPDATA%\Programs\Dito, sem pedir UAC.
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.2.7"
+  #define MyAppVersion "1.2.8"
 #endif
 #define MyAppName "Dito"
 #define MyAppExe "dito_app.exe"

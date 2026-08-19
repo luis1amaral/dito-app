@@ -1,12 +1,14 @@
-import '../core/result.dart';
-import '../l10n/app_strings.dart';
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
 import '../config/config_model.dart';
 import '../config/config_service.dart';
+import '../config/paths.dart';
 import '../core/logbook.dart';
+import '../core/result.dart';
+import '../l10n/app_strings.dart';
 import '../engine/engine_client.dart';
 import '../engine/engine_protocol.dart';
 import '../engine/engine_supervisor.dart';
@@ -339,16 +341,51 @@ class DitoController {
 
   // ---- review card ----
 
+  Future<void> _saveToVault(String text) async {
+    try {
+      final targetDir = DitoPaths.resolveObsidianPath(
+        _cfg.obsidian.vault,
+        _cfg.obsidian.folder,
+      );
+      final dir = Directory(targetDir);
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+      final n = DateTime.fromMillisecondsSinceEpoch(now());
+      final stamp = '${n.year.toString().padLeft(4, '0')}-'
+          '${n.month.toString().padLeft(2, '0')}-'
+          '${n.day.toString().padLeft(2, '0')}-'
+          '${n.hour.toString().padLeft(2, '0')}'
+          '${n.minute.toString().padLeft(2, '0')}'
+          '${n.second.toString().padLeft(2, '0')}';
+      final file = File('$targetDir\\$stamp.md');
+      final content = '# Nota Dito - ${n.day.toString().padLeft(2, '0')}/${n.month.toString().padLeft(2, '0')}/${n.year} ${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}\n\n$text\n';
+      await file.writeAsString(content);
+      _log('salvo no obsidian em ${file.path}');
+    } catch (e) {
+      _log('falha ao salvar no obsidian: $e');
+    }
+  }
+
   Future<void> onReviewSend(String text, {required bool toVault}) async {
     pendingReview = null;
     _set(state.copyWith(lastText: text));
     if (text.trim().isEmpty) return;
 
-    if (toVault) hud(HudMessage.working(HudWork.saving));
+    if (toVault) {
+      hud(HudMessage.working(HudWork.saving));
+      await _saveToVault(text);
+    }
 
     // 150 ms for the focus to settle after the card hands it back.
     await Future<void>.delayed(const Duration(milliseconds: 150));
     if (_cfg.output.paste) await _paste(text);
+
+    if (toVault) {
+      hud(HudMessage.toast(HudToast.pasted, ms: 1200));
+    } else if (!_cfg.output.paste) {
+      hud(HudMessage.dismiss);
+    }
   }
 
   void onReviewDiscard() {
