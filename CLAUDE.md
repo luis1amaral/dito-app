@@ -32,6 +32,10 @@ O Flutter é interface, teclas, colagem e janelas.
   retroage. Ver `packages/desktop_multi_window/FORK.md`.
 - **`started` com `session_id == "engine_ready"` é handshake, não gravação.** Separado no parsing.
 - Sessões no disco são `<lib>/YYYY/MM/DD/<HH-MM-SS>.json`, **não** `session.json`.
+- **CUDA `CUDA_ARCHITECTURES` nunca só `-virtual` (PTX).** Faz o driver compilar (JIT) cada
+  kernel na primeira transcrição real, travando minutos — testar `using CUDA0 backend` só
+  prova que o *init* foi rápido, não prova nada sobre inferência de verdade. Usar código real
+  (`"61;75;86;89"`, sem sufixo `-virtual`) e só então testar uma transcrição ponta a ponta.
 
 ## Portão
 
