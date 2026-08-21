@@ -13,43 +13,71 @@ class DitoPaths {
     return value.isEmpty ? fallback : value;
   }
 
-  static String get _home => _env('USERPROFILE', 'C:\\');
+  static String get _sep => Platform.pathSeparator;
 
-  static String get configDir => '${_env('APPDATA', '$_home\\AppData\\Roaming')}\\$app';
+  static String get _home {
+    if (Platform.isWindows) {
+      return _env('USERPROFILE', 'C:\\');
+    }
+    return _env('HOME', '/home');
+  }
 
-  static String get dataDir => '${_env('LOCALAPPDATA', '$_home\\AppData\\Local')}\\$app';
+  static String get configDir {
+    if (Platform.isWindows) {
+      return '${_env('APPDATA', '$_home\\AppData\\Roaming')}\\$app';
+    }
+    final xdg = _env('XDG_CONFIG_HOME', '$_home/.config');
+    return '$xdg/$app';
+  }
 
-  static String get stateDir => '$dataDir\\state';
+  static String get dataDir {
+    if (Platform.isWindows) {
+      return '${_env('LOCALAPPDATA', '$_home\\AppData\\Local')}\\$app';
+    }
+    final xdg = _env('XDG_DATA_HOME', '$_home/.local/share');
+    return '$xdg/$app';
+  }
 
-  static String get logsDir => '$dataDir\\logs';
+  static String get stateDir {
+    if (Platform.isWindows) {
+      return '$dataDir\\state';
+    }
+    final xdg = _env('XDG_STATE_HOME', '$_home/.local/state');
+    return '$xdg/$app';
+  }
 
-  static String get configFile => '$configDir\\config.toml';
+  static String get logsDir => '$dataDir${_sep}logs';
+
+  static String get configFile => '$configDir${_sep}config.toml';
 
   /// Documents via SHGetFolderPath, because OneDrive moves the folder elsewhere.
   static String get documents {
-    final buffer = wsalloc(MAX_PATH);
-    try {
-      final hr = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, 0, buffer);
-      if (hr == S_OK) {
-        final path = buffer.toDartString();
-        if (path.isNotEmpty) return path;
+    if (Platform.isWindows) {
+      final buffer = wsalloc(MAX_PATH);
+      try {
+        final hr = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, 0, buffer);
+        if (hr == S_OK) {
+          final path = buffer.toDartString();
+          if (path.isNotEmpty) return path;
+        }
+      } catch (_) {
+        // Falls through to the plain profile path below.
+      } finally {
+        free(buffer);
       }
-    } catch (_) {
-      // Falls through to the plain profile path below.
-    } finally {
-      free(buffer);
+      return '$_home\\Documents';
     }
-    return '$_home\\Documents';
+    return _env('XDG_DOCUMENTS_DIR', '$_home/Documents');
   }
 
-  static String get defaultLibrary => '$documents\\Dito';
+  static String get defaultLibrary => '$documents${_sep}Dito';
 
   static String resolveObsidianPath(String vault, String folder) {
     var v = vault.trim();
     if (v.startsWith('~')) {
       v = v.replaceFirst('~', _home);
     }
-    return folder.trim().isEmpty ? v : '$v\\${folder.trim()}';
+    return folder.trim().isEmpty ? v : '$v$_sep${folder.trim()}';
   }
 
   static void ensureDirs() {

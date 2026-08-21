@@ -44,13 +44,15 @@ class MultiWindowBus implements WindowBus {
   @override
   void onMessage(
       Future<Object?> Function(String method, Map<String, Object?> data) handler) {
-    _self?.setWindowMethodHandler((MethodCall call) async {
-      final args = call.arguments;
-      return handler(
-        call.method,
-        args is Map ? Map<String, Object?>.from(args) : <String, Object?>{},
-      );
-    });
+    try {
+      _self?.setWindowMethodHandler((MethodCall call) async {
+        final args = call.arguments;
+        return handler(
+          call.method,
+          args is Map ? Map<String, Object?>.from(args) : <String, Object?>{},
+        );
+      }).catchError((_) {});
+    } catch (_) {}
   }
 }
 

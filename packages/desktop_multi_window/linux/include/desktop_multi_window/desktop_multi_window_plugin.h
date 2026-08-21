@@ -21,6 +21,11 @@ FLUTTER_PLUGIN_EXPORT GType desktop_multi_window_plugin_get_type();
 FLUTTER_PLUGIN_EXPORT void desktop_multi_window_plugin_register_with_registrar(
     FlPluginRegistrar* registrar);
 
+typedef void (*DesktopMultiWindowSetWindowCreatedCallback)(FlPluginRegistry* registry);
+
+FLUTTER_PLUGIN_EXPORT void desktop_multi_window_plugin_set_window_created_callback(
+    DesktopMultiWindowSetWindowCreatedCallback callback);
+
 G_END_DECLS
 
 #endif  // FLUTTER_PLUGIN_DESKTOP_MULTI_WINDOW_PLUGIN_H_

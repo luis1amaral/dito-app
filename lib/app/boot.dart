@@ -21,6 +21,7 @@ import '../output/paste_service.dart';
 import '../platform/window_bus.dart';
 import '../state/dito_controller.dart';
 import '../state/hud_commands.dart';
+import '../ui/hud/hud_state.dart';
 import '../ui/tray/tray_controller.dart';
 
 /// Window roles, carried as the sub-window argument.
@@ -35,6 +36,7 @@ class DitoApp {
   DitoApp() : log = Logbook('app');
 
   final Logbook log;
+  final HudState hudState = HudState();
 
   // Built eagerly, never late: the window renders before start() finishes, and a late
   // field there is a LateInitializationError on the very first frame.
@@ -59,6 +61,7 @@ class DitoApp {
   );
 
   final ValueNotifier<bool> paused = ValueNotifier<bool>(false);
+  final ValueNotifier<FinishedEvent?> reviewEvent = ValueNotifier<FinishedEvent?>(null);
 
   /// False until every service is wired; the window shows a boot state meanwhile.
   final ValueNotifier<bool> isReady = ValueNotifier<bool>(false);
@@ -93,12 +96,9 @@ class DitoApp {
     tray.onCopy = () => unawaited(controller.copyLastText());
     tray.onTogglePause = () => unawaited(togglePause());
     tray.onQuit = () => unawaited(shutdown());
-    // Tray icon is Win32; Linux boots without it until a native tray lands (docs/LINUX.md).
-    if (Platform.isWindows) {
-      await tray.init();
-      await tray.update(controller.state, strings, config.config.hotkeys.pushToTalk,
-          paused: paused.value);
-    }
+    await tray.init();
+    await tray.update(controller.state, strings, config.config.hotkeys.pushToTalk,
+        paused: paused.value);
 
     await supervisor.start();
     isReady.value = true;
@@ -234,7 +234,6 @@ class DitoApp {
   Future<void> _openSubWindows() async {
     try {
       final self = await WindowController.fromCurrentEngine();
-      // The sub-window has to be told our id: window ids are UUIDs, never a fixed "0".
       final hud = await WindowController.create(WindowConfiguration(
         arguments: '${WindowRole.hud}:${self.windowId}',
         focusable: false,
@@ -286,12 +285,14 @@ class DitoApp {
   }
 
   void _toHud(HudMessage message) {
+    hudState.apply(message);
     final id = _hudWindowId;
     if (id == null) return;
     unawaited(_bus?.send(id, 'hud', message.toMap()));
   }
 
   void _toReview(FinishedEvent event) {
+    reviewEvent.value = event;
     final id = _reviewWindowId;
     if (id == null) return;
     unawaited(_bus?.send(id, 'review', <String, Object?>{
@@ -312,7 +313,6 @@ class DitoApp {
   AppStrings get strings => stringsFor(config.config.ui.language);
 
   void _onSnapshot() {
-    if (!Platform.isWindows) return;
     unawaited(tray.update(controller.state, strings,
         config.config.hotkeys.pushToTalk,
         paused: paused.value));
@@ -328,6 +328,9 @@ class DitoApp {
       await hotkeys.resume();
     }
     controller.setPaused(paused.value);
+    await tray.update(controller.state, strings,
+        config.config.hotkeys.pushToTalk,
+        paused: paused.value);
   }
 
   Future<void> _sweepOldSessions() async {
@@ -347,7 +350,7 @@ class DitoApp {
     log('encerrando');
     hotkeys.shutdown();
     await hotkeys.dispose();
-    if (Platform.isWindows) await tray.dispose();
+    await tray.dispose();
     await supervisor.stop();
     await controller.dispose();
     await log.close();

@@ -20,30 +20,20 @@ void main() {
   var consumed = 0;
 
   Future<T> waitFor<T extends EngineEvent>(
-      {Duration timeout = const Duration(seconds: 90)}) {
-    for (var i = consumed; i < seen.length; i++) {
-      final event = seen[i];
-      if (event is T) {
-        consumed = i + 1;
-        return Future<T>.value(event);
+      {Duration timeout = const Duration(seconds: 10)}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      for (var i = consumed; i < seen.length; i++) {
+        final event = seen[i];
+        if (event is T) {
+          consumed = i + 1;
+          return event;
+        }
       }
+      await Future<void>.delayed(const Duration(milliseconds: 10));
     }
-    consumed = seen.length;
-
-    final completer = Completer<T>();
-    late StreamSubscription<EngineEvent> local;
-    local = client.events.listen((event) {
-      if (event is T && !completer.isCompleted) {
-        consumed = seen.length;
-        completer.complete(event);
-        local.cancel();
-      }
-    });
-    return completer.future.timeout(timeout, onTimeout: () {
-      local.cancel();
-      throw TimeoutException('nenhum ${T.toString()} em ${timeout.inSeconds}s; '
-          'vistos: ${seen.map((e) => e.runtimeType).toList()}');
-    });
+    throw TimeoutException('nenhum ${T.toString()} em ${timeout.inSeconds}s; '
+        'vistos: ${seen.map((e) => e.runtimeType).toList()}');
   }
 
   setUp(() {

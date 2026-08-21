@@ -174,10 +174,11 @@ class NativeEngine {
     final mm = now.minute.toString().padLeft(2, '0');
     final ss = now.second.toString().padLeft(2, '0');
 
-    _currentFolder = '${DitoPaths.defaultLibrary}\\$y\\$m\\$d';
+    final sep = Platform.pathSeparator;
+    _currentFolder = '${DitoPaths.defaultLibrary}$sep$y$sep$m$sep$d';
     _currentStem = '$hh-$mm-$ss';
     _currentSessionId = '$y-$m-${d}_$_currentStem';
-    _currentWavPath = '$_currentFolder\\$_currentStem${DitoPaths.audioSuffix}';
+    _currentWavPath = '$_currentFolder$sep$_currentStem${DitoPaths.audioSuffix}';
 
     Directory(_currentFolder).createSync(recursive: true);
 
@@ -242,8 +243,9 @@ class NativeEngine {
     _log('transcricao concluida: "$text"');
 
     // Write session JSON metadata
+    final sep = Platform.pathSeparator;
     final metaPath =
-        '$_currentFolder\\$_currentStem${DitoPaths.sessionSuffix}';
+        '$_currentFolder$sep$_currentStem${DitoPaths.sessionSuffix}';
     try {
       final meta = {
         'id': _currentSessionId,
@@ -306,6 +308,10 @@ class NativeEngine {
       _modelHandle = nullptr;
       _loadedModelName = '';
     }
+  }
+
+  Future<void> dispose() async {
+    await shutdown();
     await _events.close();
   }
 }

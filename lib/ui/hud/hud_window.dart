@@ -122,6 +122,9 @@ class _HudAppState extends State<_HudApp> {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _clipToPill();
         if (_visible) {
+          try {
+            await widget.controller.show();
+          } catch (_) {}
           await DitoWin32.showNoActivate();
           _hit = null;
           await _clipToPill();
@@ -129,6 +132,9 @@ class _HudAppState extends State<_HudApp> {
       });
     } else if (!shouldShow && _visible) {
       _visible = false;
+      try {
+        await widget.controller.hide();
+      } catch (_) {}
       await DitoWin32.hideWindow();
     } else if (shouldShow) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

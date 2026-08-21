@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dito_win32/dito_win32.dart';
 import 'package:flutter/foundation.dart';
@@ -36,11 +35,9 @@ abstract class HotkeyService extends ChangeNotifier {
   Future<void> dispose();
 }
 
-/// Picks the platform implementation; Linux gets a stub until the X11/portal hook lands.
+/// Picks the platform implementation; both Windows and Linux use NativeKeySource.
 HotkeyService createHotkeyService({KeySource? source, Logbook? log}) =>
-    Platform.isWindows
-        ? WindowsHotkeyService(source: source, log: log)
-        : LinuxHotkeyService(log: log);
+    WindowsHotkeyService(source: source, log: log);
 
 /// Wires the machine to the config and to the native Win32 hook.
 class WindowsHotkeyService extends HotkeyService {

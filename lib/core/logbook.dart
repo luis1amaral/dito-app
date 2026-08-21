@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
+import '../config/paths.dart';
+
 /// Ring buffer plus file log, one per window; writes are queued, never sync on the hot path.
 class Logbook {
   Logbook(this.name, {this.directory, this.ringSize = 500});
@@ -66,10 +68,7 @@ class Logbook {
     }
   }
 
-  static String? _defaultDirectory() {
-    final local = Platform.environment['LOCALAPPDATA'];
-    return local == null || local.isEmpty ? null : '$local\\dito\\logs';
-  }
+  static String? _defaultDirectory() => DitoPaths.logsDir;
 
   Future<void> close() async {
     if (_closed) return;

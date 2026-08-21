@@ -4,6 +4,86 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — fix Linux: card de Review não flutuava (renderizava embutido/atrás da janela principal)
+
+**Causa raiz.** `lib/main.dart` tinha uma função local `runReviewWindow` que sombreava
+silenciosamente a implementação real importada de `ui/review/review_window.dart` (Dart dá
+precedência à declaração local sobre o import, sem aviso). A versão local só chamava
+`DitoWin32.adoptAsPanel()` — o método que tira borda/põe sempre-no-topo/tira da taskbar — se
+`Platform.isWindows`; no Linux nunca rodava. Em cima disso, `lib/app/boot.dart` tinha um hack
+só-Linux que dava `windowManager.show()/focus()` na janela **principal** toda vez que o review
+disparava — compensação de quem bateu no mesmo bug e tentou contornar em vez de achar a causa.
+
+**Fix.**
+- `lib/main.dart` — apagada a função local que sombreava; agora resolve pra implementação real,
+  que chama `adoptAsPanel()` incondicional em qualquer plataforma.
+- `lib/app/boot.dart` — removido o hack `Platform.isLinux` que erguia a janela principal.
+- `lib/ui/review/review_window.dart` — removido um listener global de tecla (`_onGlobalKey`) que
+  nunca disparava em nenhuma plataforma (só teclas ligadas via `keys.bind` chegam nesse stream, e
+  Enter/Tab/Escape nunca foram ligadas ali) — quem trata essas teclas de verdade é o
+  `Focus`/`onKeyEvent` já existente em `review_card.dart`, Flutter puro, funciona nas duas
+  plataformas assim que a janela tem foco real de teclado.
+- `packages/dito_win32/linux/dito_win32_plugin.cc` — corrigido um **use-after-free real**: o
+  registrar da sub-janela (HUD/Review) era guardado sem `g_object_ref`, e virava ponteiro pendurado
+  assim que a referência do chamador caía, derrubando o app com `SIGSEGV` no primeiro
+  `window.adoptAsHud`/`adoptAsPanel`. Completados os stubs que só fingiam sucesso:
+  `focus.take`/`focus.giveBack` (via EWMH `_NET_ACTIVE_WINDOW`, ler/restaurar foco cooperativamente
+  com o WM), `window.rect`/`window.handle` (geometria e XID reais em vez de valores fixos),
+  `input.sendChord` (via `xdotool`, mesmo padrão do resto do arquivo). `window.setHitRect` passou a
+  usar `gtk_widget_input_shape_combine_region` (forma **de clique**) em vez de
+  `gtk_widget_shape_combine_region` (forma **de composição**) — a segunda brigava com a pintura em
+  alpha do `FloatingSurface` do Flutter (cantos arredondados saíam quadrados) e parecia estar
+  quebrando o clique nos controles do card. Removido o catch-all que respondia `success:true` pra
+  qualquer `window.*`/`test.*` não implementado (mascarava as lacunas acima); `XInitThreads()`
+  consolidado pra rodar uma vez por processo em vez de uma vez por janela.
+- `packages/desktop_multi_window/FORK.md`, `docs/LINUX.md` — corrigida documentação desatualizada
+  que descrevia uma arquitetura pré-hook-X11 (dizia que o Linux tinha sido removido do fork, que o
+  HUD precisava de layer-shell, que `LinuxHotkeyService` era stub — nada disso bate com o código
+  atual).
+
+**Como foi verificado.** `flutter analyze` (0 issues) e `flutter test` (166 testes) verdes. Rodado
+o binário real (`flutter build linux --debug` + execução na sessão X11 real) com injeção de tecla
+(F9/F10): HUD aparece flutuando, `_NET_ACTIVE_WINDOW` não muda durante o F9 segurado (não rouba
+foco), `_NET_WM_STATE` tem `SKIP_TASKBAR`+`ABOVE`; o card de Review apareceu flutuando sobre outro
+app com texto real transcrito, sem a janela principal vir pra frente; cantos do HUD renderizaram
+arredondados depois da troca pra `input_shape_combine_region`. Confirmado via `coredumpctl`+`gdb`
+que o crash do registrar sumiu depois do `g_object_ref`.
+
+---
+
+## 2026-08-21 — fix Linux: janela principal e sub-janelas (HUD/Review) renderizavam em branco
+
+**Causa raiz.** No build Linux debug (`flutter build linux --debug`), toda janela (principal e as
+sub-janelas do `desktop_multi_window`) imprimia `Failed to setup compositor shaders, unable to make
+OpenGL context current` e ficava com o conteúdo em branco — só a cor de fundo aparecia, nenhum texto/
+canvas. Não é limitação de driver/GPU da máquina: a NVIDIA GTX 1650 tem OpenGL 4.6 com renderização
+direta funcionando (`glxinfo`). É um bug conhecido do backend **Impeller** no embedder Linux do
+Flutter 3.47 — o pipeline de "compositor shaders" da Impeller falha ao tornar o contexto GL corrente
+em janelas GTK criadas via `gtk_window_new`/`fl_view_new` (tanto a principal quanto as do
+`desktop_multi_window_plugin.cc`) antes de o compositor da WM assumi-las. A janela principal chegava
+a se recuperar sozinha em ~2 tentativas (mascarando o problema em testes rápidos); as sub-janelas
+(HUD, Review), criadas e mostradas em outro momento, nunca se recuperavam e ficavam permanentemente
+brancas.
+
+**Fix.** Desativado o Impeller e voltado para o backend legado (Skia/OpenGL) via a API oficial do
+embedder Linux `fl_dart_project_set_enable_impeller(project, FALSE)`, em `linux/runner/my_application.cc`
+(janela principal) e `packages/desktop_multi_window/linux/desktop_multi_window_plugin.cc` (sub-janelas).
+Mudança restrita a `linux/` — não toca `windows/` nem nenhum código Windows.
+
+**Tradeoff.** Skia é o backend legado (não descontinuado, ainda suportado); é a alternativa oficial e
+recomendada pelo próprio Flutter quando o Impeller tem problemas com um driver. Não notei lentidão
+perceptível no HUD (overlay simples, poucos elementos) nos testes visuais, mas isso foi validado só
+nesta máquina/driver (NVIDIA 550.163.01) — vale reconferir em outra GPU antes do `.deb` final.
+
+**Como foi verificado.** Reproduzido o bug isolado com `tool/spike_subwindow_linux.dart` (janela
+principal + sub-janela via `WindowController`, screenshot mostrando a sub-janela com só a cor de
+fundo, sem o texto) — depois do fix, rebuild do mesmo spike mostra o texto renderizando normalmente
+na sub-janela. Rebuild do app real (`flutter build linux --debug`) confirma a janela principal
+renderizando a UI completa, sem `Using the Impeller rendering backend` no stderr. `flutter analyze`
+(0 issues) e `flutter test` (166 testes, todos passando) continuam verdes.
+
+---
+
 ## 2026-08-18 — 1.2.9: notas no Obsidian com carimbo de data/hora preciso e estabilidade geral
 
 **Notas no Obsidian com timestamp exato.** Conversão de microsegundos para data/hora exata no nome dos arquivos e no cabeçalho das notas salvas no Obsidian (`~/notas/trabalho/YYYY-MM-DD-HHmmss.md`).

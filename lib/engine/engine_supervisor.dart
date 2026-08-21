@@ -122,12 +122,12 @@ class EngineSupervisor extends ChangeNotifier {
   }
 
   @override
-  Future<void> dispose() async {
+  void dispose() {
     _stopping = true;
     _retry?.cancel();
-    await _events?.cancel();
-    await _exits?.cancel();
-    await _log.close();
+    _events?.cancel();
+    _exits?.cancel();
+    _log.close();
     super.dispose();
   }
 }

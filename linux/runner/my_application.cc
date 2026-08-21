@@ -6,6 +6,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include <desktop_multi_window/desktop_multi_window_plugin.h>
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -16,7 +17,20 @@ G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
-  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+  gboolean start_hidden = FALSE;
+  if (self->dart_entrypoint_arguments != nullptr) {
+    for (char** arg = self->dart_entrypoint_arguments; *arg != nullptr; ++arg) {
+      if (g_strcmp0(*arg, "--startup") == 0 || g_strcmp0(*arg, "--minimized") == 0 ||
+          g_strcmp0(*arg, "--tray") == 0 || g_strcmp0(*arg, "listen") == 0 ||
+          g_strcmp0(*arg, "--hidden") == 0) {
+        start_hidden = TRUE;
+        break;
+      }
+    }
+  }
+  if (!start_hidden) {
+    gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+  }
 }
 
 // Implements GApplication::activate.
@@ -24,6 +38,15 @@ static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+
+  // Configure default icon and window icon
+  gtk_window_set_default_icon_name("dito");
+  gtk_window_set_icon_name(window, "dito");
+  if (!gtk_window_set_icon_from_file(window, "/opt/dito/data/flutter_assets/assets/icons/icon.svg", nullptr)) {
+    if (!gtk_window_set_icon_from_file(window, "/usr/share/pixmaps/dito.svg", nullptr)) {
+      gtk_window_set_icon_from_file(window, "/usr/share/icons/hicolor/scalable/apps/dito.svg", nullptr);
+    }
+  }
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
@@ -45,11 +68,11 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "dito_app");
+    gtk_header_bar_set_title(header_bar, "Dito");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "dito_app");
+    gtk_window_set_title(window, "Dito");
   }
 
   gtk_window_set_default_size(window, 1280, 720);
@@ -57,6 +80,8 @@ static void my_application_activate(GApplication* application) {
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
+  // Impeller's compositor shaders never come up on this NVIDIA/GLX setup, leaving windows blank; Skia works.
+  fl_dart_project_set_enable_impeller(project, FALSE);
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
@@ -73,6 +98,7 @@ static void my_application_activate(GApplication* application) {
                            self);
   gtk_widget_realize(GTK_WIDGET(view));
 
+  desktop_multi_window_plugin_set_window_created_callback(fl_register_plugins);
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
   gtk_widget_grab_focus(GTK_WIDGET(view));

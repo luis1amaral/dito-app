@@ -25,9 +25,18 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE
   FLUTTER_PLUGIN_IMPL
 )
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(X11 REQUIRED x11)
+
+target_include_directories(${PLUGIN_NAME} PRIVATE
+  ${X11_INCLUDE_DIRS}
+)
+
 target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter
   PkgConfig::GTK
+  ${X11_LIBRARIES}
+  ${CMAKE_DL_LIBS}
 )
 
 set(dito_win32_bundled_libraries

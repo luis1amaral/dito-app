@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:dito_win32/dito_win32.dart';
 import 'package:flutter/material.dart';
 
@@ -9,6 +10,19 @@ import '../theme.dart';
 import '../window_shot.dart';
 import '../tokens.dart';
 import 'review_card.dart';
+
+/// Entry point of the review window.
+Future<void> runReviewWindow(WindowController controller, String ownerId) async {
+  final bus = MultiWindowBus(controller);
+
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    color: Colors.transparent,
+    home: ReviewWindow(bus: bus, ownerId: ownerId),
+  ));
+
+  await DitoWin32.adoptAsPanel();
+}
 
 /// The review card in its own window: takes focus on purpose, hands it back before pasting.
 class ReviewWindow extends StatefulWidget {
@@ -30,32 +44,14 @@ class _ReviewWindowState extends State<ReviewWindow> {
   bool _visible = false;
   final GlobalKey _canvas = GlobalKey();
   final GlobalKey _card = GlobalKey();
-  StreamSubscription<KeySignal>? _keySub;
   Rect? _hit;
 
   @override
   void initState() {
     super.initState();
     widget.bus.onMessage(_onMessage);
-    _keySub = DitoWin32.keys.listen(_onGlobalKey);
     unawaited(_askAppearance());
     WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_apply()));
-  }
-
-  void _onGlobalKey(KeySignal signal) {
-    if (signal is! KeyDown || _text == null || !_visible) return;
-    final k = signal.key.toLowerCase();
-    if (k == 'enter' || k == 'return' || k == 'numpadenter' || k == 'numpad enter') {
-      unawaited(_send(_text ?? '', toVault: false));
-    } else if (k == 'tab' || k == 'escape' || k == 'esc') {
-      unawaited(_discard());
-    }
-  }
-
-  @override
-  void dispose() {
-    _keySub?.cancel();
-    super.dispose();
   }
 
   Future<Object?> _onMessage(String method, Map<String, Object?> data) async {

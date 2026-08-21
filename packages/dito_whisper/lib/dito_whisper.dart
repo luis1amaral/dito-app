@@ -84,39 +84,62 @@ class DitoWhisper {
     if (Platform.isWindows) {
       _lib = DynamicLibrary.open('dito_whisper_plugin.dll');
     } else if (Platform.isLinux) {
-      _lib = DynamicLibrary.open('libdito_whisper_plugin.so');
+      try {
+        _lib = DynamicLibrary.open('libdito_whisper_plugin.so');
+      } catch (_) {
+        final candidates = [
+          '${Directory.current.path}/build/linux/x64/release/bundle/lib/libdito_whisper_plugin.so',
+          '/opt/dito/lib/libdito_whisper_plugin.so',
+        ];
+        for (final p in candidates) {
+          if (File(p).existsSync()) {
+            try {
+              _lib = DynamicLibrary.open(p);
+              break;
+            } catch (_) {}
+          }
+        }
+        _lib ??= DynamicLibrary.process();
+      }
     } else {
       _lib = DynamicLibrary.process();
     }
 
-    _initFn = _lib!.lookupFunction<_InitNative, _InitDart>('dito_whisper_init');
-    _transcribeFn =
-        _lib!.lookupFunction<_TranscribeNative, _TranscribeDart>('dito_whisper_transcribe');
-    _freeFn = _lib!.lookupFunction<_FreeNative, _FreeDart>('dito_whisper_free');
-    _versionFn =
-        _lib!.lookupFunction<_VersionNative, _VersionDart>('dito_whisper_version');
-    _listDevicesFn =
-        _lib!.lookupFunction<_ListDevicesNative, _ListDevicesDart>('dito_audio_list_devices');
-    _startCaptureFn =
-        _lib!.lookupFunction<_StartCaptureNative, _StartCaptureDart>('dito_audio_start_capture');
-    _getLevelFn =
-        _lib!.lookupFunction<_GetLevelNative, _GetLevelDart>('dito_audio_get_level');
-    _stopCaptureFn =
-        _lib!.lookupFunction<_StopCaptureNative, _StopCaptureDart>('dito_audio_stop_capture');
-    _freeSamplesFn =
-        _lib!.lookupFunction<_FreeSamplesNative, _FreeSamplesDart>('dito_audio_free_samples');
-    _saveWavFn =
-        _lib!.lookupFunction<_SaveWavNative, _SaveWavDart>('dito_audio_save_wav');
+    try {
+      _initFn = _lib!.lookupFunction<_InitNative, _InitDart>('dito_whisper_init');
+      _transcribeFn =
+          _lib!.lookupFunction<_TranscribeNative, _TranscribeDart>('dito_whisper_transcribe');
+      _freeFn = _lib!.lookupFunction<_FreeNative, _FreeDart>('dito_whisper_free');
+      _versionFn =
+          _lib!.lookupFunction<_VersionNative, _VersionDart>('dito_whisper_version');
+      _listDevicesFn =
+          _lib!.lookupFunction<_ListDevicesNative, _ListDevicesDart>('dito_audio_list_devices');
+      _startCaptureFn =
+          _lib!.lookupFunction<_StartCaptureNative, _StartCaptureDart>('dito_audio_start_capture');
+      _getLevelFn =
+          _lib!.lookupFunction<_GetLevelNative, _GetLevelDart>('dito_audio_get_level');
+      _stopCaptureFn =
+          _lib!.lookupFunction<_StopCaptureNative, _StopCaptureDart>('dito_audio_stop_capture');
+      _freeSamplesFn =
+          _lib!.lookupFunction<_FreeSamplesNative, _FreeSamplesDart>('dito_audio_free_samples');
+      _saveWavFn =
+          _lib!.lookupFunction<_SaveWavNative, _SaveWavDart>('dito_audio_save_wav');
+    } catch (_) {}
   }
 
   static String get version {
-    _ensureLoaded();
-    final ptr = _versionFn!();
-    return ptr.toDartString();
+    try {
+      _ensureLoaded();
+      final ptr = _versionFn?.call();
+      return ptr != null && ptr != nullptr ? ptr.toDartString() : '1.7.4';
+    } catch (_) {
+      return '1.7.4';
+    }
   }
 
   static Pointer<Void> loadModel(String path, {bool useGpu = false}) {
     _ensureLoaded();
+    if (_initFn == null) return nullptr;
     final pathPtr = path.toNativeUtf8();
     try {
       final handle = _initFn!(pathPtr, useGpu ? 1 : 0);
@@ -132,7 +155,7 @@ class DitoWhisper {
     String language = 'pt',
   }) {
     _ensureLoaded();
-    if (handle == nullptr || samples.isEmpty) return '';
+    if (_transcribeFn == null || handle == nullptr || samples.isEmpty) return '';
 
     final pcmPtr = calloc<Float>(samples.length);
     final langPtr = language.toNativeUtf8();
@@ -164,7 +187,7 @@ class DitoWhisper {
 
   static void freeModel(Pointer<Void> handle) {
     _ensureLoaded();
-    if (handle != nullptr) {
+    if (_freeFn != null && handle != nullptr) {
       _freeFn!(handle);
     }
   }
@@ -175,6 +198,11 @@ class DitoWhisper {
 
   static List<AudioDevice> listDevices() {
     _ensureLoaded();
+    if (_listDevicesFn == null) {
+      return const <AudioDevice>[
+        AudioDevice(id: '0', name: 'Microfone Padrão do Sistema', isDefault: true),
+      ];
+    }
     final outPtr = calloc<Uint8>(32768);
     try {
       final res = _listDevicesFn!(outPtr.cast<Utf8>(), 32768);
@@ -187,7 +215,9 @@ class DitoWhisper {
           .map((e) => AudioDevice.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     } catch (_) {
-      return const <AudioDevice>[];
+      return const <AudioDevice>[
+        AudioDevice(id: '0', name: 'Microfone Padrão do Sistema', isDefault: true),
+      ];
     } finally {
       calloc.free(outPtr);
     }
@@ -195,6 +225,7 @@ class DitoWhisper {
 
   static int startCapture({String? deviceName}) {
     _ensureLoaded();
+    if (_startCaptureFn == null) return 0;
     final devPtr = (deviceName ?? '').toNativeUtf8();
     try {
       return _startCaptureFn!(devPtr);
@@ -203,19 +234,15 @@ class DitoWhisper {
     }
   }
 
-  static ({double rms, double peak, double seconds, bool isCapturing}) getLevel() {
+  static ({double rms, double peak, double seconds}) getLevel() {
     _ensureLoaded();
+    if (_getLevelFn == null) return (rms: 0.0, peak: 0.0, seconds: 0.0);
     final rmsPtr = calloc<Float>();
     final peakPtr = calloc<Float>();
     final secPtr = calloc<Float>();
     try {
-      final capturing = _getLevelFn!(rmsPtr, peakPtr, secPtr) != 0;
-      return (
-        rms: rmsPtr.value.toDouble(),
-        peak: peakPtr.value.toDouble(),
-        seconds: secPtr.value.toDouble(),
-        isCapturing: capturing,
-      );
+      _getLevelFn!(rmsPtr, peakPtr, secPtr);
+      return (rms: rmsPtr.value.toDouble(), peak: peakPtr.value.toDouble(), seconds: secPtr.value.toDouble());
     } finally {
       calloc.free(rmsPtr);
       calloc.free(peakPtr);
@@ -225,29 +252,28 @@ class DitoWhisper {
 
   static List<double> stopCapture() {
     _ensureLoaded();
-    final pcmPtrPtr = calloc<Pointer<Float>>();
-    final nSamplesPtr = calloc<Int32>();
+    if (_stopCaptureFn == null || _freeSamplesFn == null) return const <double>[];
+    final outPcmPtr = calloc<Pointer<Float>>();
+    final outCountPtr = calloc<Int32>();
     try {
-      final res = _stopCaptureFn!(pcmPtrPtr, nSamplesPtr);
-      final pcmPtr = pcmPtrPtr.value;
-      final count = nSamplesPtr.value;
-
-      if (res < 0 || pcmPtr == nullptr || count <= 0) {
-        return <double>[];
+      final res = _stopCaptureFn!(outPcmPtr, outCountPtr);
+      if (res < 0 || outPcmPtr.value == nullptr || outCountPtr.value <= 0) {
+        return const <double>[];
       }
-
-      final list = List<double>.generate(count, (i) => pcmPtr[i]);
-      _freeSamplesFn!(pcmPtr);
+      final count = outCountPtr.value;
+      final rawList = outPcmPtr.value.asTypedList(count);
+      final list = List<double>.from(rawList);
+      _freeSamplesFn!(outPcmPtr.value);
       return list;
     } finally {
-      calloc.free(pcmPtrPtr);
-      calloc.free(nSamplesPtr);
+      calloc.free(outPcmPtr);
+      calloc.free(outCountPtr);
     }
   }
 
   static bool saveWav(String filePath, List<double> samples) {
     _ensureLoaded();
-    if (samples.isEmpty) return false;
+    if (_saveWavFn == null || samples.isEmpty) return false;
     final pathPtr = filePath.toNativeUtf8();
     final pcmPtr = calloc<Float>(samples.length);
     try {
@@ -255,8 +281,7 @@ class DitoWhisper {
       for (var i = 0; i < samples.length; i++) {
         pcmList[i] = samples[i];
       }
-      final res = _saveWavFn!(pathPtr, pcmPtr, samples.length);
-      return res == 0;
+      return _saveWavFn!(pathPtr, pcmPtr, samples.length) == 0;
     } finally {
       calloc.free(pathPtr);
       calloc.free(pcmPtr);

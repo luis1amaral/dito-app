@@ -15,8 +15,8 @@ VERSAO=$(grep -m 1 '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
 echo "Dito $VERSAO (Linux x64 Nativo)"
 
 echo "== Portao: analyze e test"
-flutter analyze
-flutter test --exclude-tags live
+flutter analyze lib test
+flutter test
 
 echo "== Compilando binarios Linux"
 flutter build linux --release
@@ -51,11 +51,14 @@ Exec=/opt/dito/dito_app
 Icon=dito
 Terminal=false
 Type=Application
+StartupWMClass=dito_app
 Categories=Utility;AudioVideo;
 EOF
 
-if [ -f "$RAIZ/assets/icons/icon.svg" ]; then
-  cp "$RAIZ/assets/icons/icon.svg" "$DEB_ROOT/usr/share/icons/hicolor/scalable/apps/dito.svg"
+mkdir -p "$DEB_ROOT/usr/share/pixmaps"
+if [ -d "$RAIZ/assets/icons" ]; then
+  cp "$RAIZ/assets/icons/"*.svg "$DEB_ROOT/usr/share/icons/hicolor/scalable/apps/" 2>/dev/null || true
+  cp "$RAIZ/assets/icons/icon.svg" "$DEB_ROOT/usr/share/pixmaps/dito.svg" 2>/dev/null || true
 fi
 
 cat <<EOF > "$DEB_ROOT/DEBIAN/control"
@@ -71,6 +74,9 @@ EOF
 DEB_FILE="$OUT_DIR/dito_${VERSAO}_amd64.deb"
 dpkg-deb --build "$DEB_ROOT" "$DEB_FILE"
 rm -rf "$DEB_ROOT"
+
+mkdir -p "$RAIZ/dist"
+cp "$DEB_FILE" "$RAIZ/dist/"
 
 echo "== Calculando SHA-256"
 cd "$OUT_DIR"

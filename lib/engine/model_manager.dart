@@ -13,7 +13,9 @@ class ModelManager {
   static const String _hfBaseUrl =
       'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
 
-  static String get modelsDir => '${DitoPaths.dataDir}\\models';
+  static String get _sep => Platform.pathSeparator;
+
+  static String get modelsDir => '${DitoPaths.dataDir}${_sep}models';
 
   static String fileNameFor(String model) {
     final clean = model.trim().toLowerCase();
@@ -21,7 +23,7 @@ class ModelManager {
   }
 
   static String modelPathFor(String model) {
-    return '$modelsDir\\${fileNameFor(model)}';
+    return '$modelsDir$_sep${fileNameFor(model)}';
   }
 
   static bool isDownloaded(String model) {

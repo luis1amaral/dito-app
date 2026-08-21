@@ -1,15 +1,12 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:dito_win32/dito_win32.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app/boot.dart';
 import 'core/logbook.dart';
-import 'platform/window_bus.dart';
 import 'ui/hud/hud_window.dart';
 import 'ui/main/main_window.dart';
 import 'ui/review/review_window.dart';
@@ -38,8 +35,11 @@ Future<void> main(List<String> args) async {
     default:
       // Boot com o Windows passa --startup (ver dito.iss): o app sobe pronto, mas na bandeja,
       // sem abrir a janela na cara de quem acabou de ligar o PC. Abrir manual = janela normal.
-      final startHidden =
-          args.contains('--startup') || args.contains('--minimized') || args.contains('--tray');
+      final startHidden = args.contains('--startup') ||
+          args.contains('--minimized') ||
+          args.contains('--tray') ||
+          args.contains('listen') ||
+          args.contains('--hidden');
       await _runMainWindow(startHidden: startHidden);
   }
 }
@@ -87,12 +87,4 @@ Future<void> _runMainWindow({bool startHidden = false}) async {
   };
 
   unawaited(app.start());
-}
-
-/// Review window entry: shows the card and reports what the user chose.
-Future<void> runReviewWindow(WindowController controller, String ownerId) async {
-  final bus = MultiWindowBus(controller);
-  runApp(ReviewWindow(bus: bus, ownerId: ownerId));
-  // Panel-style window is a Win32 trick; on Linux the card is a normal window for now.
-  if (Platform.isWindows) await DitoWin32.adoptAsPanel();
 }

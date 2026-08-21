@@ -31,11 +31,12 @@ class TrayController {
 
   /// The icon carries the app logo; the state is a badge, so shape still tells them apart.
   static String _iconFor(AppSnapshot state) {
+    final ext = Platform.isWindows ? '.ico' : '.svg';
     if (state.alarm != AudioState.ok || state.engine.state == EngineState.dead) {
-      return 'tray-alert.ico';
+      return 'tray-alert$ext';
     }
-    if (state.isRecording) return 'tray-recording.ico';
-    return 'tray-idle.ico';
+    if (state.isRecording) return 'tray-recording$ext';
+    return 'tray-idle$ext';
   }
 
   static String _statusFor(AppSnapshot state, AppStrings s, String hotkey,
@@ -55,9 +56,13 @@ class TrayController {
   /// Assets sit beside the executable once packaged; a relative path alone does not survive.
   static String _resolve(String asset) {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
-    final bundled = File('$exeDir\\data\\flutter_assets\\assets\\icons\\$asset');
+    final sep = Platform.pathSeparator;
+    final bundled = File('$exeDir$sep'
+        'data${sep}flutter_assets${sep}assets${sep}icons$sep$asset');
     if (bundled.existsSync()) return bundled.path;
-    return File('assets/icons/$asset').absolute.path;
+    final local = File('assets/icons/$asset');
+    if (local.existsSync()) return local.absolute.path;
+    return asset;
   }
 
   Future<bool> init() async {
@@ -68,7 +73,17 @@ class TrayController {
         return false;
       }
       _events = DitoWin32.trayEvents.listen(_onEvent);
-      await DitoWin32.traySetIcon(_resolve('tray-idle.ico'));
+      final initialIcon = Platform.isWindows ? 'tray-idle.ico' : 'tray-idle.svg';
+      await DitoWin32.traySetIcon(_resolve(initialIcon));
+      await DitoWin32.traySetMenu(const <TrayItem>[
+        TrayItem(id: 'status', label: 'Dito - Pronto', enabled: false),
+        TrayItem.separator(),
+        TrayItem(id: 'open', label: 'Abrir Dito'),
+        TrayItem(id: 'copy', label: 'Copiar Último Ditado', enabled: false),
+        TrayItem(id: 'pause', label: 'Pausar Atalhos', checkbox: true, checked: false),
+        TrayItem.separator(),
+        TrayItem(id: 'quit', label: 'Sair'),
+      ]);
       return true;
     } catch (e) {
       _log('bandeja indisponivel: $e');

@@ -2,9 +2,13 @@
 
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
+#include <libgen.h>
+#include <unistd.h>
+#include <linux/limits.h>
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -16,16 +20,37 @@ struct WindowRecord {
   std::string id;
   std::string argument;
   GtkWidget* window;
+  FlView* view;
   bool focusable;
 };
 
+static std::mutex g_plugin_mutex;
 static std::map<std::string, WindowRecord> g_windows;
 static int g_window_counter = 1;
+static DesktopMultiWindowSetWindowCreatedCallback g_window_created_callback = nullptr;
+
+void desktop_multi_window_plugin_set_window_created_callback(
+    DesktopMultiWindowSetWindowCreatedCallback callback) {
+  g_window_created_callback = callback;
+}
+
+static std::string GetExecutableDir() {
+  char path[PATH_MAX];
+  ssize_t count = readlink("/proc/self/exe", path, PATH_MAX);
+  if (count <= 0) return ".";
+  path[count] = '\0';
+  char* dir = dirname(path);
+  return std::string(dir);
+}
+
+// Channels registry
+static std::map<std::string, FlMethodChannel*> g_registered_channels;
 
 struct _DesktopMultiWindowPlugin {
   GObject parent_instance;
   FlPluginRegistrar* registrar;
   FlMethodChannel* channel;
+  FlMethodChannel* channels_channel;
 };
 
 G_DEFINE_TYPE(DesktopMultiWindowPlugin, desktop_multi_window_plugin, g_object_get_type())
@@ -34,6 +59,12 @@ static void desktop_multi_window_plugin_dispose(GObject* object) {
   DesktopMultiWindowPlugin* self = DESKTOP_MULTI_WINDOW_PLUGIN(object);
   if (self->channel != nullptr) {
     g_clear_object(&self->channel);
+  }
+  if (self->channels_channel != nullptr) {
+    g_clear_object(&self->channels_channel);
+  }
+  if (self->registrar != nullptr) {
+    g_clear_object(&self->registrar);
   }
   G_OBJECT_CLASS(desktop_multi_window_plugin_parent_class)->dispose(object);
 }
@@ -45,10 +76,12 @@ static void desktop_multi_window_plugin_class_init(DesktopMultiWindowPluginClass
 static void desktop_multi_window_plugin_init(DesktopMultiWindowPlugin* self) {
   self->registrar = nullptr;
   self->channel = nullptr;
+  self->channels_channel = nullptr;
 }
 
-static FlMethodResponse* handle_method_call(DesktopMultiWindowPlugin* self,
-                                           FlMethodCall* method_call) {
+// Handler for mixin.one/desktop_multi_window
+static FlMethodResponse* handle_main_method_call(DesktopMultiWindowPlugin* self,
+                                                FlMethodCall* method_call) {
   const gchar* method = fl_method_call_get_name(method_call);
   FlValue* args = fl_method_call_get_args(method_call);
 
@@ -61,6 +94,7 @@ static FlMethodResponse* handle_method_call(DesktopMultiWindowPlugin* self,
       return FL_METHOD_RESPONSE(fl_method_error_response_new("INVALID_ARGS", "Missing windowId", nullptr));
     }
     std::string win_id = fl_value_get_string(id_val);
+    std::lock_guard<std::mutex> lock(g_plugin_mutex);
     auto it = g_windows.find(win_id);
     if (it == g_windows.end() || !it->second.window) {
       return FL_METHOD_RESPONSE(fl_method_error_response_new("NOT_FOUND", "Window not found", nullptr));
@@ -124,9 +158,10 @@ static FlMethodResponse* handle_method_call(DesktopMultiWindowPlugin* self,
       }
     }
 
+    std::lock_guard<std::mutex> lock(g_plugin_mutex);
     std::string id = std::to_string(g_window_counter++);
     GtkWidget* win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_default_size(GTK_WINDOW(win), 400, 300);
+    gtk_window_set_default_size(GTK_WINDOW(win), 560, 180);
 
     if (!focusable) {
       // O HUD nunca rouba o foco no Linux
@@ -137,21 +172,67 @@ static FlMethodResponse* handle_method_call(DesktopMultiWindowPlugin* self,
       gtk_window_set_skip_taskbar_hint(GTK_WINDOW(win), TRUE);
     }
 
+    std::string exe_dir = GetExecutableDir();
+    std::string assets_path = exe_dir + "/data/flutter_assets";
+    std::string icu_path = exe_dir + "/data/icudtl.dat";
+    std::string aot_path = exe_dir + "/lib/libapp.so";
+
+    g_autoptr(FlDartProject) project = fl_dart_project_new();
+    fl_dart_project_set_assets_path(project, const_cast<gchar*>(assets_path.c_str()));
+    fl_dart_project_set_icu_data_path(project, const_cast<gchar*>(icu_path.c_str()));
+    // Same Impeller/GLX compositor-shader failure as the main window; keep sub-windows on Skia too.
+    fl_dart_project_set_enable_impeller(project, FALSE);
+    if (g_file_test(aot_path.c_str(), G_FILE_TEST_EXISTS)) {
+      fl_dart_project_set_aot_library_path(project, const_cast<gchar*>(aot_path.c_str()));
+    }
+
+    const gchar* entry_args[] = { arg_str.c_str(), nullptr };
+    fl_dart_project_set_dart_entrypoint_arguments(project, const_cast<gchar**>(entry_args));
+
+    FlView* view = fl_view_new(project);
+    GdkRGBA bg;
+    gdk_rgba_parse(&bg, "#00000000");
+    fl_view_set_background_color(view, &bg);
+    gtk_container_add(GTK_CONTAINER(win), GTK_WIDGET(view));
+    gtk_widget_show(GTK_WIDGET(view));
+    gtk_widget_realize(GTK_WIDGET(view));
+
+    if (g_window_created_callback != nullptr) {
+      g_window_created_callback(FL_PLUGIN_REGISTRY(view));
+    }
+
     WindowRecord rec;
     rec.id = id;
     rec.argument = arg_str;
     rec.window = win;
+    rec.view = view;
     rec.focusable = focusable;
     g_windows[id] = rec;
 
     g_autoptr(FlValue) res = fl_value_new_string(id.c_str());
     return FL_METHOD_RESPONSE(fl_method_success_response_new(res));
   } else if (g_strcmp0(method, "getWindowDefinition") == 0) {
+    std::string current_id = "main";
+    std::string current_arg = "";
+    if (self->registrar && FL_IS_PLUGIN_REGISTRAR(self->registrar)) {
+      FlView* my_view = fl_plugin_registrar_get_view(self->registrar);
+      if (my_view) {
+        std::lock_guard<std::mutex> lock(g_plugin_mutex);
+        for (const auto& kv : g_windows) {
+          if (kv.second.view == my_view) {
+            current_id = kv.second.id;
+            current_arg = kv.second.argument;
+            break;
+          }
+        }
+      }
+    }
     g_autoptr(FlValue) map = fl_value_new_map();
-    fl_value_set_string_take(map, "windowId", fl_value_new_string("main"));
-    fl_value_set_string_take(map, "windowArgument", fl_value_new_string(""));
+    fl_value_set_string_take(map, "windowId", fl_value_new_string(current_id.c_str()));
+    fl_value_set_string_take(map, "windowArgument", fl_value_new_string(current_arg.c_str()));
     return FL_METHOD_RESPONSE(fl_method_success_response_new(map));
   } else if (g_strcmp0(method, "getAllWindows") == 0) {
+    std::lock_guard<std::mutex> lock(g_plugin_mutex);
     g_autoptr(FlValue) list = fl_value_new_list();
     for (const auto& kv : g_windows) {
       FlValue* m = fl_value_new_map();
@@ -165,26 +246,134 @@ static FlMethodResponse* handle_method_call(DesktopMultiWindowPlugin* self,
   return FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
 }
 
-static void method_call_cb(FlMethodChannel* channel,
+// Handler for mixin.one/desktop_multi_window/channels
+static void handle_channels_method_call(DesktopMultiWindowPlugin* self,
+                                       FlMethodCall* method_call) {
+  const gchar* method = fl_method_call_get_name(method_call);
+  FlValue* args = fl_method_call_get_args(method_call);
+
+  if (g_strcmp0(method, "registerMethodHandler") == 0) {
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* ch_v = fl_value_lookup_string(args, "channel");
+      if (ch_v && fl_value_get_type(ch_v) == FL_VALUE_TYPE_STRING) {
+        std::string channel_name = fl_value_get_string(ch_v);
+        std::lock_guard<std::mutex> lock(g_plugin_mutex);
+        g_registered_channels[channel_name] = self->channels_channel;
+      }
+    }
+    g_autoptr(FlValue) res = fl_value_new_null();
+    fl_method_call_respond_success(method_call, res, nullptr);
+    return;
+  }
+
+  if (g_strcmp0(method, "unregisterMethodHandler") == 0) {
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* ch_v = fl_value_lookup_string(args, "channel");
+      if (ch_v && fl_value_get_type(ch_v) == FL_VALUE_TYPE_STRING) {
+        std::string channel_name = fl_value_get_string(ch_v);
+        std::lock_guard<std::mutex> lock(g_plugin_mutex);
+        g_registered_channels.erase(channel_name);
+      }
+    }
+    g_autoptr(FlValue) res = fl_value_new_null();
+    fl_method_call_respond_success(method_call, res, nullptr);
+    return;
+  }
+
+  if (g_strcmp0(method, "invokeMethod") == 0) {
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* ch_v = fl_value_lookup_string(args, "channel");
+      FlValue* meth_v = fl_value_lookup_string(args, "method");
+      FlValue* arg_v = fl_value_lookup_string(args, "arguments");
+
+      if (ch_v && fl_value_get_type(ch_v) == FL_VALUE_TYPE_STRING &&
+          meth_v && fl_value_get_type(meth_v) == FL_VALUE_TYPE_STRING) {
+        std::string channel_name = fl_value_get_string(ch_v);
+        std::string meth_name = fl_value_get_string(meth_v);
+
+        FlMethodChannel* target_channel = nullptr;
+        {
+          std::lock_guard<std::mutex> lock(g_plugin_mutex);
+          auto it = g_registered_channels.find(channel_name);
+          if (it != g_registered_channels.end()) {
+            target_channel = it->second;
+          }
+        }
+
+        if (target_channel) {
+          g_autoptr(FlValue) call_args = fl_value_new_map();
+          fl_value_set_string_take(call_args, "channel", fl_value_new_string(channel_name.c_str()));
+          fl_value_set_string_take(call_args, "method", fl_value_new_string(meth_name.c_str()));
+          if (arg_v) {
+            fl_value_set(call_args, fl_value_new_string("arguments"), fl_value_ref(arg_v));
+          } else {
+            fl_value_set_string_take(call_args, "arguments", fl_value_new_null());
+          }
+
+          // Forward methodCall and respond when done
+          g_object_ref(method_call);
+          fl_method_channel_invoke_method(
+              target_channel, "methodCall", call_args, nullptr,
+              [](GObject* src, GAsyncResult* res, gpointer user_data) {
+                FlMethodCall* orig_call = FL_METHOD_CALL(user_data);
+                g_autoptr(GError) error = nullptr;
+                g_autoptr(FlMethodResponse) resp =
+                    fl_method_channel_invoke_method_finish(FL_METHOD_CHANNEL(src), res, &error);
+                if (resp && FL_IS_METHOD_SUCCESS_RESPONSE(resp)) {
+                  FlValue* val = fl_method_success_response_get_result(FL_METHOD_SUCCESS_RESPONSE(resp));
+                  fl_method_call_respond_success(orig_call, val ? fl_value_ref(val) : nullptr, nullptr);
+                } else {
+                  fl_method_call_respond_success(orig_call, nullptr, nullptr);
+                }
+                g_object_unref(orig_call);
+              },
+              method_call);
+          return;
+        }
+      }
+    }
+    g_autoptr(FlValue) res = fl_value_new_null();
+    fl_method_call_respond_success(method_call, res, nullptr);
+    return;
+  }
+
+  fl_method_call_respond_not_implemented(method_call, nullptr);
+}
+
+static void main_channel_cb(FlMethodChannel* channel,
                            FlMethodCall* method_call,
                            gpointer user_data) {
   DesktopMultiWindowPlugin* self = DESKTOP_MULTI_WINDOW_PLUGIN(user_data);
-  g_autoptr(FlMethodResponse) response = handle_method_call(self, method_call);
+  g_autoptr(FlMethodResponse) response = handle_main_method_call(self, method_call);
   fl_method_call_respond(method_call, response, nullptr);
+}
+
+static void channels_channel_cb(FlMethodChannel* channel,
+                               FlMethodCall* method_call,
+                               gpointer user_data) {
+  DesktopMultiWindowPlugin* self = DESKTOP_MULTI_WINDOW_PLUGIN(user_data);
+  handle_channels_method_call(self, method_call);
 }
 
 void desktop_multi_window_plugin_register_with_registrar(
     FlPluginRegistrar* registrar) {
   DesktopMultiWindowPlugin* plugin = DESKTOP_MULTI_WINDOW_PLUGIN(
       g_object_new(desktop_multi_window_plugin_get_type(), nullptr));
-  plugin->registrar = registrar;
+  plugin->registrar = FL_PLUGIN_REGISTRAR(g_object_ref(registrar));
 
-  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  g_autoptr(FlStandardMethodCodec) codec1 = fl_standard_method_codec_new();
   plugin->channel = fl_method_channel_new(
       fl_plugin_registrar_get_messenger(registrar),
-      "mixin.one/desktop_multi_window", FL_METHOD_CODEC(codec));
+      "mixin.one/desktop_multi_window", FL_METHOD_CODEC(codec1));
   fl_method_channel_set_method_call_handler(
-      plugin->channel, method_call_cb, g_object_ref(plugin), g_object_unref);
+      plugin->channel, main_channel_cb, g_object_ref(plugin), g_object_unref);
+
+  g_autoptr(FlStandardMethodCodec) codec2 = fl_standard_method_codec_new();
+  plugin->channels_channel = fl_method_channel_new(
+      fl_plugin_registrar_get_messenger(registrar),
+      "mixin.one/desktop_multi_window/channels", FL_METHOD_CODEC(codec2));
+  fl_method_channel_set_method_call_handler(
+      plugin->channels_channel, channels_channel_cb, g_object_ref(plugin), g_object_unref);
 
   g_object_unref(plugin);
 }

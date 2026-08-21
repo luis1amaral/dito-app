@@ -43,7 +43,10 @@ Duas linhas do pacote original, ambas durante a criação da janela:
 | `windows/multi_window_manager.cc` | aplica `SetFocusable(config.focusable)` **antes** do `Create` |
 | `lib/src/window_configuration.dart` | expõe `focusable` |
 
-`macos/`, `linux/` e `example/` foram removidos — o Dito é só Windows.
+`macos/` e `example/` foram removidos. `linux/` **existe** (implementação GTK real em
+`linux/desktop_multi_window_plugin.cc`) — a mesma lição de estilo-na-criação vale lá:
+`gtk_window_set_accept_focus`/`set_focus_on_map` também têm que ser setados **antes** da
+janela aparecer, não depois, exatamente como `WS_EX_NOACTIVATE` no Windows.
 
 ## Como usar
 
