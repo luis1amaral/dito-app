@@ -4,6 +4,20 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — fix Linux: `.deb` sem dependências declaradas
+
+**Causa raiz.** `packaging/linux/construir.sh` gerava o `DEBIAN/control` sem `Depends:` — numa
+máquina limpa, `apt`/`dpkg` não puxariam `libgtk-3-0`, `xdotool` (colagem) nem
+`libayatana-appindicator3-1`/`libappindicator3-1` (bandeja), e o app instalaria mas falharia calado.
+
+**Fix.** Adicionado `Depends: libgtk-3-0, libx11-6, xdotool, libayatana-appindicator3-1 |
+libappindicator3-1` ao `control`.
+
+**Como foi verificado.** `bash packaging/linux/construir.sh` (roda o portão internamente) gerou
+`dist/dito_1.3.9_amd64.deb`; `dpkg-deb -I` confirma a linha `Depends:` presente no pacote final.
+
+---
+
 ## 2026-08-21 — fix Linux: card de Review não flutuava (renderizava embutido/atrás da janela principal)
 
 **Causa raiz.** `lib/main.dart` tinha uma função local `runReviewWindow` que sombreava

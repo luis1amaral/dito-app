@@ -67,6 +67,7 @@ Version: $VERSAO
 Section: utils
 Priority: optional
 Architecture: amd64
+Depends: libgtk-3-0, libx11-6, xdotool, libayatana-appindicator3-1 | libappindicator3-1
 Maintainer: Defalt <contato@defaltm.com>
 Description: Ditado por voz offline e transcricao com Whisper C++ nativo
 EOF
