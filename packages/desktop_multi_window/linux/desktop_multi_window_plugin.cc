@@ -163,6 +163,12 @@ static FlMethodResponse* handle_main_method_call(DesktopMultiWindowPlugin* self,
     GtkWidget* win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_default_size(GTK_WINDOW(win), 560, 180);
 
+    // Without a real RGBA visual the compositor has nothing alpha to blend; "transparent" paints opaque.
+    GdkScreen* screen = gtk_widget_get_screen(win);
+    GdkVisual* rgba_visual = gdk_screen_get_rgba_visual(screen);
+    if (rgba_visual) gtk_widget_set_visual(win, rgba_visual);
+    gtk_widget_set_app_paintable(win, TRUE);
+
     if (!focusable) {
       // O HUD nunca rouba o foco no Linux
       gtk_window_set_accept_focus(GTK_WINDOW(win), FALSE);

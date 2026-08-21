@@ -4,6 +4,34 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — fix Linux: borda branca no HUD/Review, e binário velho sombreando o pacote apt
+
+**Causa raiz 1 (borda branca).** Ao trocar `window.setHitRect` de `gtk_widget_shape_combine_region`
+pra `gtk_widget_input_shape_combine_region` (fix anterior desta mesma data), a margem transparente
+ao redor do pill/card parou de ser cortada visualmente pelo shape — e ficou visível que ela nunca
+foi transparente de verdade: a `GtkWindow` das sub-janelas nunca recebeu um **visual RGBA**, então
+o compositor não tinha canal alfa nenhum pra misturar; "transparente" pintava branco opaco.
+
+**Fix 1.** `packages/desktop_multi_window/linux/desktop_multi_window_plugin.cc` — antes de mostrar
+a sub-janela, aplica `gdk_screen_get_rgba_visual()` via `gtk_widget_set_visual()` +
+`gtk_widget_set_app_paintable(TRUE)`.
+
+**Causa raiz 2 (app instalado fechava sozinho).** Sobrava, de sessões de teste anteriores, um
+binário velho em `~/.local/lib/dito/dito_app` (de antes do fix do `use-after-free` desta mesma
+data) com **dois** lançadores locais sombreando os do pacote: `~/.local/share/applications/
+dito.desktop` (na frente do `/usr/share/applications/` do pacote) e `~/.local/bin/dito` (na frente
+do `/usr/bin/dito` do pacote, por ordem do `PATH`). O ícone/comando abria o binário quebrado, não
+o do apt.
+
+**Fix 2.** Removidos os dois lançadores locais e o binário velho — não é mudança de código, é
+limpeza de artefato de máquina de dev; documentado aqui pra não se repetir.
+
+**Como foi verificado.** `flutter analyze`/`flutter test` verdes. Rebuild + execução real: HUD sem
+borda branca, cantos redondos preservados. `which dito` resolve pro `/usr/bin/dito` do pacote;
+`coredumpctl` confirmou que o crash reportado vinha do binário velho, não da versão publicada.
+
+---
+
 ## 2026-08-21 — fix Linux: `.deb` sem dependências declaradas
 
 **Causa raiz.** `packaging/linux/construir.sh` gerava o `DEBIAN/control` sem `Depends:` — numa
