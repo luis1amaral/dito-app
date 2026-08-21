@@ -68,6 +68,7 @@ class HudPill extends StatelessWidget {
         HudVisual.quiet => s.hudQuiet,
         HudVisual.dead => s.hudNoAudio,
         HudVisual.working => switch (state.work) {
+            HudWork.starting => s.hudStarting,
             HudWork.transcribing => s.hudTranscribing,
             HudWork.minutesDone => s.hudMinutesDone(state.minutes),
             HudWork.saving => s.hudSaving,

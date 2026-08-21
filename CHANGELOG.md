@@ -4,6 +4,86 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — fix Linux: HUD sem feedback, alarme de silêncio ausente, UI travando na transcrição, 1.4.3
+
+**Causa raiz (achada com evidência real, não suposição).** Usuário reportou o pill do HUD sumido
+mesmo com gravação/transcrição funcionando por trás. Investigação em várias camadas:
+
+1. `packages/dito_win32/linux/dito_win32_plugin.cc` — os handlers `window.adoptAsHud`/
+   `adoptAsPanel` respondiam `fl_value_new_bool(TRUE)` onde o Dart faz `invokeMethod<int>`,
+   quebrando com `type 'bool' is not a subtype of type 'int?'` em todo boot (ruído real no
+   `crash.log`, mas não a causa do pill sumido).
+2. **Causa real, achada por um agente de verificação independente com `xwininfo`/`Map State`**
+   (não só screenshot): `window.showNoActivate`/`window.focus`/`window.hide` sempre
+   respondiam sucesso mesmo quando `GetToplevel(self)` vinha nulo — a chamada que de fato
+   mostra a janela virava um no-op silencioso, mentindo sucesso pro lado Dart.
+3. `lib/ui/hud/hud_window.dart`/`review_window.dart` tinham `try/catch` (ou nenhum catch)
+   escondendo qualquer erro de show/hide/foco sem log nenhum — regra nova do usuário durante a
+   investigação: **nenhum catch pode esconder erro**.
+4. O alarme "sem áudio" (garantia inegociável do `CLAUDE.md`) nunca existia de verdade em
+   nenhuma plataforma — foi perdido na migração pro motor C++ nativo e nunca reimplementado; só
+   a UI (`dito_controller._onAlarm`) já sabia reagir, sem ninguém produzindo o evento.
+5. `DitoWhisper.transcribe()`/`loadModel()` são FFI síncronas que travavam a **UI inteira**
+   durante toda a transcrição (1-4s+) — por isso "aperto pra parar e nunca aparece
+   transcrevendo": o evento era emitido mas o isolate ficava bloqueado logo em seguida, sem
+   chance de renderizar antes do próximo evento chegar.
+6. Som do alarme (`canberra-gtk-play`) respeitava o toggle "sons de evento" do Cinnamon/GNOME
+   (desligado por padrão em vários ambientes) — sempre reportava "Sound disabled", mesmo com
+   áudio funcionando normalmente pro resto do sistema.
+7. `lib/config/config_service.dart` usava `MoveFileEx` (API exclusiva do Win32) pra gravar
+   `config.toml` sem variante Linux — configuração **nunca salvava** no Linux, silenciosamente
+   (`config.toml` datado de 5 dias atrás apesar de saves repetidos tentados).
+
+**Fix.**
+- `dito_win32_plugin.cc`: `adoptAsHud`/`adoptAsPanel` retornam `fl_value_new_int` (paridade com
+  o HWND-como-int64 do Windows); `showNoActivate`/`focus`/`hide` respondem erro de verdade
+  (`NO_WINDOW`) quando a janela nativa é nula, em vez de sucesso mentiroso.
+- `hud_window.dart`/`review_window.dart`: toda chamada nativa de mostrar/esconder/focar passa
+  por um helper `_tryNative` que loga a falha em vez de escondê-la.
+- 9 `catch (_) {}` silenciosos (bus entre janelas, símbolos FFI, limpeza de temporário) viraram
+  log, sem mudar o comportamento de recuperação.
+- `lib/engine/native_engine.dart`: gatilho de silêncio implementado no polling de 50ms já
+  existente — acumula tempo com rms abaixo do limiar, emite `AlarmEvent` **por borda** (só na
+  transição de estado, não a cada tick) pra não piscar texto de diagnóstico 20x/segundo.
+- `lib/engine/whisper_worker.dart` (novo): `loadModel`/`transcribe` movidos pra um isolate
+  Dart dedicado e persistente, dono exclusivo do handle do modelo/contexto CUDA (que é preso à
+  thread que o criou — não dá pra recriar por chamada). `NativeEngine.shutdown()` agora espera
+  um `_handleStop` em andamento terminar antes de liberar o worker (corrida real: sair logo
+  depois de parar podia perder o texto transcrito); `WhisperWorker.dispose()` falha fechado
+  chamadas pendentes em vez de travar pra sempre se o isolate morrer no meio de uma chamada.
+- `notify.balloon`/`notify.alarmSound` no plugin nativo, antes um stub morto que só respondia
+  `TRUE`, agora chamam `notify-send`/`paplay` de verdade via `g_spawn_async` (argv, sem parsing
+  de shell), checando erro real em vez de sempre reportar sucesso. Som trocado de
+  `canberra-gtk-play` pra `paplay` porque o primeiro respeita o toggle "sons de evento" do
+  desktop — `paplay` toca incondicionalmente, igual o `PlaySound` do Windows.
+  `packaging/linux/construir.sh`: `Depends` ganhou `libnotify-bin`, `pulseaudio-utils`,
+  `sound-theme-freedesktop`.
+- `config_service.dart`: `_replace()` usa `File.renameSync` (POSIX já é atômico) fora do
+  Windows, só chama `MoveFileEx` quando `Platform.isWindows`.
+- `lib/state/dito_controller.dart`: pill mostra "Iniciando..." (`HudWork.starting`, nova string
+  em `app_pt.arb`/`app_en.arb`) no instante em que a tecla é aceita, em vez de ficar mudo até o
+  modelo terminar de carregar (podia levar segundos num modelo frio).
+- Removido um `reason` hardcodado em português que eu mesmo introduzi durante a correção do
+  alarme — quebrava o fallback de tradução já existente (`reason ?? _s.notifyNoAudio`),
+  violando a regra de nunca hardcodar string de UI fora do arquivo de tradução.
+
+**Como foi verificado.** `flutter analyze`/`flutter test` (166 testes) verdes a cada mudança.
+Build real instalado em `/opt/dito`, rodado de verdade (não só testes): pill do HUD confirmado
+via `xwininfo`/`Map State` amostrado a cada 150ms durante F9 segurado (`IsViewable` consistente,
+não só um screenshot de sorte); card de Review confirmado do mesmo jeito durante F10. Alarme
+"sem áudio" disparando com pill vermelho + notificação nativa real na tela (screenshot). Estado
+"Iniciando..." capturado em screenshot a ~200ms do aperto da tecla. Dois rounds de revisão por
+`flutter-reviewer` (achou e corrigiu: reemissão de alarme a cada tick em vez de por borda,
+alarme sobrevivendo ao fim da gravação, `Logbook` sem fechar no dispose, corrida
+sair-durante-transcrição, `dispose()` do worker sem tratar chamada pendente) e verificação
+independente por `verify-app` (achou a causa raiz real do HUD via `xwininfo`, não aceitou minha
+primeira leitura otimista). Confirmado com o próprio usuário, ao vivo, que a instabilidade
+remanescente ("microfone parou de captar" numa segunda tentativa) é queda real e intermitente do
+headset sem fio, não bug de código — o alarme fazendo exatamente o que devia: expor um problema
+de hardware que antes ficava invisível.
+
+---
+
 ## 2026-08-21 — fix Linux: primeira transcrição com GPU travava por até 2 minutos, 1.4.2
 
 **Causa raiz.** Achada anexando `gdb -p <pid>` num processo real do usuário travado (sem

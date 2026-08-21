@@ -136,7 +136,10 @@ class DitoWhisper {
           _lib!.lookupFunction<_FreeSamplesNative, _FreeSamplesDart>('dito_audio_free_samples');
       _saveWavFn =
           _lib!.lookupFunction<_SaveWavNative, _SaveWavDart>('dito_audio_save_wav');
-    } catch (_) {}
+    } catch (e) {
+      // A missing symbol here leaves every native call silently non-functional downstream.
+      stderr.writeln('[dito_whisper] falha ao resolver simbolos nativos: $e');
+    }
   }
 
   static String get version {

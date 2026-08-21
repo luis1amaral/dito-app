@@ -345,6 +345,9 @@ class AppStringsEn extends AppStrings {
   String get hudNoAudio => 'NO AUDIO';
 
   @override
+  String get hudStarting => 'Starting...';
+
+  @override
   String get hudTranscribing => 'Transcribing...';
 
   @override

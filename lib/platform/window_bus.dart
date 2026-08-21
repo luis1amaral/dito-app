@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
 
+import '../core/logbook.dart';
+
 /// Message bus between windows; an interface because each window is its own engine.
 abstract class WindowBus {
   /// Sends one message to a window, dropping it silently if that window is gone.
@@ -17,16 +19,18 @@ abstract class WindowBus {
 }
 
 class MultiWindowBus implements WindowBus {
-  MultiWindowBus(this._self);
+  MultiWindowBus(this._self, {Logbook? log}) : _log = log ?? Logbook('window_bus');
 
   final WindowController? _self;
+  final Logbook _log;
 
   @override
   Future<void> send(String windowId, String method, Map<String, Object?> payload) async {
     try {
       await WindowController.fromWindowId(windowId).invokeMethod(method, payload);
-    } catch (_) {
-      // A closed window is not an error: the sender must never care.
+    } catch (e) {
+      // A closed window is not an error for the caller: log only, never rethrow.
+      _log('send $method para $windowId falhou: $e');
     }
   }
 
@@ -51,8 +55,10 @@ class MultiWindowBus implements WindowBus {
           call.method,
           args is Map ? Map<String, Object?>.from(args) : <String, Object?>{},
         );
-      }).catchError((_) {});
-    } catch (_) {}
+      }).catchError((e) => _log('setWindowMethodHandler retornou erro: $e'));
+    } catch (e) {
+      _log('setWindowMethodHandler falhou: $e');
+    }
   }
 }
 

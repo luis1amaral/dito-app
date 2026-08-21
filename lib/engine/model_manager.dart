@@ -74,7 +74,9 @@ class ModelManager {
     if (tmpFile.existsSync()) {
       try {
         tmpFile.deleteSync();
-      } catch (_) {}
+      } catch (e) {
+        _log('nao consegui apagar temporario ${tmpFile.path}: $e');
+      }
     }
 
     final client = HttpClient()
@@ -106,7 +108,9 @@ class ModelManager {
       if (targetFile.existsSync()) {
         try {
           targetFile.deleteSync();
-        } catch (_) {}
+        } catch (e) {
+          _log('nao consegui apagar arquivo antigo ${targetFile.path}: $e');
+        }
       }
       tmpFile.renameSync(path);
       _log('download concluido: $path ($received bytes)');
@@ -116,7 +120,9 @@ class ModelManager {
       if (tmpFile.existsSync()) {
         try {
           tmpFile.deleteSync();
-        } catch (_) {}
+        } catch (e2) {
+          _log('nao consegui apagar temporario ${tmpFile.path}: $e2');
+        }
       }
       rethrow;
     } finally {

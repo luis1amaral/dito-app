@@ -4,6 +4,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:dito_win32/dito_win32.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/logbook.dart';
 import '../../platform/window_bus.dart';
 import '../../state/hud_commands.dart';
 import '../../l10n/app_strings.dart';
@@ -42,6 +43,7 @@ class _HudApp extends StatefulWidget {
 }
 
 class _HudAppState extends State<_HudApp> {
+  final _log = Logbook('hud_window');
   String _theme = 'auto';
   String _locale = 'auto';
   bool _placed = false;
@@ -101,6 +103,15 @@ class _HudAppState extends State<_HudApp> {
     unawaited(_apply());
   }
 
+  /// Runs one native window call best-effort: logs on failure instead of hiding it.
+  Future<void> _tryNative(String what, Future<void> Function() call) async {
+    try {
+      await call();
+    } catch (e) {
+      _log('$what falhou: $e');
+    }
+  }
+
   /// Places the fixed canvas once, then only shows and hides it.
   Future<void> _apply() async {
     if (!mounted) return;
@@ -122,20 +133,16 @@ class _HudAppState extends State<_HudApp> {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _clipToPill();
         if (_visible) {
-          try {
-            await widget.controller.show();
-          } catch (_) {}
-          await DitoWin32.showNoActivate();
+          await _tryNative('show', widget.controller.show);
+          await _tryNative('showNoActivate', DitoWin32.showNoActivate);
           _hit = null;
           await _clipToPill();
         }
       });
     } else if (!shouldShow && _visible) {
       _visible = false;
-      try {
-        await widget.controller.hide();
-      } catch (_) {}
-      await DitoWin32.hideWindow();
+      await _tryNative('hide', widget.controller.hide);
+      await _tryNative('hideWindow', DitoWin32.hideWindow);
     } else if (shouldShow) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _hit = null;
@@ -171,6 +178,7 @@ class _HudAppState extends State<_HudApp> {
   @override
   void dispose() {
     widget.state.removeListener(_onStateChanged);
+    unawaited(_log.close());
     super.dispose();
   }
 

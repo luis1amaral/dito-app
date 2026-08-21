@@ -82,7 +82,9 @@ class GpuPackManager {
       if (tmpTar.existsSync()) {
         try {
           tmpTar.deleteSync();
-        } catch (_) {}
+        } catch (e) {
+          _log('nao consegui apagar temporario ${tmpTar.path}: $e');
+        }
       }
     }
   }

@@ -166,7 +166,11 @@ static FlMethodResponse* handle_main_method_call(DesktopMultiWindowPlugin* self,
     // Without a real RGBA visual the compositor has nothing alpha to blend; "transparent" paints opaque.
     GdkScreen* screen = gtk_widget_get_screen(win);
     GdkVisual* rgba_visual = gdk_screen_get_rgba_visual(screen);
-    if (rgba_visual) gtk_widget_set_visual(win, rgba_visual);
+    if (rgba_visual) {
+      gtk_widget_set_visual(win, rgba_visual);
+    } else {
+      g_warning("sub-window %s: compositor sem visual RGBA, transparencia vai pintar opaca", id.c_str());
+    }
     gtk_widget_set_app_paintable(win, TRUE);
 
     if (!focusable) {

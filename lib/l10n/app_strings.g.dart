@@ -716,6 +716,12 @@ abstract class AppStrings {
   /// **'NO AUDIO'**
   String get hudNoAudio;
 
+  /// No description provided for @hudStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting...'**
+  String get hudStarting;
+
   /// No description provided for @hudTranscribing.
   ///
   /// In en, this message translates to:

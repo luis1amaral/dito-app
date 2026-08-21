@@ -22,7 +22,7 @@ enum HudToast {
 }
 
 /// What the app is busy with while transcribing.
-enum HudWork { transcribing, minutesDone, saving }
+enum HudWork { starting, transcribing, minutesDone, saving }
 
 /// The single action the pill may offer.
 enum HudAction { none, stop, fix }

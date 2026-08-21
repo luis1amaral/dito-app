@@ -79,7 +79,7 @@ Version: $VERSAO
 Section: utils
 Priority: optional
 Architecture: amd64
-Depends: libgtk-3-0, libx11-6, xdotool, libayatana-appindicator3-1 | libappindicator3-1, curl
+Depends: libgtk-3-0, libx11-6, xdotool, libayatana-appindicator3-1 | libappindicator3-1, curl, libnotify-bin, pulseaudio-utils, sound-theme-freedesktop
 Maintainer: Defalt <contato@defaltm.com>
 Description: Ditado por voz offline e transcricao com Whisper C++ nativo
 EOF

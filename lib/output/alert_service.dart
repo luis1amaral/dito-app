@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dito_win32/dito_win32.dart';
 
@@ -11,30 +10,21 @@ abstract class AlertService {
   void playAlarm();
 }
 
-/// Picks the platform implementation; Linux only logs until the native alerts land.
-AlertService createAlertService({Logbook? log}) =>
-    Platform.isWindows ? const WindowsAlertService() : LinuxAlertService(log: log);
+/// DitoWin32 already abstracts the platform: Win32 balloon/PlaySound on Windows,
+/// notify-send/canberra-gtk-play on Linux, one implementation suffices on the Dart side.
+AlertService createAlertService({Logbook? log}) => NativeAlertService(log: log);
 
-class WindowsAlertService implements AlertService {
-  const WindowsAlertService();
-
-  @override
-  void notify({required String title, required String body}) =>
-      unawaited(DitoWin32.notifyBalloon(title: title, body: body));
-
-  @override
-  void playAlarm() => unawaited(DitoWin32.playAlarmSound());
-}
-
-class LinuxAlertService implements AlertService {
-  LinuxAlertService({Logbook? log}) : _log = log ?? Logbook('alerts');
+class NativeAlertService implements AlertService {
+  NativeAlertService({Logbook? log}) : _log = log ?? Logbook('alerts');
 
   final Logbook _log;
 
   @override
-  void notify({required String title, required String body}) =>
-      _log('notificacao no Linux ainda nao implementada: $title');
+  void notify({required String title, required String body}) => unawaited(
+      DitoWin32.notifyBalloon(title: title, body: body)
+          .then((ok) => ok ? null : _log('notificacao falhou: $title')));
 
   @override
-  void playAlarm() => _log('som de alarme no Linux ainda nao implementado');
+  void playAlarm() => unawaited(
+      DitoWin32.playAlarmSound().then((ok) => ok ? null : _log('som de alarme falhou')));
 }

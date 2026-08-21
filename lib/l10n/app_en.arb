@@ -278,6 +278,8 @@
   "@hudQuiet": {},
   "hudNoAudio": "NO AUDIO",
   "@hudNoAudio": {},
+  "hudStarting": "Starting...",
+  "@hudStarting": {},
   "hudTranscribing": "Transcribing...",
   "@hudTranscribing": {},
   "hudSaving": "Saving the recording...",

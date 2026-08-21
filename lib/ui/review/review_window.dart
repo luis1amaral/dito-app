@@ -4,6 +4,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:dito_win32/dito_win32.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/logbook.dart';
 import '../../platform/window_bus.dart';
 import '../../l10n/app_strings.dart';
 import '../theme.dart';
@@ -36,6 +37,7 @@ class ReviewWindow extends StatefulWidget {
 }
 
 class _ReviewWindowState extends State<ReviewWindow> {
+  final _log = Logbook('review_window');
   String? _text;
   bool _meeting = false;
   String _theme = 'auto';
@@ -93,6 +95,15 @@ class _ReviewWindowState extends State<ReviewWindow> {
     });
   }
 
+  /// Runs one native window call best-effort: logs on failure instead of hiding it.
+  Future<void> _tryNative(String what, Future<void> Function() call) async {
+    try {
+      await call();
+    } catch (e) {
+      _log('$what falhou: $e');
+    }
+  }
+
   /// Places the fixed canvas once, then only shows and hides it.
   Future<void> _apply() async {
     if (!mounted) return;
@@ -113,21 +124,21 @@ class _ReviewWindowState extends State<ReviewWindow> {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _clipToCard();
         if (!_visible) return;
-        await DitoWin32.showNoActivate();
+        await _tryNative('showNoActivate', DitoWin32.showNoActivate);
         _hit = null;
         await _clipToCard();
-        await DitoWin32.takeFocus();
-        await DitoWin32.focusWindow();
+        await _tryNative('takeFocus', DitoWin32.takeFocus);
+        await _tryNative('focusWindow', DitoWin32.focusWindow);
         await Future<void>.delayed(const Duration(milliseconds: 120));
         if (_visible) {
           _hit = null;
           await _clipToCard();
-          await DitoWin32.focusWindow();
+          await _tryNative('focusWindow', DitoWin32.focusWindow);
         }
       });
     } else if (!shouldShow && _visible) {
       _visible = false;
-      await DitoWin32.hideWindow();
+      await _tryNative('hideWindow', DitoWin32.hideWindow);
     } else if (shouldShow) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _hit = null;
@@ -171,6 +182,12 @@ class _ReviewWindowState extends State<ReviewWindow> {
   Future<void> _discard() async {
     await _finish();
     await widget.bus.send(widget.ownerId, 'reviewDiscard', <String, Object?>{});
+  }
+
+  @override
+  void dispose() {
+    unawaited(_log.close());
+    super.dispose();
   }
 
   @override

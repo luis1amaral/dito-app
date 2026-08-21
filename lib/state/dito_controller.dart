@@ -136,6 +136,9 @@ class DitoController {
       return false;
     }
     _log('start aceito: ${meeting ? "meeting" : "dictation"}');
+    // Instant feedback on keypress: StartedEvent only arrives once the model finishes
+    // loading, which can take seconds on a cold model - the pill must not stay empty until then.
+    hud(HudMessage.working(HudWork.starting));
     _armTimeout();
     return true;
   }
@@ -296,9 +299,11 @@ class DitoController {
     _transcribeTimeout?.cancel();
     supervisor.wasRecording = false;
     level.value = 0;
+    // "Sem audio" only means something while recording: stopping must not leave it stuck lit.
     _set(state.copyWith(
       phase: AppPhase.idle,
       lastText: event.text.isEmpty ? state.lastText : event.text,
+      clearAlarm: true,
     ));
 
     if (event.text.trim().isEmpty) {

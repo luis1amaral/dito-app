@@ -196,6 +196,8 @@ class _ReviewCardState extends State<ReviewCard> {
                   Switch(
                     value: _toVault,
                     onChanged: _setVault,
+                    // No hover/focus glow ring: it was Material's default purple, not a token.
+                    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
                   ),
                   const SizedBox(width: AppSpacing.lg),
                   Icon(Icons.keyboard_tab_rounded, size: 15, color: c.hudMuted),

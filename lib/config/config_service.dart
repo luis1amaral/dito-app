@@ -82,7 +82,12 @@ class ConfigService extends ChangeNotifier {
   }
 
   /// Dart's File.rename does not replace an existing file on Windows; MoveFileEx does.
+  /// POSIX rename() is already an atomic replace, so Linux never needed the Win32 call.
   static bool _replace(String from, String to) {
+    if (!Platform.isWindows) {
+      File(from).renameSync(to);
+      return true;
+    }
     final src = from.toNativeUtf16();
     final dst = to.toNativeUtf16();
     try {

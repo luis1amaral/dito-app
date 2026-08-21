@@ -725,9 +725,40 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
-  if (g_strcmp0(method, "notify.balloon") == 0 ||
-      g_strcmp0(method, "notify.alarmSound") == 0 ||
-      g_strcmp0(method, "notify") == 0) {
+  if (g_strcmp0(method, "notify.balloon") == 0) {
+    std::string title = "Dito", body;
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* t_val = fl_value_lookup_string(args, "title");
+      if (t_val && fl_value_get_type(t_val) == FL_VALUE_TYPE_STRING) title = fl_value_get_string(t_val);
+      FlValue* b_val = fl_value_lookup_string(args, "body");
+      if (b_val && fl_value_get_type(b_val) == FL_VALUE_TYPE_STRING) body = fl_value_get_string(b_val);
+    }
+    const gchar* argv[] = {"notify-send", "--app-name=Dito", title.c_str(), body.c_str(), nullptr};
+    g_autoptr(GError) error = nullptr;
+    bool ok = g_spawn_async(nullptr, const_cast<gchar**>(argv), nullptr, G_SPAWN_SEARCH_PATH,
+                             nullptr, nullptr, nullptr, &error);
+    if (!ok) g_warning("notify-send falhou: %s", error->message);
+    g_autoptr(FlValue) result = fl_value_new_bool(ok);
+    fl_method_call_respond_success(method_call, result, nullptr);
+    return;
+  }
+
+  if (g_strcmp0(method, "notify.alarmSound") == 0) {
+    // paplay ignores the desktop "event sounds" toggle; canberra-gtk-play silently
+    // no-ops when that toggle is off, so this alarm would never make a sound on
+    // Windows either since PlaySound() there also does not check a UI-sound setting.
+    const gchar* argv[] = {"paplay", "/usr/share/sounds/freedesktop/stereo/dialog-warning.oga",
+                            nullptr};
+    g_autoptr(GError) error = nullptr;
+    bool ok = g_spawn_async(nullptr, const_cast<gchar**>(argv), nullptr, G_SPAWN_SEARCH_PATH,
+                             nullptr, nullptr, nullptr, &error);
+    if (!ok) g_warning("paplay falhou: %s", error->message);
+    g_autoptr(FlValue) result = fl_value_new_bool(ok);
+    fl_method_call_respond_success(method_call, result, nullptr);
+    return;
+  }
+
+  if (g_strcmp0(method, "notify") == 0) {
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
@@ -736,26 +767,31 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
   // --- WINDOW API ---
   if (g_strcmp0(method, "window.adoptAsHud") == 0) {
     GtkWindow* win = GetToplevel(self);
-    if (win) {
-      gtk_window_set_accept_focus(win, FALSE);
-      gtk_window_set_focus_on_map(win, FALSE);
-      gtk_window_set_keep_above(win, TRUE);
-      gtk_window_set_decorated(win, FALSE);
-      gtk_window_set_skip_taskbar_hint(win, TRUE);
+    if (!win) {
+      fl_method_call_respond_error(method_call, "NO_WINDOW", "sem janela nativa", nullptr, nullptr);
+      return;
     }
-    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    gtk_window_set_accept_focus(win, FALSE);
+    gtk_window_set_focus_on_map(win, FALSE);
+    gtk_window_set_keep_above(win, TRUE);
+    gtk_window_set_decorated(win, FALSE);
+    gtk_window_set_skip_taskbar_hint(win, TRUE);
+    // Dart calls invokeMethod<int>: must return an int, matching the HWND-as-int64 on Windows.
+    g_autoptr(FlValue) result = fl_value_new_int(reinterpret_cast<intptr_t>(win));
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
 
   if (g_strcmp0(method, "window.adoptAsPanel") == 0) {
     GtkWindow* win = GetToplevel(self);
-    if (win) {
-      gtk_window_set_keep_above(win, TRUE);
-      gtk_window_set_decorated(win, FALSE);
-      gtk_window_set_skip_taskbar_hint(win, TRUE);
+    if (!win) {
+      fl_method_call_respond_error(method_call, "NO_WINDOW", "sem janela nativa", nullptr, nullptr);
+      return;
     }
-    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    gtk_window_set_keep_above(win, TRUE);
+    gtk_window_set_decorated(win, FALSE);
+    gtk_window_set_skip_taskbar_hint(win, TRUE);
+    g_autoptr(FlValue) result = fl_value_new_int(reinterpret_cast<intptr_t>(win));
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
@@ -763,10 +799,14 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
   if (g_strcmp0(method, "window.showNoActivate") == 0 ||
       g_strcmp0(method, "window.focus") == 0) {
     GtkWindow* win = GetToplevel(self);
-    if (win) {
-      gtk_widget_show_all(GTK_WIDGET(win));
-      gtk_window_present(win);
+    if (!win) {
+      // This used to always respond TRUE here, so a null toplevel made show() a silent no-op.
+      g_warning("%s: sem janela nativa (toplevel nulo)", method);
+      fl_method_call_respond_error(method_call, "NO_WINDOW", "sem janela nativa", nullptr, nullptr);
+      return;
     }
+    gtk_widget_show_all(GTK_WIDGET(win));
+    gtk_window_present(win);
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
@@ -774,7 +814,12 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
 
   if (g_strcmp0(method, "window.hide") == 0) {
     GtkWindow* win = GetToplevel(self);
-    if (win) gtk_widget_hide(GTK_WIDGET(win));
+    if (!win) {
+      g_warning("window.hide: sem janela nativa (toplevel nulo)");
+      fl_method_call_respond_error(method_call, "NO_WINDOW", "sem janela nativa", nullptr, nullptr);
+      return;
+    }
+    gtk_widget_hide(GTK_WIDGET(win));
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
