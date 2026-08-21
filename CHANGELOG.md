@@ -4,6 +4,48 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — feat Linux: aceleração de GPU (CUDA) opcional na transcrição, 1.4.0
+
+**O quê.** O motor de transcrição (`packages/dito_whisper`, C++ nativo in-process com
+whisper.cpp/ggml) passa a tentar usar a GPU NVIDIA (CUDA) automaticamente, com fallback pra
+CPU sem quebrar nada quando não tem GPU compatível. O `.deb` base continua ~9MB — o pacote
+CUDA (`libggml-cuda.so`, ~130MB comprimido) é baixado sob demanda pelo próprio app
+(`lib/engine/gpu_pack_manager.dart`, mesmo padrão do `ModelManager` pro modelo de voz),
+hospedado em `apt.defaltm.com/extras/`, só quando `/proc/driver/nvidia/version` existe
+(GPU NVIDIA detectada).
+
+**Por quê.** Pedido do usuário — ele tem uma GTX 1650 e quer a transcrição mais rápida quando
+a máquina suportar, sem penalizar quem não tem GPU NVIDIA com um download gigante à toa.
+
+**Como foi feito (arquitetura).** O ggml vendorizado já é uma versão moderna com suporte a
+**backend dinâmico** (`GGML_BACKEND_DL`, `ggml_backend_load_all()`/`load_all_from_path()`,
+via `dlopen`). Isso é o que evita a armadilha real: linkar CUDA estático no plugin faria o
+plugin inteiro falhar ao abrir em qualquer máquina sem CUDA. Em vez disso:
+- `packages/dito_whisper/linux/CMakeLists.txt` — novo alvo `MODULE` `ggml-cuda`, só compilado
+  se `find_package(CUDAToolkit)` achar o toolkit na máquina de build; nunca linkado no plugin
+  principal. Arquiteturas geradas como **PTX virtual** (`61-virtual;75-virtual;86-virtual;89-virtual`,
+  Pascal a Ada), não código nativo por arquitetura — reduz o módulo de 513MB pra 228MB
+  (129MB comprimido) às custas de um JIT do driver no primeiro uso, imperceptível na prática.
+- `packages/dito_whisper/src/dito_whisper.cpp` — `dito_whisper_set_backend_dir()` (nova, chamada
+  pelo Dart com o diretório onde o pacote de GPU foi baixado) e `load_optional_backends()`
+  (chamada uma vez, via `std::call_once`, antes do `whisper_init_from_file_with_params`) —
+  sem isso o módulo dinâmico nunca seria descoberto, mesmo presente no disco. Nova
+  `dito_whisper_backend_name()` reporta o backend real (`CUDA0`/`CPU`) em vez de um texto fixo.
+- `lib/engine/native_engine.dart` — não força mais `useGpu: false`; consulta o
+  `GpuPackManager` antes de carregar o modelo.
+- `packaging/linux/construir.sh` — exclui `libggml-cuda.so` do `.deb`/tarball principal,
+  gera `dito-gpu-cuda-linux-x64.tar.gz` separado em `dist/extras/`.
+- `~/dev/claude/tools/apt-repo.sh` (ferramenta global) — ganhou suporte a publicar arquivos
+  soltos de `**/dist/extras/*` junto do repositório apt, no mesmo deploy do Cloudflare Pages.
+
+**Como foi verificado.** Toolkit CUDA 12.4 instalado só na máquina de build (nunca no
+usuário final). Rodado o binário real: log mostra `whisper_backend_init_gpu: using CUDA0
+backend` com o módulo presente, e `whisper_backend_init_gpu: no GPU found` (sem crash) com o
+módulo removido — prova de que o "opcional" é opcional de verdade nas duas direções.
+`flutter analyze`/`flutter test` verdes, incluindo dentro do próprio `construir.sh`.
+
+---
+
 ## 2026-08-21 — fix Linux: borda branca no HUD/Review, e binário velho sombreando o pacote apt
 
 **Causa raiz 1 (borda branca).** Ao trocar `window.setHitRect` de `gtk_widget_shape_combine_region`

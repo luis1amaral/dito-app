@@ -8,6 +8,7 @@ import 'package:dito_whisper/dito_whisper.dart';
 import '../config/paths.dart';
 import '../core/logbook.dart';
 import 'engine_protocol.dart';
+import 'gpu_pack_manager.dart';
 import 'model_manager.dart';
 
 /// In-process native engine powered by whisper.cpp and native audio capture.
@@ -15,10 +16,12 @@ import 'model_manager.dart';
 class NativeEngine {
   NativeEngine({Logbook? log})
       : _log = log ?? Logbook('native_engine'),
-        _models = ModelManager();
+        _models = ModelManager(),
+        _gpuPack = GpuPackManager();
 
   final Logbook _log;
   final ModelManager _models;
+  final GpuPackManager _gpuPack;
 
   final StreamController<EngineEvent> _events =
       StreamController<EngineEvent>.broadcast();
@@ -113,7 +116,10 @@ class NativeEngine {
 
     _log('carregando modelo $model...');
     final path = await _models.ensureModel(model);
-    _modelHandle = DitoWhisper.loadModel(path, useGpu: false);
+    // No-op on machines without a compatible NVIDIA GPU; native side falls back to CPU either way.
+    final gpuDir = await _gpuPack.ensureGpuPack();
+    if (gpuDir != null) DitoWhisper.setBackendDir(gpuDir);
+    _modelHandle = DitoWhisper.loadModel(path, useGpu: true);
     if (_modelHandle == nullptr) {
       throw StateError('Falha ao inicializar o modelo GGML em $path');
     }
@@ -280,7 +286,7 @@ class NativeEngine {
     _emit(StatusEvent(
       isRecording: _isRecording,
       model: _loadedModelName.isNotEmpty ? _loadedModelName : _currentModel,
-      backend: 'whisper.cpp (C++ nativo AVX2)',
+      backend: 'whisper.cpp (${DitoWhisper.backendName})',
     ));
   }
 

@@ -27,6 +27,12 @@ typedef _FreeDart = void Function(Pointer<Void> handle);
 typedef _VersionNative = Pointer<Utf8> Function();
 typedef _VersionDart = Pointer<Utf8> Function();
 
+typedef _BackendNameNative = Pointer<Utf8> Function();
+typedef _BackendNameDart = Pointer<Utf8> Function();
+
+typedef _SetBackendDirNative = Void Function(Pointer<Utf8> dir);
+typedef _SetBackendDirDart = void Function(Pointer<Utf8> dir);
+
 typedef _ListDevicesNative = Int32 Function(Pointer<Utf8> outJson, Int32 maxLen);
 typedef _ListDevicesDart = int Function(Pointer<Utf8> outJson, int maxLen);
 
@@ -72,6 +78,8 @@ class DitoWhisper {
   static _TranscribeDart? _transcribeFn;
   static _FreeDart? _freeFn;
   static _VersionDart? _versionFn;
+  static _BackendNameDart? _backendNameFn;
+  static _SetBackendDirDart? _setBackendDirFn;
   static _ListDevicesDart? _listDevicesFn;
   static _StartCaptureDart? _startCaptureFn;
   static _GetLevelDart? _getLevelFn;
@@ -112,6 +120,10 @@ class DitoWhisper {
       _freeFn = _lib!.lookupFunction<_FreeNative, _FreeDart>('dito_whisper_free');
       _versionFn =
           _lib!.lookupFunction<_VersionNative, _VersionDart>('dito_whisper_version');
+      _backendNameFn = _lib!
+          .lookupFunction<_BackendNameNative, _BackendNameDart>('dito_whisper_backend_name');
+      _setBackendDirFn = _lib!.lookupFunction<_SetBackendDirNative, _SetBackendDirDart>(
+          'dito_whisper_set_backend_dir');
       _listDevicesFn =
           _lib!.lookupFunction<_ListDevicesNative, _ListDevicesDart>('dito_audio_list_devices');
       _startCaptureFn =
@@ -134,6 +146,28 @@ class DitoWhisper {
       return ptr != null && ptr != nullptr ? ptr.toDartString() : '1.7.4';
     } catch (_) {
       return '1.7.4';
+    }
+  }
+
+  /// Real ggml backend in use ("CUDA0", "CPU", ...) — only meaningful after [loadModel].
+  static String get backendName {
+    try {
+      _ensureLoaded();
+      final ptr = _backendNameFn?.call();
+      return ptr != null && ptr != nullptr ? ptr.toDartString() : 'CPU';
+    } catch (_) {
+      return 'CPU';
+    }
+  }
+
+  /// Points the optional-backend search (e.g. a downloaded GPU pack) at [dir]; call before [loadModel].
+  static void setBackendDir(String dir) {
+    _ensureLoaded();
+    final dirPtr = dir.toNativeUtf8();
+    try {
+      _setBackendDirFn?.call(dirPtr);
+    } finally {
+      malloc.free(dirPtr);
     }
   }
 

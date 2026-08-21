@@ -3,6 +3,12 @@
 #include "miniaudio.h"
 #include "dito_whisper.h"
 #include "whisper.h"
+#include "ggml-backend.h"
+
+#ifdef __linux__
+#include <dlfcn.h>
+#include <limits.h>
+#endif
 
 #include <string>
 #include <vector>
@@ -58,8 +64,54 @@ static bool ensure_context() {
 
 extern "C" {
 
+static std::string g_backend_dir;
+
+DITO_EXPORT void dito_whisper_set_backend_dir(const char* dir) {
+    g_backend_dir = dir ? dir : "";
+}
+
+// Optional backend modules (libggml-cuda.so) may live in a Dart-provided directory (a
+// downloaded GPU pack) or next to this very .so — ggml's default search (exe dir + cwd)
+// finds neither, so both are tried explicitly.
+static void load_optional_backends() {
+    if (!g_backend_dir.empty()) {
+        ggml_backend_load_all_from_path(g_backend_dir.c_str());
+    }
+#ifdef __linux__
+    Dl_info info;
+    if (dladdr((void*)&load_optional_backends, &info) && info.dli_fname) {
+        std::string self_path(info.dli_fname);
+        size_t slash = self_path.find_last_of('/');
+        if (slash != std::string::npos) {
+            ggml_backend_load_all_from_path(self_path.substr(0, slash).c_str());
+            return;
+        }
+    }
+#endif
+    if (g_backend_dir.empty()) ggml_backend_load_all();
+}
+
+DITO_EXPORT const char* dito_whisper_backend_name(void) {
+    static std::string name;
+    ggml_backend_dev_t best = nullptr;
+    for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+        ggml_backend_dev_t dev = ggml_backend_dev_get(i);
+        enum ggml_backend_dev_type type = ggml_backend_dev_type(dev);
+        if (type == GGML_BACKEND_DEVICE_TYPE_GPU || type == GGML_BACKEND_DEVICE_TYPE_IGPU) {
+            best = dev;
+            break;
+        }
+        if (!best && type == GGML_BACKEND_DEVICE_TYPE_CPU) best = dev;
+    }
+    name = best ? ggml_backend_dev_name(best) : "desconhecido";
+    return name.c_str();
+}
+
 DITO_EXPORT dito_whisper_handle dito_whisper_init(const char* model_path, int use_gpu) {
     if (!model_path) return nullptr;
+    // Discovers optional dlopen()-only backend modules (e.g. libggml-cuda.so); no-op if none exist.
+    static std::once_flag backends_loaded;
+    std::call_once(backends_loaded, load_optional_backends);
     whisper_context_params cparams = whisper_context_default_params();
     cparams.use_gpu = (use_gpu != 0);
     whisper_context* ctx = whisper_init_from_file_with_params(model_path, cparams);

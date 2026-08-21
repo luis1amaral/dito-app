@@ -25,10 +25,21 @@ BUNDLE="$RAIZ/build/linux/x64/release/bundle"
 OUT_DIR="$RAIZ/build/linux/installer"
 mkdir -p "$OUT_DIR"
 
+# Optional CUDA backend: shipped as its own download (packaging/linux/construir.sh consumers
+# fetch it on demand, see GpuPackManager), never inside the base install — it alone dwarfs the
+# rest of the bundle.
+GPU_MODULE="$BUNDLE/lib/libggml-cuda.so"
+if [ -f "$GPU_MODULE" ]; then
+  echo "== Empacotando modulo de GPU separado"
+  GPU_TAR="$OUT_DIR/dito-gpu-cuda-linux-x64.tar.gz"
+  rm -f "$GPU_TAR"
+  tar -czf "$GPU_TAR" -C "$BUNDLE/lib" "libggml-cuda.so"
+fi
+
 echo "== Gerando pacote .tar.gz"
 TAR_FILE="$OUT_DIR/dito-$VERSAO-linux-x64.tar.gz"
 rm -f "$TAR_FILE"
-tar -czf "$TAR_FILE" -C "$BUNDLE" .
+tar -czf "$TAR_FILE" -C "$BUNDLE" --exclude="lib/libggml-cuda.so" .
 
 echo "== Gerando pacote Debian (.deb)"
 DEB_ROOT="/tmp/dito-deb-$VERSAO"
@@ -36,6 +47,7 @@ rm -rf "$DEB_ROOT"
 mkdir -p "$DEB_ROOT/opt/dito" "$DEB_ROOT/usr/bin" "$DEB_ROOT/usr/share/applications" "$DEB_ROOT/usr/share/icons/hicolor/scalable/apps" "$DEB_ROOT/DEBIAN"
 
 cp -r "$BUNDLE"/* "$DEB_ROOT/opt/dito/"
+rm -f "$DEB_ROOT/opt/dito/lib/libggml-cuda.so"
 
 cat <<EOF > "$DEB_ROOT/usr/bin/dito"
 #!/usr/bin/env bash
@@ -78,10 +90,16 @@ rm -rf "$DEB_ROOT"
 
 mkdir -p "$RAIZ/dist"
 cp "$DEB_FILE" "$RAIZ/dist/"
+if [ -f "$OUT_DIR/dito-gpu-cuda-linux-x64.tar.gz" ]; then
+  mkdir -p "$RAIZ/dist/extras"
+  cp "$OUT_DIR/dito-gpu-cuda-linux-x64.tar.gz" "$RAIZ/dist/extras/"
+fi
 
 echo "== Calculando SHA-256"
 cd "$OUT_DIR"
-sha256sum "dito-$VERSAO-linux-x64.tar.gz" "dito_${VERSAO}_amd64.deb" > SHA256SUMS.txt
+SOMAR="dito-$VERSAO-linux-x64.tar.gz dito_${VERSAO}_amd64.deb"
+[ -f "dito-gpu-cuda-linux-x64.tar.gz" ] && SOMAR="$SOMAR dito-gpu-cuda-linux-x64.tar.gz"
+sha256sum $SOMAR > SHA256SUMS.txt
 
 echo "== Concluido com sucesso em $OUT_DIR"
 ls -lh "$OUT_DIR"

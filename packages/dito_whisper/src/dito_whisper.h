@@ -25,6 +25,10 @@ DITO_EXPORT int dito_whisper_transcribe(
 );
 DITO_EXPORT void dito_whisper_free(dito_whisper_handle handle);
 DITO_EXPORT const char* dito_whisper_version(void);
+// Name of the fastest ggml backend actually registered ("CUDA0", "CPU", ...) — call after init.
+DITO_EXPORT const char* dito_whisper_backend_name(void);
+// Extra directory to search for optional backend modules (e.g. a downloaded GPU pack); call before init.
+DITO_EXPORT void dito_whisper_set_backend_dir(const char* dir);
 
 // Audio capture
 DITO_EXPORT int dito_audio_list_devices(char* out_json, int max_len);

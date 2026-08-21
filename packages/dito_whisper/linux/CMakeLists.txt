@@ -94,7 +94,69 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE
   asound
 )
 
-set(dito_whisper_bundled_libraries
-  ""
-  PARENT_SCOPE
-)
+# Optional GPU backend: a standalone dlopen()-only module, never linked into the plugin
+# itself, so a machine without CUDA still loads dito_whisper_plugin fine and just runs on CPU.
+find_package(CUDAToolkit QUIET)
+if (CUDAToolkit_FOUND)
+  message(STATUS "dito_whisper: CUDA Toolkit ${CUDAToolkit_VERSION} found, building optional GPU backend")
+  enable_language(CUDA)
+
+  set(GGML_CUDA_SRC "${SRC_DIR}/ggml/src/ggml-cuda")
+  file(GLOB GGML_CUDA_SOURCES "${GGML_CUDA_SRC}/*.cu")
+  file(GLOB GGML_CUDA_TEMPLATE_SOURCES
+    "${GGML_CUDA_SRC}/template-instances/fattn-vec-instance-f16-f16.cu"
+    "${GGML_CUDA_SRC}/template-instances/fattn-vec-instance-q4_0-q4_0.cu"
+    "${GGML_CUDA_SRC}/template-instances/fattn-vec-instance-q8_0-q8_0.cu"
+    "${GGML_CUDA_SRC}/template-instances/fattn-vec-instance-bf16-bf16.cu"
+    "${GGML_CUDA_SRC}/template-instances/fattn-tile*.cu"
+    "${GGML_CUDA_SRC}/template-instances/fattn-mma*.cu"
+    "${GGML_CUDA_SRC}/template-instances/mmq*.cu"
+    "${GGML_CUDA_SRC}/template-instances/mmf*.cu"
+  )
+
+  add_library(ggml-cuda MODULE ${GGML_CUDA_SOURCES} ${GGML_CUDA_TEMPLATE_SOURCES})
+  set_target_properties(ggml-cuda PROPERTIES
+    PREFIX "lib"
+    OUTPUT_NAME "ggml-cuda"
+    CUDA_SEPARABLE_COMPILATION ON
+    # PTX-only ("-virtual"): the driver JITs native code on first run instead of shipping
+    # SASS per architecture, which is what blows the module up past 500MB.
+    # 61=Pascal(GTX10xx) 75=Turing(GTX16xx/RTX20xx) 86=Ampere(RTX30xx) 89=Ada(RTX40xx).
+    CUDA_ARCHITECTURES "61-virtual;75-virtual;86-virtual;89-virtual"
+  )
+
+  target_include_directories(ggml-cuda PRIVATE
+    "${SRC_DIR}/ggml/include"
+    "${GGML_SRC}"
+  )
+  target_compile_definitions(ggml-cuda PRIVATE
+    GGML_BACKEND_DL
+    GGML_BACKEND_BUILD
+    GGML_CUDA_PEER_MAX_BATCH_SIZE=128
+  )
+  target_compile_options(ggml-cuda PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-use_fast_math -extended-lambda -Wno-deprecated-gpu-targets>
+  )
+  # Undefined ggml-base symbols (tensor/backend plumbing) resolve against the plugin that
+  # dlopen()s this module — it already links every ggml-base source statically.
+  target_link_libraries(ggml-cuda PRIVATE
+    ${PLUGIN_NAME}
+    CUDA::cudart
+    CUDA::cublas
+    CUDA::cuda_driver
+  )
+else()
+  message(STATUS "dito_whisper: CUDA Toolkit not found, GPU backend skipped — CPU only")
+endif()
+
+if (TARGET ggml-cuda)
+  set(dito_whisper_bundled_libraries
+    "$<TARGET_FILE:ggml-cuda>"
+    PARENT_SCOPE
+  )
+else()
+  set(dito_whisper_bundled_libraries
+    ""
+    PARENT_SCOPE
+  )
+endif()
