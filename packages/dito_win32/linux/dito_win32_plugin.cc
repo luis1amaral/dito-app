@@ -507,6 +507,23 @@ static void RequestActivateWindow(Display* display, Window target) {
   XFlush(display);
 }
 
+// Synchronous on purpose: Windows uses SendInput, and Enter must never outrun the paste.
+static bool RunXdotoolKey(const std::string& keyspec) {
+  const gchar* argv[] = {"xdotool", "key", "--clearmodifiers", keyspec.c_str(), nullptr};
+  g_autoptr(GError) error = nullptr;
+  gint status = 0;
+  if (!g_spawn_sync(nullptr, const_cast<gchar**>(argv), nullptr, G_SPAWN_SEARCH_PATH, nullptr,
+                    nullptr, nullptr, nullptr, &status, &error)) {
+    g_warning("xdotool key %s nao executou: %s", keyspec.c_str(), error->message);
+    return false;
+  }
+  if (status != 0) {
+    g_warning("xdotool key %s saiu com status %d", keyspec.c_str(), status);
+    return false;
+  }
+  return true;
+}
+
 static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
                            gpointer user_data) {
   DitoWin32Plugin* self = DITO_WIN32_PLUGIN(user_data);
@@ -659,16 +676,14 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
 
   if (g_strcmp0(method, "input.sendCtrlV") == 0 ||
       g_strcmp0(method, "paste.ctrl_v") == 0) {
-    g_spawn_command_line_async("xdotool key --clearmodifiers ctrl+v", nullptr);
-    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    g_autoptr(FlValue) result = fl_value_new_bool(RunXdotoolKey("ctrl+v"));
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
 
   if (g_strcmp0(method, "input.sendEnter") == 0 ||
       g_strcmp0(method, "paste.enter") == 0) {
-    g_spawn_command_line_async("xdotool key --clearmodifiers Return", nullptr);
-    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    g_autoptr(FlValue) result = fl_value_new_bool(RunXdotoolKey("Return"));
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
@@ -685,12 +700,15 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       }
       if (ctrl_val) ctrl = fl_value_get_bool(ctrl_val);
     }
-    if (!key.empty()) {
-      std::string cmd = "xdotool key --clearmodifiers " +
-                        std::string(ctrl ? "ctrl+" : "") + key;
-      g_spawn_command_line_async(cmd.c_str(), nullptr);
+    // Same allow-list as the Windows plugin: never build a key spec out of arbitrary input.
+    if (key != "a" && key != "c" && key != "v" && key != "enter") {
+      fl_method_call_respond_error(method_call, "KEY_UNKNOWN",
+                                   ("tecla desconhecida: " + key).c_str(), nullptr, nullptr);
+      return;
     }
-    g_autoptr(FlValue) result = fl_value_new_bool(!key.empty());
+    const std::string spec =
+        std::string(ctrl ? "ctrl+" : "") + (key == "enter" ? "Return" : key);
+    g_autoptr(FlValue) result = fl_value_new_bool(RunXdotoolKey(spec));
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
