@@ -127,6 +127,7 @@ class _ReviewWindowState extends State<ReviewWindow> {
         await _tryNative('showNoActivate', DitoWin32.showNoActivate);
         _hit = null;
         await _clipToCard();
+        // takeFocus MUST precede focusWindow: focus.take skips saving once we are the active one.
         await _tryNative('takeFocus', DitoWin32.takeFocus);
         await _tryNative('focusWindow', DitoWin32.focusWindow);
         await Future<void>.delayed(const Duration(milliseconds: 120));

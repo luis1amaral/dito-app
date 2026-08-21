@@ -109,11 +109,12 @@ class AudioConfig {
 }
 
 class AlertConfig {
+  // Off by default: the red pill already says it, and a popup per drop trains people to ignore it.
   const AlertConfig({
     this.deadMs = 700,
     this.quietMs = 2500,
-    this.sound = true,
-    this.notify = true,
+    this.sound = false,
+    this.notify = false,
   });
 
   final int deadMs;

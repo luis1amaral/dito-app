@@ -394,6 +394,8 @@ class DitoController {
   }
 
   void onReviewDiscard() {
+    // Its absence is the only way to tell "Tab never arrived" from "the card was still open".
+    _log('review descartado');
     pendingReview = null;
     hud(HudMessage.toast(HudToast.discarded, ms: 1200));
   }

@@ -1,8 +1,12 @@
 # dito-flutter
 
-Porte do Dito (ditado por voz offline) para Flutter/Windows. O motor Python (`../dito-app`) roda
-como **sidecar** e é a verdade do produto: áudio, Whisper, watchdog, sessão e biblioteca vivem lá.
-O Flutter é interface, teclas, colagem e janelas.
+Dito (ditado por voz offline) em Flutter, para **Windows e Linux**. Não existe mais sidecar
+Python: o motor é C++ nativo **in-process** via FFI (`packages/dito_whisper`, whisper.cpp + ggml +
+miniaudio), carregado num isolate dedicado (`lib/engine/whisper_worker.dart`) porque o contexto
+CUDA é preso à thread. Áudio, Whisper, sessão e biblioteca vivem no Dart/C++ deste repo.
+O que é específico de plataforma (teclas globais, janelas, foco, colagem, notificação) fica atrás
+do plugin `packages/dito_win32` — nome herdado do Windows, mas serve as duas plataformas
+(`windows/` e `linux/`).
 
 ## Regras de código — sem exceção
 
@@ -17,7 +21,9 @@ O Flutter é interface, teclas, colagem e janelas.
 ## As 4 garantias inegociáveis (herdadas do dito-app)
 
 1. Áudio nunca se perde — vai ao disco desde o 1º bloco, WAV válido a qualquer instante.
-2. Quando não capta, **grita em ~1 s** por forma + cor + som + notificação.
+2. Quando não capta, **avisa em ~1 s** — forma + cor no pill são obrigatórias e sempre ligadas;
+   som e notificação são canais opcionais (`audio.alerts.sound`/`notify`), desligados por escolha
+   do dono em 2026-08-21 por serem ruído: com o pill vermelho funcionando, bastam forma + cor.
 3. Reunião **não tem limite de tempo** (deliberadamente não existe config para isso).
 4. Nada aparece no login além do ícone da bandeja.
 

@@ -6,7 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late int clock;
   late AlarmPolicy policy;
-  const alerts = AlertConfig();
+  // Explicit: these cases exercise the throttle, not whichever channel ships enabled by default.
+  const alerts = AlertConfig(sound: true, notify: true);
 
   AlarmEvent dead() => const AlarmEvent(state: AudioState.dead, reason: 'mudo');
   AlarmEvent ok() => const AlarmEvent(state: AudioState.ok);
@@ -48,12 +49,12 @@ void main() {
   });
 
   test('the config can silence each channel on its own', () {
-    const muted = AlertConfig(sound: false);
+    const muted = AlertConfig(sound: false, notify: false);
     expect(policy.evaluate(dead(), muted).sound, isFalse);
     expect(policy.evaluate(dead(), muted).notify, isFalse);
 
     final other = AlarmPolicy(now: () => clock);
-    const noPopup = AlertConfig(notify: false);
+    const noPopup = AlertConfig(sound: true, notify: false);
     final action = other.evaluate(dead(), noPopup);
     expect(action.sound, isTrue);
     expect(action.notify, isFalse);

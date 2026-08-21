@@ -796,8 +796,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
-  if (g_strcmp0(method, "window.showNoActivate") == 0 ||
-      g_strcmp0(method, "window.focus") == 0) {
+  if (g_strcmp0(method, "window.showNoActivate") == 0) {
     GtkWindow* win = GetToplevel(self);
     if (!win) {
       // This used to always respond TRUE here, so a null toplevel made show() a silent no-op.
@@ -807,6 +806,28 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     }
     gtk_widget_show_all(GTK_WIDGET(win));
     gtk_window_present(win);
+    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    fl_method_call_respond_success(method_call, result, nullptr);
+    return;
+  }
+
+  if (g_strcmp0(method, "window.focus") == 0) {
+    GtkWindow* win = GetToplevel(self);
+    if (!win) {
+      g_warning("window.focus: sem janela nativa (toplevel nulo)");
+      fl_method_call_respond_error(method_call, "NO_WINDOW", "sem janela nativa", nullptr, nullptr);
+      return;
+    }
+    gtk_widget_show_all(GTK_WIDGET(win));
+    GdkWindow* gdk_win = gtk_widget_get_window(GTK_WIDGET(win));
+    if (gdk_win) {
+      // A WM ignores present() without a real timestamp, so Tab/Enter never reached the card.
+      gtk_window_present_with_time(win, gdk_x11_get_server_time(gdk_win));
+      RequestActivateWindow(GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win)),
+                            GDK_WINDOW_XID(gdk_win));
+    } else {
+      gtk_window_present(win);
+    }
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
@@ -1140,6 +1161,14 @@ static FlMethodErrorResponse* tray_channel_cancel(FlEventChannel* channel,
 
 void dito_win32_plugin_register_with_registrar(
     FlPluginRegistrar* registrar) {
+  // Everything here casts GDK handles to X11 ones; say so loudly instead of segfaulting later.
+  static std::once_flag backend_warned;
+  std::call_once(backend_warned, [] {
+    if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+      g_critical("dito_win32: sessao nao e X11; teclas globais, foco e colagem nao vao funcionar");
+    }
+  });
+
   // This registrar fires once per window (main+HUD+Review); XInitThreads() only needs one call.
   static std::once_flag x11_threads_init;
   std::call_once(x11_threads_init, [] { XInitThreads(); });

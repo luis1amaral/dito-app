@@ -21,12 +21,14 @@ global, janela flutuante, colagem) usa GTK+X11 direto via `packages/dito_win32/l
 `HotkeyService.createHotkeyService()` (`lib/keys/hotkey_service.dart`) devolve
 `WindowsHotkeyService` em qualquer plataforma — o nome é herdado do Windows, mas a classe já é
 cross-platform (fala com `dito_win32` via `DitoWin32.keys`, e cada plataforma implementa o hook
-nativo por trás). Não existe mais `LinuxHotkeyService` no código.
+nativo por trás). `LinuxHotkeyService` ainda existe no arquivo, mas é código morto: nunca é
+instanciado por ninguém.
 
 ## O que ainda é stub/pendente
 
-1. **Alertas nativos** (`lib/output/alert_service.dart`, `LinuxAlertService`) — só loga, sem
-   `notify-send`/`libnotify` nem som via `canberra`/`paplay`.
+1. ~~**Alertas nativos**~~ — feito em 1.4.3: `NativeAlertService` (`lib/output/alert_service.dart`)
+   chama `notify-send`/`paplay` pelo plugin nativo. Ambos os canais vêm **desligados por padrão**
+   (`audio.alerts.sound`/`notify`): o pill vermelho é quem carrega o alarme.
 2. **`test.*` do `dito_win32`** (`createEditTarget`/`readEditTarget`/`destroyEditTarget`/
    `ownsForeground`) — sem implementação no Linux, usados só por ferramentas de teste, retornam
    `not_implemented` (nada na produção chama isso).

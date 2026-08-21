@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dito_app/config/config_model.dart';
 import 'package:dito_app/config/config_service.dart';
 import 'package:dito_app/core/logbook.dart';
 import 'package:dito_app/engine/engine_client.dart';
@@ -147,6 +148,11 @@ void main() {
     });
 
     test('dead notifies once, then stays quiet for ten seconds', () async {
+      // Both channels ship off; this case is about the throttle, so turn them on explicitly.
+      await config.update(config.config.copyWith(
+          audio: config.config.audio
+              .copyWith(alerts: const AlertConfig(sound: true, notify: true))));
+
       emit(<String, Object?>{'event': 'alarm', 'state': 'dead', 'reason': 'mudo'});
       await settle();
       expect(notified, hasLength(1));
