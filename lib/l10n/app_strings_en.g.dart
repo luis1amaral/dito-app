@@ -533,4 +533,40 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get toastStillBusy => 'Still finishing the previous one';
+
+  @override
+  String get errMicUnavailable => 'Could not access the microphone';
+
+  @override
+  String errModelLoadFailed(String detail) {
+    return 'Failed to load the model: $detail';
+  }
+
+  @override
+  String get errEngineDiedRecording =>
+      'the engine crashed during the recording';
+
+  @override
+  String get errEngineDiedIdle => 'the engine stopped responding';
+
+  @override
+  String errEngineStartFailed(String detail) {
+    return 'failed to start the native engine: $detail';
+  }
+
+  @override
+  String get errEngineNoResponse => 'the engine did not respond';
+
+  @override
+  String get errTranscribeNoResponse => 'the transcription did not respond';
+
+  @override
+  String errCheckUpdatesFailed(String detail) {
+    return 'Failed to check for updates: $detail';
+  }
+
+  @override
+  String upToDateMessageVersion(String version) {
+    return 'You are already using the latest version (v$version).';
+  }
 }

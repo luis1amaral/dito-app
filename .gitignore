@@ -60,3 +60,5 @@ _*.log
 hud_shot*.png
 hud_installed.png
 
+.wrangler/
+dist/

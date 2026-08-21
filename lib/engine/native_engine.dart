@@ -6,6 +6,7 @@ import 'package:dito_whisper/dito_whisper.dart';
 
 import '../config/paths.dart';
 import '../core/logbook.dart';
+import '../l10n/app_strings.dart';
 import 'engine_protocol.dart';
 import 'gpu_pack_manager.dart';
 import 'model_manager.dart';
@@ -78,7 +79,8 @@ class NativeEngine {
           :final model,
           :final language,
           :final device,
-          :final devicePref
+          :final devicePref,
+          :final folder
         ):
         await _handleStart(
           mode: mode,
@@ -86,6 +88,7 @@ class NativeEngine {
           language: language,
           device: device,
           devicePref: devicePref,
+          folder: folder,
         );
       case StopCommand():
         // Tracked so shutdown() can wait for it: EngineClient dispatches commands
@@ -154,6 +157,7 @@ class NativeEngine {
     required String language,
     required String device,
     required String devicePref,
+    String folder = '',
   }) async {
     if (_isRecording) {
       _log('start ignorado: gravacao ja em andamento');
@@ -171,9 +175,10 @@ class NativeEngine {
       await _ensureModelLoaded(_currentModel);
     } catch (e) {
       _log('falha ao preparar modelo: $e');
+      // No BuildContext here: resolve against the system locale, same convention as the tray.
       _emit(FailedEvent(
         sessionId: '',
-        reason: 'Falha ao carregar modelo: $e',
+        reason: stringsFor(null).errModelLoadFailed('$e'),
       ));
       return;
     }
@@ -185,7 +190,7 @@ class NativeEngine {
       _log('falha ao iniciar captura de audio: codigo $res');
       _emit(FailedEvent(
         sessionId: '',
-        reason: 'Não foi possível acessar o microfone',
+        reason: stringsFor(null).errMicUnavailable,
       ));
       return;
     }
@@ -202,7 +207,8 @@ class NativeEngine {
     final ss = now.second.toString().padLeft(2, '0');
 
     final sep = Platform.pathSeparator;
-    _currentFolder = '${DitoPaths.defaultLibrary}$sep$y$sep$m$sep$d';
+    final root = folder.isEmpty ? DitoPaths.defaultLibrary : folder;
+    _currentFolder = '$root$sep$y$sep$m$sep$d';
     _currentStem = '$hh-$mm-$ss';
     _currentSessionId = '$y-$m-${d}_$_currentStem';
     _currentWavPath = '$_currentFolder$sep$_currentStem${DitoPaths.audioSuffix}';
@@ -232,6 +238,17 @@ class NativeEngine {
       ));
       _checkAlarm(lvl.rms, lvl.seconds);
     });
+  }
+
+  /// Whisper answers silence with invented sound tags like "[Musica]"; that is not speech.
+  static String dropSoundTags(String text) {
+    final speech = text
+        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
+        .replaceAll(RegExp(r'\([^)]*\)'), ' ')
+        .replaceAll(RegExp(r'\*[^*]*\*'), ' ')
+        .replaceAll(RegExp('[\u266A\u266B]'), ' ')
+        .trim();
+    return speech.isEmpty ? '' : text.trim();
   }
 
   /// Turns raw rms into the dead/quiet/ok alarm the HUD and the sound/notify guarantee react to.
@@ -269,6 +286,19 @@ class NativeEngine {
     _levelTimer?.cancel();
     _levelTimer = null;
 
+    // Snapshot before the first await: a new recording may start while this one transcribes,
+    // and it overwrites every _current* field with its own session.
+    final sessionId = _currentSessionId;
+    final mode = _currentMode;
+    final folder = _currentFolder;
+    final stem = _currentStem;
+    final wavPath = _currentWavPath;
+    final language = _currentLanguage;
+    final device = _currentDevice;
+    final model = _currentModel;
+    final startedAt = _recordingStarted;
+    final heardAudio = _everHeardAudio;
+
     _emit(const PhaseEvent(phase: EnginePhase.transcribing));
 
     final samples = DitoWhisper.stopCapture();
@@ -279,7 +309,7 @@ class NativeEngine {
     // Save WAV audio file to Library folder
     if (samples.isNotEmpty) {
       try {
-        DitoWhisper.saveWav(_currentWavPath, samples);
+        DitoWhisper.saveWav(wavPath, samples);
       } catch (e) {
         _log('erro ao salvar WAV: $e');
       }
@@ -288,29 +318,29 @@ class NativeEngine {
     String text = '';
     if (samples.isNotEmpty && _modelLoaded && _worker != null) {
       try {
-        text = await _worker!.transcribe(samples, language: _currentLanguage);
+        text = await _worker!.transcribe(samples, language: language);
       } catch (e) {
         _log('erro na transcricao whisper: $e');
       }
     }
 
-    text = text.trim();
+    text = dropSoundTags(text);
     _log('transcricao concluida: "$text"');
 
     // Write session JSON metadata
     final sep = Platform.pathSeparator;
     final metaPath =
-        '$_currentFolder$sep$_currentStem${DitoPaths.sessionSuffix}';
+        '$folder$sep$stem${DitoPaths.sessionSuffix}';
     try {
       final meta = {
-        'id': _currentSessionId,
-        'mode': _currentMode,
+        'id': sessionId,
+        'mode': mode,
         'state': 'done',
-        'started': _recordingStarted?.toIso8601String() ??
+        'started': startedAt?.toIso8601String() ??
             DateTime.now().toIso8601String(),
         'seconds': double.parse(seconds.toStringAsFixed(2)),
-        'device': _currentDevice,
-        'model': _currentModel,
+        'device': device,
+        'model': model,
         'text': text,
         'error': null,
       };
@@ -320,12 +350,12 @@ class NativeEngine {
     }
 
     _emit(FinishedEvent(
-      sessionId: _currentSessionId,
-      mode: _currentMode,
+      sessionId: sessionId,
+      mode: mode,
       text: text,
       seconds: seconds,
-      folder: _currentFolder,
-      everHeardAudio: _everHeardAudio,
+      folder: folder,
+      everHeardAudio: heardAudio,
     ));
 
     _emit(const PhaseEvent(phase: EnginePhase.idle));

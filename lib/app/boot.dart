@@ -53,7 +53,7 @@ class DitoApp {
     client: client,
     supervisor: supervisor,
     config: config,
-    paste: PasteService(backend: const NativePasteBackend()),
+    paste: PasteService(backend: const NativePasteBackend(), log: log),
     hud: _toHud,
     review: _toReview,
     notify: _notify,
@@ -117,7 +117,7 @@ class DitoApp {
     if (id == null) return;
     final dir = Platform.environment['DITO_HUD_SHOT'];
 
-    final cenas = <String, HudMessage>{
+    final scenes = <String, HudMessage>{
       'gravando': HudMessage.recording(meeting: false),
       'baixo': HudMessage.quiet('fale mais perto do microfone'),
       'reuniao': HudMessage.recording(meeting: true),
@@ -126,21 +126,21 @@ class DitoApp {
       'pronto': HudMessage.toast(HudToast.pasted, ms: 20000),
     };
 
-    for (final cena in cenas.entries) {
-      _toHud(cena.value);
+    for (final scene in scenes.entries) {
+      _toHud(scene.value);
       for (var i = 0; i < 12; i++) {
         _toHud(HudMessage.level(0.02 + (i % 5) * 0.08));
         await Future<void>.delayed(const Duration(milliseconds: 60));
       }
-      log('hud_hold: ${cena.key} rect=${await _bus?.request(id, 'hudRect')}');
-      log('hud_hold: ${cena.key} probe=${await _bus?.request(id, 'hudProbe')}');
+      log('hud_hold: ${scene.key} rect=${await _bus?.request(id, 'hudRect')}');
+      log('hud_hold: ${scene.key} probe=${await _bus?.request(id, 'hudProbe')}');
       if (dir != null) {
-        await _bus?.request(id, 'hudShot', <String, Object?>{'path': '$dir\\${cena.key}.png'});
+        await _bus?.request(id, 'hudShot', <String, Object?>{'path': '$dir\\${scene.key}.png'});
       }
     }
-    final revisao = _reviewWindowId;
-    if (revisao != null) {
-      await _bus?.send(revisao, 'review', <String, Object?>{
+    final reviewId = _reviewWindowId;
+    if (reviewId != null) {
+      await _bus?.send(reviewId, 'review', <String, Object?>{
         // Texto LONGO e acentuado de proposito: prova no print que o cartao inteiro cabe (nao corta)
         // e que os acentos aparecem certos (sem o «replacement char» do encoding antigo).
         'text': 'Reuniao de segunda-feira sobre o planejamento do trimestre. '
@@ -155,12 +155,12 @@ class DitoApp {
         'folder': '',
       });
       await Future<void>.delayed(const Duration(milliseconds: 900));
-      log('hud_hold: cartao probe=${await _bus?.request(revisao, 'reviewProbe')}');
+      log('hud_hold: cartao probe=${await _bus?.request(reviewId, 'reviewProbe')}');
       if (dir != null) {
         await _bus?.request(
-            revisao, 'reviewShot', <String, Object?>{'path': '$dir\\cartao.png'});
+            reviewId, 'reviewShot', <String, Object?>{'path': '$dir\\cartao.png'});
       }
-      await _bus?.send(revisao, 'reviewHide', <String, Object?>{});
+      await _bus?.send(reviewId, 'reviewHide', <String, Object?>{});
     }
     // Back to a known state so the harness can probe hit-testing against a steady pill.
     _toHud(HudMessage.recording(meeting: false));

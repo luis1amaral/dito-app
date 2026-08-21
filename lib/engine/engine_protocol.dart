@@ -21,6 +21,7 @@ class StartCommand extends EngineCommand {
     required this.language,
     required this.device,
     required this.devicePref,
+    this.folder = '',
   });
 
   /// 'dictation' or 'meeting'; the engine treats anything else as dictation.
@@ -29,6 +30,9 @@ class StartCommand extends EngineCommand {
   final String language;
   final String device;
   final String devicePref;
+
+  /// Where the session is written; empty means the engine's default library.
+  final String folder;
 
   @override
   String get name => 'start';

@@ -429,5 +429,47 @@
     }
   },
   "toastStillBusy": "Ainda terminando o anterior",
-  "@toastStillBusy": {}
+  "@toastStillBusy": {},
+  "errMicUnavailable": "Não foi possível acessar o microfone",
+  "@errMicUnavailable": {},
+  "errModelLoadFailed": "Falha ao carregar o modelo: {detail}",
+  "@errModelLoadFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "errEngineDiedRecording": "o motor caiu durante a gravação",
+  "@errEngineDiedRecording": {},
+  "errEngineDiedIdle": "o motor parou de responder",
+  "@errEngineDiedIdle": {},
+  "errEngineStartFailed": "falha ao iniciar o motor nativo: {detail}",
+  "@errEngineStartFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "errEngineNoResponse": "o motor não respondeu",
+  "@errEngineNoResponse": {},
+  "errTranscribeNoResponse": "a transcrição não respondeu",
+  "@errTranscribeNoResponse": {},
+  "errCheckUpdatesFailed": "Falha ao verificar atualizações: {detail}",
+  "@errCheckUpdatesFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "upToDateMessageVersion": "Você já está usando a versão mais recente (v{version}).",
+  "@upToDateMessageVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  }
 }

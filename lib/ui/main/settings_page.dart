@@ -55,14 +55,17 @@ class SettingsPage extends StatelessWidget {
                                 } else if (app.updateController.error != null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Falha ao verificar atualizações: ${app.updateController.error}'),
+                                      content: Text(s.errCheckUpdatesFailed(
+                                          '${app.updateController.error}')),
                                     ),
                                   );
                                 } else {
                                   final v = app.updateController.currentVersion;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Você já está usando a versão mais recente${v.isEmpty ? "" : " (v$v)"}.'),
+                                      content: Text(v.isEmpty
+                                          ? s.upToDateMessage
+                                          : s.upToDateMessageVersion(v)),
                                       duration: const Duration(seconds: 3),
                                     ),
                                   );

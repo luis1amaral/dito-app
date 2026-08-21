@@ -72,6 +72,10 @@ class DitoPaths {
 
   static String get defaultLibrary => '$documents${_sep}Dito';
 
+  /// A path typed with a leading tilde is text, not a directory, until it is expanded here.
+  static String expandHome(String path) =>
+      path.startsWith('~') ? path.replaceFirst('~', _home) : path;
+
   static String resolveObsidianPath(String vault, String folder) {
     var v = vault.trim();
     if (v.startsWith('~')) {

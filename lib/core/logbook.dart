@@ -64,6 +64,7 @@ class Logbook {
       Directory(dir).createSync(recursive: true);
       return File('$dir/$name.log').openWrite(mode: FileMode.append);
     } catch (_) {
+      // The logger itself failed to open its file; there is nowhere left to report it.
       return null;
     }
   }

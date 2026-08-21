@@ -71,7 +71,7 @@ class UpdateBanner extends StatelessWidget {
                     onTap: busy ? null : () => showUpdateDialog(context, c),
                     borderRadius: BorderRadius.circular(AppRadius.control),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                       child: Text(
                         size.isEmpty || busy || failed ? label : '$label | $size',
                         maxLines: 1,
@@ -89,8 +89,8 @@ class UpdateBanner extends StatelessWidget {
                   FilledButton(
                     onPressed: ready ? c.install : c.startDownload,
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md, vertical: 0),
+                      padding: const EdgeInsets.only(
+                          left: AppSpacing.md, right: AppSpacing.md),
                       minimumSize: const Size(60, 32),
                       backgroundColor: colors.primary,
                       foregroundColor: colors.textInverse,
@@ -190,7 +190,7 @@ class _UpdateDialogContent extends StatelessWidget {
                             color: colors.textPrimary,
                           ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       size.isEmpty
                           ? '${strings.installedVersion.split(':').first}: v${info.current}'
@@ -259,7 +259,8 @@ class _UpdateDialogContent extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
+                      // Radius bigger than half the bar height still renders fully rounded caps.
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
                       child: LinearProgressIndicator(
                         value: c.progress > 0 ? c.progress : null,
                         minHeight: 6,
@@ -296,8 +297,8 @@ class _UpdateDialogContent extends StatelessWidget {
               ],
             ),
           ),
-          actionsPadding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.lg),
+          actionsPadding: const EdgeInsets.only(
+              left: AppSpacing.xl, right: AppSpacing.xl, bottom: AppSpacing.lg),
           actions: [
             if (!downloading && !installing) ...[
               TextButton(

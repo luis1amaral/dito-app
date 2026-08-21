@@ -258,7 +258,9 @@ class LibraryConfig {
   final String folder;
   final int keepDays;
 
-  String resolved() => folder.trim().isEmpty ? DitoPaths.defaultLibrary : folder;
+  String resolved() => folder.trim().isEmpty
+      ? DitoPaths.defaultLibrary
+      : DitoPaths.expandHome(folder.trim());
 
   LibraryConfig copyWith({String? folder, int? keepDays}) =>
       LibraryConfig(folder: folder ?? this.folder, keepDays: keepDays ?? this.keepDays);

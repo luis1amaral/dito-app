@@ -538,4 +538,39 @@ class AppStringsPt extends AppStrings {
 
   @override
   String get toastStillBusy => 'Ainda terminando o anterior';
+
+  @override
+  String get errMicUnavailable => 'Não foi possível acessar o microfone';
+
+  @override
+  String errModelLoadFailed(String detail) {
+    return 'Falha ao carregar o modelo: $detail';
+  }
+
+  @override
+  String get errEngineDiedRecording => 'o motor caiu durante a gravação';
+
+  @override
+  String get errEngineDiedIdle => 'o motor parou de responder';
+
+  @override
+  String errEngineStartFailed(String detail) {
+    return 'falha ao iniciar o motor nativo: $detail';
+  }
+
+  @override
+  String get errEngineNoResponse => 'o motor não respondeu';
+
+  @override
+  String get errTranscribeNoResponse => 'a transcrição não respondeu';
+
+  @override
+  String errCheckUpdatesFailed(String detail) {
+    return 'Falha ao verificar atualizações: $detail';
+  }
+
+  @override
+  String upToDateMessageVersion(String version) {
+    return 'Você já está usando a versão mais recente (v$version).';
+  }
 }

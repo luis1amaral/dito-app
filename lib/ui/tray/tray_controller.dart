@@ -75,14 +75,16 @@ class TrayController {
       _events = DitoWin32.trayEvents.listen(_onEvent);
       final initialIcon = Platform.isWindows ? 'tray-idle.ico' : 'tray-idle.svg';
       await DitoWin32.traySetIcon(_resolve(initialIcon));
-      await DitoWin32.traySetMenu(const <TrayItem>[
-        TrayItem(id: 'status', label: 'Dito - Pronto', enabled: false),
-        TrayItem.separator(),
-        TrayItem(id: 'open', label: 'Abrir Dito'),
-        TrayItem(id: 'copy', label: 'Copiar Último Ditado', enabled: false),
-        TrayItem(id: 'pause', label: 'Pausar Atalhos', checkbox: true, checked: false),
-        TrayItem.separator(),
-        TrayItem(id: 'quit', label: 'Sair'),
+      // No config loaded yet at this point: resolve against the system locale like update() does.
+      final s = stringsFor(null);
+      await DitoWin32.traySetMenu(<TrayItem>[
+        TrayItem(id: 'status', label: '${s.appTitle} - ${s.statusReady}', enabled: false),
+        const TrayItem.separator(),
+        TrayItem(id: 'open', label: s.trayOpen),
+        TrayItem(id: 'copy', label: s.trayCopyLast, enabled: false),
+        TrayItem(id: 'pause', label: s.trayPause, checkbox: true, checked: false),
+        const TrayItem.separator(),
+        TrayItem(id: 'quit', label: s.trayQuit),
       ]);
       return true;
     } catch (e) {

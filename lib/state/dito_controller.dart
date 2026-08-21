@@ -72,6 +72,9 @@ class DitoController {
   /// The finished session the review card is holding, if any.
   FinishedEvent? pendingReview;
 
+  /// The recording currently on air, so a late transcript cannot idle a newer one.
+  String? _activeSessionId;
+
   AppConfig get _cfg => config.config;
 
   /// The controller owns no BuildContext, so it looks the catalogue up by preference.
@@ -127,6 +130,7 @@ class DitoController {
       language: _cfg.stt.language,
       device: _cfg.audio.device,
       devicePref: _cfg.stt.device,
+      folder: _cfg.library.resolved(),
     ));
 
     if (!sent) {
@@ -184,7 +188,7 @@ class DitoController {
       supervisor.markDegraded('o motor nao respondeu ao start');
       supervisor.wasRecording = false;
       _set(state.copyWith(phase: AppPhase.idle));
-      hud(HudMessage.dead('o motor não respondeu', canFix: false));
+      hud(HudMessage.dead(_s.errEngineNoResponse, canFix: false));
     });
   }
 
@@ -198,7 +202,7 @@ class DitoController {
       supervisor.wasRecording = false;
       _set(state.copyWith(phase: AppPhase.idle));
       hud(HudMessage.toast(HudToast.failed,
-          detail: 'a transcrição não respondeu', ms: 6000));
+          detail: _s.errTranscribeNoResponse, ms: 6000));
     });
   }
 
@@ -217,8 +221,9 @@ class DitoController {
           hud(HudMessage.dismiss);
         }
 
-      case StartedEvent(:final isMeeting, :final deviceName):
+      case StartedEvent(:final isMeeting, :final deviceName, :final sessionId):
         _commandTimeout?.cancel();
+        _activeSessionId = sessionId;
         supervisor.markHealthy();
         alarms.reset();
         _set(state.copyWith(
@@ -297,13 +302,17 @@ class DitoController {
   void _onFinished(FinishedEvent event) {
     _commandTimeout?.cancel();
     _transcribeTimeout?.cancel();
-    supervisor.wasRecording = false;
-    level.value = 0;
+    // A newer recording owns the phase; idling it here would break its own stop.
+    final live = state.isRecording && event.sessionId != _activeSessionId;
+    if (!live) {
+      supervisor.wasRecording = false;
+      level.value = 0;
+    }
     // "Sem audio" only means something while recording: stopping must not leave it stuck lit.
     _set(state.copyWith(
-      phase: AppPhase.idle,
+      phase: live ? state.phase : AppPhase.idle,
       lastText: event.text.isEmpty ? state.lastText : event.text,
-      clearAlarm: true,
+      clearAlarm: !live,
     ));
 
     if (event.text.trim().isEmpty) {

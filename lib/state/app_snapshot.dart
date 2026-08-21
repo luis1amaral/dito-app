@@ -31,7 +31,8 @@ class AppSnapshot {
 
   bool get isRecording => phase == AppPhase.recording || phase == AppPhase.meeting;
   bool get isBusy => isRecording || phase == AppPhase.transcribing;
-  bool get canStart => phase == AppPhase.idle || phase == AppPhase.paused;
+  /// Transcribing counts: it runs on its own isolate, so only a live capture blocks a new one.
+  bool get canStart => phase != AppPhase.recording && phase != AppPhase.meeting;
 
   AppSnapshot copyWith({
     AppPhase? phase,

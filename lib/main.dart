@@ -16,9 +16,9 @@ Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   final crash = Logbook('crash');
 
-  FlutterError.onError = (details) => crash('FlutterError: ${details.exception}');
+  FlutterError.onError = (details) => crash('FlutterError: ${details.exception}\n${details.stack}');
   PlatformDispatcher.instance.onError = (error, stack) {
-    crash('erro nao tratado: $error');
+    crash('erro nao tratado: $error\n$stack');
     return true;
   };
 

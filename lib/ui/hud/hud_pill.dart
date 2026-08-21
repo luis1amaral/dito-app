@@ -104,9 +104,9 @@ class HudPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.appColors;
     final s = context.strings;
-    final titulo = _titleFor(state, s);
-    final detalhe = _detailFor(state, s);
-    final acao = _actionFor(state, s);
+    final title = _titleFor(state, s);
+    final detail = _detailFor(state, s);
+    final action = _actionFor(state, s);
     final colors = _colorsFor(state, c);
     final onRed = state.visual == HudVisual.dead || state.visual == HudVisual.quiet;
     final showWave = state.visual != HudVisual.toast;
@@ -153,7 +153,7 @@ class HudPill extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSpacing.md),
                     Text(
-                      titulo,
+                      title,
                       style: TextStyle(
                         color: c.hudText,
                         fontSize: AppType.title,
@@ -189,22 +189,22 @@ class HudPill extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (acao != null) ...<Widget>[
+                    if (action != null) ...<Widget>[
                       const SizedBox(width: AppSpacing.lg),
                       _PillButton(
-                        label: acao,
+                        label: action,
                         onTap: onAction,
                         onRed: onRed,
                       ),
                     ],
                   ],
                 ),
-                if (detalhe != null) ...<Widget>[
+                if (detail != null) ...<Widget>[
                   const SizedBox(height: AppSpacing.sm),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: AppSize.hudDetailWidth),
                     child: Text(
-                      detalhe,
+                      detail,
                       style: TextStyle(
                         color: onRed ? c.hudOnDanger : c.hudMuted,
                         fontSize: AppType.body,

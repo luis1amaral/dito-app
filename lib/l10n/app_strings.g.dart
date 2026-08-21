@@ -1063,6 +1063,60 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Still finishing the previous one'**
   String get toastStillBusy;
+
+  /// No description provided for @errMicUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not access the microphone'**
+  String get errMicUnavailable;
+
+  /// No description provided for @errModelLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load the model: {detail}'**
+  String errModelLoadFailed(String detail);
+
+  /// No description provided for @errEngineDiedRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'the engine crashed during the recording'**
+  String get errEngineDiedRecording;
+
+  /// No description provided for @errEngineDiedIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'the engine stopped responding'**
+  String get errEngineDiedIdle;
+
+  /// No description provided for @errEngineStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'failed to start the native engine: {detail}'**
+  String errEngineStartFailed(String detail);
+
+  /// No description provided for @errEngineNoResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'the engine did not respond'**
+  String get errEngineNoResponse;
+
+  /// No description provided for @errTranscribeNoResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'the transcription did not respond'**
+  String get errTranscribeNoResponse;
+
+  /// No description provided for @errCheckUpdatesFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to check for updates: {detail}'**
+  String errCheckUpdatesFailed(String detail);
+
+  /// No description provided for @upToDateMessageVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'You are already using the latest version (v{version}).'**
+  String upToDateMessageVersion(String version);
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

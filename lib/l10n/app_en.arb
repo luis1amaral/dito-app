@@ -429,5 +429,47 @@
     }
   },
   "toastStillBusy": "Still finishing the previous one",
-  "@toastStillBusy": {}
+  "@toastStillBusy": {},
+  "errMicUnavailable": "Could not access the microphone",
+  "@errMicUnavailable": {},
+  "errModelLoadFailed": "Failed to load the model: {detail}",
+  "@errModelLoadFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "errEngineDiedRecording": "the engine crashed during the recording",
+  "@errEngineDiedRecording": {},
+  "errEngineDiedIdle": "the engine stopped responding",
+  "@errEngineDiedIdle": {},
+  "errEngineStartFailed": "failed to start the native engine: {detail}",
+  "@errEngineStartFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "errEngineNoResponse": "the engine did not respond",
+  "@errEngineNoResponse": {},
+  "errTranscribeNoResponse": "the transcription did not respond",
+  "@errTranscribeNoResponse": {},
+  "errCheckUpdatesFailed": "Failed to check for updates: {detail}",
+  "@errCheckUpdatesFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "upToDateMessageVersion": "You are already using the latest version (v{version}).",
+  "@upToDateMessageVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  }
 }

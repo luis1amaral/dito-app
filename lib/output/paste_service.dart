@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../core/logbook.dart';
 import '../core/result.dart';
 
 /// The clipboard and keyboard, behind an interface so the sequence can be tested without either.
@@ -19,12 +20,14 @@ abstract class PasteBackend {
 class PasteService {
   PasteService({
     required this.backend,
+    Logbook? log,
     this.settle = const Duration(milliseconds: 50),
     this.beforeEnter = const Duration(milliseconds: 250),
     this.restoreAfter = const Duration(seconds: 1),
-  });
+  }) : _log = log ?? Logbook('paste');
 
   final PasteBackend backend;
+  final Logbook _log;
 
   /// Between copying and Ctrl+V.
   final Duration settle;
@@ -50,7 +53,8 @@ class PasteService {
     if (restoreClipboard) {
       try {
         previous = await backend.readClipboard();
-      } catch (_) {
+      } catch (e) {
+        _log.call('paste: falha ao ler clipboard: $e');
         previous = null;
       }
     }
@@ -59,6 +63,7 @@ class PasteService {
     try {
       copied = await backend.writeClipboard(text);
     } catch (e) {
+      _log.call('paste: falha ao escrever clipboard: $e');
       copied = false;
     }
     if (!copied) {

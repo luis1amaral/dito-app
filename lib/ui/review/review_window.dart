@@ -82,9 +82,18 @@ class _ReviewWindowState extends State<ReviewWindow> {
   }
 
   /// Asks the owner instead of waiting: the broadcast may have gone out before we existed.
+  /// Retried because giving up leaves the window on the system locale, not the configured one.
   Future<void> _askAppearance() async {
-    final raw = await widget.bus.request(widget.ownerId, 'appearance', <String, Object?>{});
-    if (raw is Map) _applyAppearance(Map<String, Object?>.from(raw));
+    for (var attempt = 0; attempt < 10; attempt++) {
+      if (!mounted) return;
+      final raw = await widget.bus.request(widget.ownerId, 'appearance', <String, Object?>{});
+      if (raw is Map) {
+        _applyAppearance(Map<String, Object?>.from(raw));
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    _log('sem resposta de appearance: janela fica no idioma e tema do sistema');
   }
 
   void _applyAppearance(Map<String, Object?> data) {

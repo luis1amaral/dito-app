@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../core/logbook.dart';
+import '../l10n/app_strings.dart';
 import 'engine_protocol.dart';
 import 'native_engine.dart';
 
@@ -44,7 +45,8 @@ class EngineClient {
     } catch (e) {
       _log('falha ao iniciar motor nativo: $e');
       _isAlive = false;
-      return 'falha ao iniciar motor nativo: $e';
+      // No BuildContext here: resolve against the system locale, same convention as the tray.
+      return stringsFor(null).errEngineStartFailed('$e');
     }
   }
 

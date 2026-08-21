@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../core/logbook.dart';
+import '../l10n/app_strings.dart';
 import 'engine_client.dart';
 import 'engine_health.dart';
 import 'engine_protocol.dart';
@@ -70,9 +71,9 @@ class EngineSupervisor extends ChangeNotifier {
     if (_stopping) return;
     final wasMidRecording = wasRecording;
     wasRecording = false;
-    final reason = wasMidRecording
-        ? 'o motor caiu durante a gravacao'
-        : 'o motor parou de responder';
+    // No BuildContext here: resolve against the system locale, same convention as the tray.
+    final s = stringsFor(null);
+    final reason = wasMidRecording ? s.errEngineDiedRecording : s.errEngineDiedIdle;
     _log('morte do motor (gravando=$wasMidRecording)');
     _set(_health.copyWith(
       state: EngineState.dead,

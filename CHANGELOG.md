@@ -4,6 +4,47 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — fix Linux: F9/F10 so funcionava uma vez, e as gravacoes iam para a pasta errada, 1.4.5
+
+**F9/F10 parava de responder depois do primeiro uso.** Causa raiz nos logs: ao parar, a fase ia
+para `transcribing` e `canStart` so aceitava `idle`/`paused`, entao toda tecla era recusada ate a
+transcricao terminar (1-4s). Isso fazia sentido quando a transcricao congelava a UI; virou heranca
+sem motivo quando ela passou a rodar num isolate proprio (1.4.3). Agora so uma captura viva bloqueia
+a proxima. Junto vieram as duas armadilhas de concorrencia que destravar a tecla expoe:
+`_handleStop` tira um snapshot da sessao antes do primeiro `await` (a gravacao nova sobrescrevia
+`_currentSessionId`/`_currentWavPath` da anterior enquanto ela ainda era salva), e um `FinishedEvent`
+atrasado so devolve a fase para `idle` se for da sessao que esta no ar.
+
+**As gravacoes nao apareciam no Historico.** O motor escrevia em `DitoPaths.defaultLibrary`
+(`XDG_DOCUMENTS_DIR`, aqui `~/Documents/Dito`) e ignorava `library.folder` da config
+(`~/Documentos/Dito`), que e justamente a pasta que a tela le. Alem disso `resolved()` devolvia o
+caminho com o til literal, que nao e um diretorio. Resultado: nada aparecia, para ninguem, nunca.
+Agora a pasta configurada viaja no `StartCommand` ate o motor, e `~` e expandido.
+
+**Silencio virava `[Musica]`.** O Whisper inventa rotulo de som quando nao ha fala, e o app colava
+isso como se fosse texto ditado. Transcricao formada so por rotulos (`[...]`, `(...)`, `*...*`) sai
+vazia agora.
+
+**Idioma da sub-janela.** O HUD mostrava "NO AUDIO" com o app em portugues: o idioma chega por uma
+mensagem que podia se perder e o pedido de fallback tentava uma unica vez; falhando, a janela caia no
+locale do sistema. Agora insiste e loga se desistir.
+
+**Como foi verificado.** `flutter analyze` limpo e 175 testes verdes (dos 166 do inicio do dia).
+Teste real no app instalado, com o binario que foi publicado: F9 apertado 10x em sequencia rapida
+resultou em **11 start aceito, 0 recusas, 11 capturas** (11 = 10 + aquecimento), **11 sessoes na
+pasta configurada** (antes: 0) com **11 ids distintos e nenhum duplicado**, provando que destravar a
+tecla nao corrompeu sessao. Transcricao de silencio saiu `""`. Nenhum crash. Dois testes novos
+guardam o comportamento: `test/hotkey_repeat_test.dart` (escrito vermelho antes do fix, cobrindo
+todas as fases do enum) e `test/sound_tags_test.dart`.
+
+**Divida tecnica paga junto**, vinda de tres auditorias por agente: strings de UI que estavam
+hardcoded em portugues foram para o `.arb`; dois `catch` silenciosos passaram a logar; valores crus
+de espacamento/raio em `lib/ui/**` viraram tokens e ganharam o teste de varredura que o `CLAUDE.md`
+alegava existir e nunca existiu; identificadores em portugues renomeados; `caracteres_test.dart`
+virou `glyph_guard_test.dart`.
+
+---
+
 ## 2026-08-21 — fix Linux: alarme de silêncio dava falso-positivo logo no início da gravação, 1.4.4
 
 **Causa raiz.** Achada por um agente de investigação dedicado, com evidência real (não
