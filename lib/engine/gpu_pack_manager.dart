@@ -12,8 +12,9 @@ class GpuPackManager {
   final Logbook _log;
   Future<String?>? _activeDownload;
 
+  // Cloudflare Pages caps files at 25MB; this module is ~130MB, so it lives on R2 instead.
   static const String _packUrl =
-      'https://apt.defaltm.com/extras/dito-gpu-cuda-linux-x64.tar.gz';
+      'https://pub-f37d3271bc70461b99c358c10a592ee6.r2.dev/dito/dito-gpu-cuda-linux-x64.tar.gz';
 
   static String get _sep => Platform.pathSeparator;
   static String get gpuDir => '${DitoPaths.dataDir}${_sep}gpu';

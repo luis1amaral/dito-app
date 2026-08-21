@@ -10,9 +10,10 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 whisper.cpp/ggml) passa a tentar usar a GPU NVIDIA (CUDA) automaticamente, com fallback pra
 CPU sem quebrar nada quando não tem GPU compatível. O `.deb` base continua ~9MB — o pacote
 CUDA (`libggml-cuda.so`, ~130MB comprimido) é baixado sob demanda pelo próprio app
-(`lib/engine/gpu_pack_manager.dart`, mesmo padrão do `ModelManager` pro modelo de voz),
-hospedado em `apt.defaltm.com/extras/`, só quando `/proc/driver/nvidia/version` existe
-(GPU NVIDIA detectada).
+(`lib/engine/gpu_pack_manager.dart`, mesmo padrão do `ModelManager` pro modelo de voz), só
+quando `/proc/driver/nvidia/version` existe (GPU NVIDIA detectada). Hospedado num bucket R2
+dedicado (`defaltm-releases`, público via `pub-*.r2.dev`) — Cloudflare Pages recusa qualquer
+arquivo acima de 25MB, então não dava pra ir pelo mesmo site do repositório apt.
 
 **Por quê.** Pedido do usuário — ele tem uma GTX 1650 e quer a transcrição mais rápida quando
 a máquina suportar, sem penalizar quem não tem GPU NVIDIA com um download gigante à toa.

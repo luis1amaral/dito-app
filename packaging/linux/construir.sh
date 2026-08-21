@@ -90,10 +90,6 @@ rm -rf "$DEB_ROOT"
 
 mkdir -p "$RAIZ/dist"
 cp "$DEB_FILE" "$RAIZ/dist/"
-if [ -f "$OUT_DIR/dito-gpu-cuda-linux-x64.tar.gz" ]; then
-  mkdir -p "$RAIZ/dist/extras"
-  cp "$OUT_DIR/dito-gpu-cuda-linux-x64.tar.gz" "$RAIZ/dist/extras/"
-fi
 
 echo "== Calculando SHA-256"
 cd "$OUT_DIR"
@@ -103,3 +99,10 @@ sha256sum $SOMAR > SHA256SUMS.txt
 
 echo "== Concluido com sucesso em $OUT_DIR"
 ls -lh "$OUT_DIR"
+
+if [ -f "$OUT_DIR/dito-gpu-cuda-linux-x64.tar.gz" ]; then
+  echo ""
+  echo "Pacote de GPU acima de 25MB: nao vai pro Cloudflare Pages (apt-repo.sh), sobe pro R2 a mao:"
+  echo "  npx wrangler r2 object put defaltm-releases/dito/dito-gpu-cuda-linux-x64.tar.gz \\"
+  echo "    --file=$OUT_DIR/dito-gpu-cuda-linux-x64.tar.gz --content-type=application/gzip --remote"
+fi
