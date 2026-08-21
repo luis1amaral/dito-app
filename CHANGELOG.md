@@ -4,6 +4,38 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — fix Linux: alarme de silêncio dava falso-positivo logo no início da gravação, 1.4.4
+
+**Causa raiz.** Achada por um agente de investigação dedicado, com evidência real (não
+suposição): o WirePlumber suspende o microfone depois de 5s ocioso
+(`session.suspend-timeout-seconds`, padrão do sistema). Quando uma gravação começa logo depois
+de um período parado, o PipeWire leva um tempo pra "acordar" o dispositivo — e nesse intervalo
+`dito_audio_get_level()` devolve os valores zerados iniciais, não porque captou silêncio de
+verdade, mas porque nenhum callback de áudio chegou ainda. O alarme de silêncio implementado
+ontem (`_checkAlarm`) começava a contar `_silenceMs` desde o primeiro tick do timer, sem
+distinguir "ainda sem dado" de "silêncio medido de verdade" — se o resume passasse de
+`_deadMs=700`, disparava "sem áudio" falso mesmo com o usuário falando normalmente. Confirmado
+no log: toda gravação iniciada >5s depois da anterior (tempo do WirePlumber suspender) resultou
+em transcrição-fantasma tipo "[Som de futebol]"; a única transcrição real do dia foi a primeira
+gravação após reiniciar o app, sem essa corrida.
+
+**Fix.** `lib/engine/native_engine.dart`, `_checkAlarm` ganhou um gate: só conta silêncio
+quando `bufferedSeconds > 0.05` (o campo `seconds` de `DitoWhisper.getLevel()`, que só passa de
+zero quando o primeiro bloco de áudio real já foi capturado) — antes disso é "ainda sem dado",
+não silêncio. Resto da lógica dead/quiet/ok e o disparo por borda ficaram intocados.
+
+**Como foi verificado.** `flutter analyze`/`flutter test` (166 testes) verdes. Build real
+instalado e rodado. A corrida do WirePlumber foi confirmada reproduzível neste ambiente
+(`pactl list sources short` mostrando `SUSPENDED`→`IDLE` ao apertar F9) e o mecanismo do gate
+foi confirmado funcionando via instrumentação temporária (revertida antes do fix final): o
+`_silenceMs` só começa a acumular a partir do tick em que já existe áudio real bufferizado,
+nunca antes. Limitação honesta registrada: o hardware desta VM acorda o mic em menos de 50ms,
+abaixo do limiar de 700ms que causa o bug em produção — não foi possível reproduzir ponta a
+ponta a diferença "antes travava, agora não" nesta máquina específica, só o mecanismo da
+correção isoladamente.
+
+---
+
 ## 2026-08-21 — fix Linux: HUD sem feedback, alarme de silêncio ausente, UI travando na transcrição, 1.4.3
 
 **Causa raiz (achada com evidência real, não suposição).** Usuário reportou o pill do HUD sumido

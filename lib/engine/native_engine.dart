@@ -230,13 +230,16 @@ class NativeEngine {
         rms: lvl.rms,
         seconds: lvl.seconds,
       ));
-      _checkAlarm(lvl.rms);
+      _checkAlarm(lvl.rms, lvl.seconds);
     });
   }
 
   /// Turns raw rms into the dead/quiet/ok alarm the HUD and the sound/notify guarantee react to.
   /// Emits only on the edge (state actually changing), never every 50ms tick while it holds.
-  void _checkAlarm(double rms) {
+  void _checkAlarm(double rms, double bufferedSeconds) {
+    // No real audio buffered yet (device still waking up, e.g. WirePlumber suspend) -> not silence.
+    if (bufferedSeconds <= 0.05) return;
+
     if (rms > _audibleRms) {
       _silenceMs = 0;
       _setAlarmState(AudioState.ok, null);
