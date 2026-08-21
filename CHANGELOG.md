@@ -4,6 +4,31 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — fix Linux: primeira transcrição com GPU travava por até 2 minutos, 1.4.2
+
+**Causa raiz.** Achada anexando `gdb -p <pid>` num processo real do usuário travado (sem
+matar): o programa estava com a thread principal a 93-100% de CPU, parada dentro de
+`libnvidia-ptxjitcompiler.so.1` — não deadlock (que ficaria a 0% de CPU), computação ativa que
+não terminava. O módulo `libggml-cuda.so` da 1.4.1 foi compilado só com arquiteturas
+**`-virtual`** (PTX puro, sem código de máquina nativo) pra caber em 130MB — isso faz o driver
+NVIDIA compilar (JIT) cada kernel do zero na primeira vez que ele roda de verdade, e o Whisper
+usa dezenas de kernels distintos. Testei ontem só a inicialização (`using CUDA0 backend`, que é
+instantânea), nunca uma transcrição completa até o fim — por isso não vi o problema antes de
+publicar a 1.4.1.
+
+**Fix.** `packages/dito_whisper/linux/CMakeLists.txt` — `CUDA_ARCHITECTURES` trocado de
+`"61-virtual;75-virtual;86-virtual;89-virtual"` pra `"61;75;86;89"` (código real por arquitetura).
+Módulo de GPU cresce de 130MB pra ~290MB comprimido — decisão consciente: o usuário prefere
+download maior a travar na hora de usar.
+
+**Como foi verificado.** Medido ponta a ponta, não só o backend selecionado: com o módulo
+antigo (PTX), 3.35s de áudio levaram **120s** pra transcrever (`captura finalizada` →
+`transcricao concluida` no log). Com o módulo novo (código real), 2s de áudio levaram **4.3s**.
+`ps -T -p <pid> -o pcpu` confirmou 0% de CPU nos 15s seguintes à captura (sem trava). `flutter
+analyze`/`flutter test` verdes.
+
+---
+
 ## 2026-08-21 — fix Linux: download do pacote de GPU travava o botão de gravar, 1.4.1
 
 **Causa raiz.** Achada em teste real do usuário logo depois do 1.4.0: `_loadModelInternal`

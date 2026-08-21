@@ -119,10 +119,8 @@ if (CUDAToolkit_FOUND)
     PREFIX "lib"
     OUTPUT_NAME "ggml-cuda"
     CUDA_SEPARABLE_COMPILATION ON
-    # PTX-only ("-virtual"): the driver JITs native code on first run instead of shipping
-    # SASS per architecture, which is what blows the module up past 500MB.
-    # 61=Pascal(GTX10xx) 75=Turing(GTX16xx/RTX20xx) 86=Ampere(RTX30xx) 89=Ada(RTX40xx).
-    CUDA_ARCHITECTURES "61-virtual;75-virtual;86-virtual;89-virtual"
+    # Real SASS per arch, not "-virtual" PTX: PTX made the driver JIT every kernel on first use, stalling minutes.
+    CUDA_ARCHITECTURES "61;75;86;89"
   )
 
   target_include_directories(ggml-cuda PRIVATE

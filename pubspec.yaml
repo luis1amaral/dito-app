@@ -1,7 +1,7 @@
 name: dito_app
 description: "Ditado por voz 100% offline com transcricao nativa Whisper C++."
 publish_to: 'none'
-version: 1.4.1+1
+version: 1.4.2+1
 
 environment:
   sdk: ^3.12.2
