@@ -116,9 +116,14 @@ class NativeEngine {
 
     _log('carregando modelo $model...');
     final path = await _models.ensureModel(model);
-    // No-op on machines without a compatible NVIDIA GPU; native side falls back to CPU either way.
-    final gpuDir = await _gpuPack.ensureGpuPack();
-    if (gpuDir != null) DitoWhisper.setBackendDir(gpuDir);
+    // Never await the GPU pack here: a ~130MB download must not delay the user hitting record.
+    // The postinst script already fetches it during `apt install`; this is only the fallback
+    // for a GPU plugged in after install, and it happens quietly in the background.
+    if (GpuPackManager.isDownloaded()) {
+      DitoWhisper.setBackendDir(GpuPackManager.gpuDir);
+    } else {
+      unawaited(_gpuPack.ensureGpuPack());
+    }
     _modelHandle = DitoWhisper.loadModel(path, useGpu: true);
     if (_modelHandle == nullptr) {
       throw StateError('Falha ao inicializar o modelo GGML em $path');

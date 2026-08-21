@@ -79,10 +79,31 @@ Version: $VERSAO
 Section: utils
 Priority: optional
 Architecture: amd64
-Depends: libgtk-3-0, libx11-6, xdotool, libayatana-appindicator3-1 | libappindicator3-1
+Depends: libgtk-3-0, libx11-6, xdotool, libayatana-appindicator3-1 | libappindicator3-1, curl
 Maintainer: Defalt <contato@defaltm.com>
 Description: Ditado por voz offline e transcricao com Whisper C++ nativo
 EOF
+
+# Baixa o backend de GPU durante o proprio "apt install" (nao no primeiro uso do app) — so
+# quando ha uma NVIDIA compativel; nunca falha a instalacao se o download der errado.
+cat <<'EOF' > "$DEB_ROOT/DEBIAN/postinst"
+#!/usr/bin/env bash
+set -e
+if [ -e /proc/driver/nvidia/version ]; then
+  echo "Dito: GPU NVIDIA detectada, baixando aceleracao (~130MB)..."
+  TMP="$(mktemp -d)"
+  if curl -fsSL -o "$TMP/gpu.tar.gz" \
+       "https://pub-f37d3271bc70461b99c358c10a592ee6.r2.dev/dito/dito-gpu-cuda-linux-x64.tar.gz" \
+     && tar -xzf "$TMP/gpu.tar.gz" -C /opt/dito/lib; then
+    echo "Dito: aceleracao de GPU pronta."
+  else
+    echo "Dito: nao consegui baixar a aceleracao de GPU agora — segue em CPU, o app tenta de novo sozinho."
+  fi
+  rm -rf "$TMP"
+fi
+exit 0
+EOF
+chmod +x "$DEB_ROOT/DEBIAN/postinst"
 
 DEB_FILE="$OUT_DIR/dito_${VERSAO}_amd64.deb"
 dpkg-deb --build "$DEB_ROOT" "$DEB_FILE"

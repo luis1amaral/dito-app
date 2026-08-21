@@ -4,6 +4,30 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-21 — fix Linux: download do pacote de GPU travava o botão de gravar, 1.4.1
+
+**Causa raiz.** Achada em teste real do usuário logo depois do 1.4.0: `_loadModelInternal`
+dava `await` no download do pacote de GPU (~130MB) antes de carregar o modelo — a primeira
+vez que alguém apertava gravar numa máquina com NVIDIA, a gravação ficava presa por todo o
+tempo do download, sem nenhum indício na tela do que estava acontecendo.
+
+**Fix.**
+- `packaging/linux/construir.sh` — o `.deb` ganhou um script `postinst`: baixa o pacote de GPU
+  **durante o próprio `apt install`** (só se `/proc/driver/nvidia/version` existir), direto
+  pra `/opt/dito/lib/`, onde `load_optional_backends()` já procura por padrão (o mesmo
+  diretório do plugin principal, achado via `dladdr`) — não precisa de nenhuma mudança nativa.
+  Nunca derruba a instalação se o download falhar (offline, R2 fora do ar etc.).
+- `lib/engine/native_engine.dart` — o download pelo app (`GpuPackManager`) vira só um
+  **fallback silencioso em segundo plano** pra quem pluga a GPU depois de instalar: se o
+  pacote já está no disco, usa na hora; se não está, dispara o download sem `await` e segue a
+  gravação normalmente em CPU — a próxima gravação já pega a GPU sozinha, sem travar nenhuma.
+
+**Como foi verificado.** `flutter analyze`/`flutter test` verdes. Reproduzido o bug original
+com evidência (`~/.local/share/dito/gpu/.download.tar.gz` crescendo em tempo real enquanto o
+app ficava travado) antes de corrigir.
+
+---
+
 ## 2026-08-21 — feat Linux: aceleração de GPU (CUDA) opcional na transcrição, 1.4.0
 
 **O quê.** O motor de transcrição (`packages/dito_whisper`, C++ nativo in-process com
