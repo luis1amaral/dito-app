@@ -273,6 +273,17 @@ arquivo era perder a entrada do portão sem como refazê-la. Se ela sumir, a ún
 
 ## 6. Port Windows → Linux
 
+### 6.2 Inverter um padrão de linha de comando exige mexer nos DOIS lados
+**Sintoma:** a janela principal aparecia no boot e fechava sozinha um instante depois.
+**Causa:** o runner nativo (`linux/runner/my_application.cc`) e o Dart (`lib/main.dart`) leem **o
+mesmo vetor** de argumentos — `dart_entrypoint_arguments = argv + 1` — mas cada um tinha a sua
+regra. A 1.6.3 inverteu o padrão do Linux ("sem argumento sobe escondido") só no Dart; o runner
+continuou com a lista do Windows (`--startup`, `--minimized`, `--tray`, `listen`, `--hidden`). Sem
+argumento, o runner concluía "mostrar" e o Dart, "esconder": um mostrava, o outro escondia.
+**Regra:** padrão de inicialização é **uma** decisão. Ao mudá-la, procure todo lugar que lê `argv` —
+no mínimo o runner de cada plataforma e o `main()` do Dart — e mude juntos. Sintoma clássico dessa
+divergência: algo que **aparece e desaparece sozinho**, em vez de simplesmente não aparecer.
+
 ### 6.1 Separador de caminho cravado fora de ramo de plataforma
 **Sintoma:** a biblioteca nunca achava o áudio das gravações (`hasAudio` sempre falso, duração pelo
 tamanho do arquivo nunca calculada) e "salvar no Obsidian" não gravava nada.

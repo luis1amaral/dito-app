@@ -89,13 +89,12 @@ static void native_log_handler(const gchar* log_domain, GLogLevelFlags log_level
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
-  gboolean start_hidden = FALSE;
+  // Mesma regra do lib/main.dart, que le este mesmo vetor: no Linux so --janela mostra.
+  gboolean start_hidden = TRUE;
   if (self->dart_entrypoint_arguments != nullptr) {
     for (char** arg = self->dart_entrypoint_arguments; *arg != nullptr; ++arg) {
-      if (g_strcmp0(*arg, "--startup") == 0 || g_strcmp0(*arg, "--minimized") == 0 ||
-          g_strcmp0(*arg, "--tray") == 0 || g_strcmp0(*arg, "listen") == 0 ||
-          g_strcmp0(*arg, "--hidden") == 0) {
-        start_hidden = TRUE;
+      if (g_strcmp0(*arg, "--janela") == 0) {
+        start_hidden = FALSE;
         break;
       }
     }

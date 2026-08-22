@@ -4,6 +4,45 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-22 — a janela parou de piscar no boot: o runner ainda usava a regra do Windows, 1.6.6
+
+**Sintoma do dono:** abrir o Dito e a janela **aparecer e fechar sozinha** logo em seguida. Ele quer
+so o icone da bandeja, e abrir a janela quando quiser.
+
+**Causa raiz.** O atalho e `Exec=/opt/dito/dito_app`, **sem argumento**. Os dois lados do app
+discordavam sobre o que fazer nesse caso:
+
+| lado | regra | conclusao sem argumento |
+|---|---|---|
+| Dart — `lib/main.dart:37` | Linux: esconde a menos que venha `--janela` | **esconder** |
+| Runner C — `my_application.cc:92-105` | procurava `--startup`, `--minimized`, `--tray`, `listen`, `--hidden` | **mostrar** |
+
+O runner chamava `gtk_widget_show(toplevel)` no primeiro frame e o Dart chamava
+`windowManager.hide()` logo depois — o par que o dono via piscar. A lista do runner era a convencao
+do **Windows**: a 1.6.3 inverteu o padrao do Linux no `main.dart` e nao atualizou o runner. Os dois
+leem **o mesmo vetor** (`my_application.cc:193`, `dart_entrypoint_arguments = argv + 1`), entao a
+divergencia era so de regra.
+
+**O que mudou.** O `first_frame_cb` passou a usar a mesma regra do Dart: escondido e o padrao, so
+`--janela` mostra. `linux/runner/` so compila no Linux; o `windows/runner/` **nao foi tocado**.
+Com isso a janela **nunca chega a ser mapeada** no boot — nao existe o que piscar. Isso tambem faz o
+app finalmente cumprir a **garantia nº 4** ("nada aparece no login alem do icone da bandeja").
+
+**Como foi verificado.** Estado X11 da janela principal, do boot ate o clique na bandeja:
+
+```
+t~0s  UNMAPPED     t~1s  UNMAPPED     t~2s  UNMAPPED
+t~4s  UNMAPPED     t~8s  UNMAPPED
+apos clicar em "Abrir Dito":  VIEWABLE
+```
+
+**Risco medido, nao suposto.** A mudanca adia a primeira mapeacao da principal para o clique na
+bandeja, e a armadilha 4.3 registra que este WM ja falhou em mapear de forma intermitente. Por isso
+foram rodadas **25 aberturas** pela bandeja com o mesmo instrumento que provou a 1.6.5:
+**0/25 congeladas**, igual a referencia. Portao **11/11**, `analyze` limpo, 219 testes verdes.
+
+---
+
 ## 2026-08-22 — a sobreposicao nascia com forma VAZIA e o compositor parava de repintar o monitor, 1.6.5
 
 **Sintoma do dono:** abrir o Dito e a janela ficar parada em "Iniciando…" ate um F9; **a imagem do
