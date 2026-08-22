@@ -10,12 +10,13 @@ import '../l10n/app_strings.dart';
 import 'engine_protocol.dart';
 import 'gpu_pack_manager.dart';
 import 'model_manager.dart';
+import 'silence_alarm.dart';
 import 'whisper_worker.dart';
 
 /// In-process native engine powered by whisper.cpp and native audio capture.
 /// Completely eliminates the Python backend.
 class NativeEngine {
-  NativeEngine({Logbook? log})
+  NativeEngine({Logbook? log, this.localeCode})
       : _log = log ?? Logbook('native_engine'),
         _models = ModelManager(),
         _gpuPack = GpuPackManager();
@@ -24,41 +25,46 @@ class NativeEngine {
   final ModelManager _models;
   final GpuPackManager _gpuPack;
 
+  /// The user's chosen UI language, read live so a later change in Settings applies at once.
+  final String Function()? localeCode;
+
   final StreamController<EngineEvent> _events =
       StreamController<EngineEvent>.broadcast();
 
   Stream<EngineEvent> get events => _events.stream;
 
+  /// The transcription isolate died; the supervisor decides what to tell the user.
+  void Function(String reason)? onWorkerDied;
+
   WhisperWorker? _worker;
   bool _modelLoaded = false;
   String _loadedModelName = '';
   Future<void>? _loadFuture;
-  Future<void>? _stopInFlight;
+  /// Every stop still writing its session: two overlapping recordings must both be waited on.
+  final Set<Future<void>> _stopsInFlight = <Future<void>>{};
   bool _isRecording = false;
   String _currentMode = 'dictation';
   String _currentSessionId = '';
   String _currentFolder = '';
   String _currentStem = '';
+  /// Empty means no WAV is written; only DITO_SALVAR_WAV=1 fills it (CHANGELOG 1.6.4).
   String _currentWavPath = '';
   String _currentLanguage = 'pt';
   String _currentModel = 'small';
   String _currentDevice = 'default';
   DateTime? _recordingStarted;
   Timer? _levelTimer;
-  bool _everHeardAudio = false;
-  int _silenceMs = 0;
-  AudioState _alarmState = AudioState.ok;
-
-  // Same rms floor as _everHeardAudio, so "audible" means one thing everywhere.
-  static const double _audibleRms = 0.008;
-  static const double _deadRms = 0.001;
-  // Mirrors AlertConfig.deadMs/quietMs defaults (lib/config/config_model.dart); wire live config
-  // here if a settings screen ever exposes them.
-  static const int _deadMs = 700;
-  static const int _quietMs = 2500;
+  double _peakSeen = 0;
+  double _rmsSum = 0;
+  int _rmsTicks = 0;
+  final SilenceAlarm _alarm = SilenceAlarm();
 
   bool get isRecording => _isRecording;
   String get loadedModel => _loadedModelName;
+
+  /// Debug valve: the WAV is off by default because it was 99,9% of the library on disk.
+  static bool get savesWav =>
+      (Platform.environment['DITO_SALVAR_WAV'] ?? '').trim() == '1';
 
   Future<void> init() async {
     _log('iniciando motor nativo C++ (whisper.cpp ${DitoWhisper.version})');
@@ -94,11 +100,11 @@ class NativeEngine {
         // Tracked so shutdown() can wait for it: EngineClient dispatches commands
         // unawaited, so a quit right after stop could otherwise race the transcription.
         final stopping = _handleStop();
-        _stopInFlight = stopping;
+        _stopsInFlight.add(stopping);
         try {
           await stopping;
         } finally {
-          _stopInFlight = null;
+          _stopsInFlight.remove(stopping);
         }
       case StatusCommand():
         _handleStatus();
@@ -142,13 +148,26 @@ class NativeEngine {
     final gpuDir = GpuPackManager.isDownloaded() ? GpuPackManager.gpuDir : null;
     if (gpuDir == null) unawaited(_gpuPack.ensureGpuPack());
     // Load and transcribe always run on this same worker isolate: CUDA's context is thread-bound.
-    final worker = _worker ??= await WhisperWorker.spawn();
+    if (_worker?.isDead ?? false) {
+      _log('worker anterior morreu: subindo outro');
+      _worker = null;
+      _modelLoaded = false;
+    }
+    final worker = _worker ??= (await WhisperWorker.spawn())..onDied = _onWorkerDied;
     _modelLoaded = await worker.loadModel(path, useGpu: true, gpuDir: gpuDir);
     if (!_modelLoaded) {
       throw StateError('Falha ao inicializar o modelo GGML em $path');
     }
     _loadedModelName = model;
     _log('modelo $model pronto para uso');
+  }
+
+  /// The model handle died with the isolate; the next start has to load it again.
+  void _onWorkerDied(String reason) {
+    _log('worker do whisper caiu: $reason');
+    _modelLoaded = false;
+    _loadedModelName = '';
+    onWorkerDied?.call(reason);
   }
 
   Future<void> _handleStart({
@@ -168,37 +187,22 @@ class NativeEngine {
     _currentLanguage = language.isNotEmpty ? language : 'pt';
     _currentModel = model.isNotEmpty ? model : 'small';
     _currentDevice = device;
-    _everHeardAudio = false;
+    _alarm.reset();
 
     try {
       // Ensure model is ready (downloads on-demand if not already present)
       await _ensureModelLoaded(_currentModel);
     } catch (e) {
       _log('falha ao preparar modelo: $e');
-      // No BuildContext here: resolve against the system locale, same convention as the tray.
       _emit(FailedEvent(
         sessionId: '',
-        reason: stringsFor(null).errModelLoadFailed('$e'),
+        reason: stringsFor(localeCode?.call()).errModelLoadFailed('$e'),
       ));
       return;
     }
 
-    final res = DitoWhisper.startCapture(
-      deviceName: (device.isNotEmpty && device != 'default') ? device : null,
-    );
-    if (res < 0) {
-      _log('falha ao iniciar captura de audio: codigo $res');
-      _emit(FailedEvent(
-        sessionId: '',
-        reason: stringsFor(null).errMicUnavailable,
-      ));
-      return;
-    }
-
+    // The folder must exist before capture starts: the session JSON lands there when it stops.
     final now = DateTime.now();
-    _recordingStarted = now;
-    _isRecording = true;
-
     final y = now.year.toString();
     final m = now.month.toString().padLeft(2, '0');
     final d = now.day.toString().padLeft(2, '0');
@@ -211,9 +215,26 @@ class NativeEngine {
     _currentFolder = '$root$sep$y$sep$m$sep$d';
     _currentStem = '$hh-$mm-$ss';
     _currentSessionId = '$y-$m-${d}_$_currentStem';
-    _currentWavPath = '$_currentFolder$sep$_currentStem${DitoPaths.audioSuffix}';
+    _currentWavPath =
+        savesWav ? '$_currentFolder$sep$_currentStem${DitoPaths.audioSuffix}' : '';
 
     Directory(_currentFolder).createSync(recursive: true);
+
+    final res = DitoWhisper.startCapture(
+      deviceName: (device.isNotEmpty && device != 'default') ? device : null,
+      wavPath: _currentWavPath,
+    );
+    if (res < 0) {
+      _log('falha ao iniciar captura de audio: codigo $res');
+      _emit(FailedEvent(
+        sessionId: '',
+        reason: stringsFor(localeCode?.call()).errMicUnavailable,
+      ));
+      return;
+    }
+
+    _recordingStarted = now;
+    _isRecording = true;
 
     _emit(StartedEvent(
       sessionId: _currentSessionId,
@@ -222,22 +243,40 @@ class NativeEngine {
     ));
 
     // Start 20Hz level polling
-    _silenceMs = 0;
-    _alarmState = AudioState.ok;
+    _alarm.reset();
+    _peakSeen = 0;
+    _rmsSum = 0;
+    _rmsTicks = 0;
     _levelTimer?.cancel();
     _levelTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (!_isRecording) return;
       final lvl = DitoWhisper.getLevel();
-      if (lvl.rms > _audibleRms) {
-        _everHeardAudio = true;
-      }
+      // O nivel medido e a unica prova de que o microfone entregou voz; ver CHANGELOG 2026-08-21.
+      if (lvl.peak > _peakSeen) _peakSeen = lvl.peak;
+      _rmsSum += lvl.rms;
+      _rmsTicks++;
       _emit(LevelEvent(
         peak: lvl.peak,
         rms: lvl.rms,
         seconds: lvl.seconds,
       ));
-      _checkAlarm(lvl.rms, lvl.seconds);
+      final next = _alarm.update(rms: lvl.rms, bufferedSeconds: lvl.seconds);
+      // Reason stays null so the localized AppStrings label is used (hud_pill._detailFor).
+      if (next != null) _emit(AlarmEvent(state: next, reason: null));
     });
+  }
+
+  /// Quanto amplificar para o Whisper ouvir: 1 quando o sinal ja esta bom ou quando so ha ruido.
+  static double gainFor(List<double> samples, {double target = 0.35, double maxGain = 20}) {
+    var peak = 0.0;
+    for (final s in samples) {
+      final a = s.abs();
+      if (a > peak) peak = a;
+    }
+    // Piso de ruido nao vira voz por multiplicacao: amplificar isso so gera alucinacao no Whisper.
+    if (peak <= SilenceAlarm.audibleRms || peak >= target) return 1;
+    final ganho = target / peak;
+    return ganho > maxGain ? maxGain : ganho;
   }
 
   /// Whisper answers silence with invented sound tags like "[Musica]"; that is not speech.
@@ -249,35 +288,6 @@ class NativeEngine {
         .replaceAll(RegExp('[\u266A\u266B]'), ' ')
         .trim();
     return speech.isEmpty ? '' : text.trim();
-  }
-
-  /// Turns raw rms into the dead/quiet/ok alarm the HUD and the sound/notify guarantee react to.
-  /// Emits only on the edge (state actually changing), never every 50ms tick while it holds.
-  void _checkAlarm(double rms, double bufferedSeconds) {
-    // No real audio buffered yet (device still waking up, e.g. WirePlumber suspend) -> not silence.
-    if (bufferedSeconds <= 0.05) return;
-
-    if (rms > _audibleRms) {
-      _silenceMs = 0;
-      _setAlarmState(AudioState.ok, null);
-      return;
-    }
-
-    _silenceMs += 50;
-    // No reason text here: dito_controller/hud_pill already fall back to the localized
-    // AppStrings label (hudNoAudio/notifyNoAudio) when reason is null; a hardcoded string
-    // here would override that fallback and break translation for every other language.
-    if (rms <= _deadRms && _silenceMs >= _deadMs) {
-      _setAlarmState(AudioState.dead, null);
-    } else if (_silenceMs >= _quietMs) {
-      _setAlarmState(AudioState.quiet, null);
-    }
-  }
-
-  void _setAlarmState(AudioState next, String? reason) {
-    if (next == _alarmState) return;
-    _alarmState = next;
-    _emit(AlarmEvent(state: next, reason: reason));
   }
 
   Future<void> _handleStop() async {
@@ -297,26 +307,36 @@ class NativeEngine {
     final device = _currentDevice;
     final model = _currentModel;
     final startedAt = _recordingStarted;
-    final heardAudio = _everHeardAudio;
+    final heardAudio = _alarm.heardAudio;
 
     _emit(const PhaseEvent(phase: EnginePhase.transcribing));
 
     final samples = DitoWhisper.stopCapture();
     final seconds = samples.length / 16000.0;
 
-    _log('captura finalizada: ${samples.length} amostras (${seconds.toStringAsFixed(2)}s)');
-
-    // Save WAV audio file to Library folder
-    if (samples.isNotEmpty) {
-      try {
-        DitoWhisper.saveWav(wavPath, samples);
-      } catch (e) {
-        _log('erro ao salvar WAV: $e');
-      }
+    final rmsMedio = _rmsTicks > 0 ? _rmsSum / _rmsTicks : 0.0;
+    final ouviuVoz = _peakSeen > SilenceAlarm.audibleRms;
+    _log('captura finalizada: ${samples.length} amostras (${seconds.toStringAsFixed(2)}s), '
+        'rms medio=${rmsMedio.toStringAsFixed(4)} pico=${_peakSeen.toStringAsFixed(4)} '
+        'ouviu voz=$ouviuVoz');
+    if (!ouviuVoz && seconds > 1) {
+      _log('ATENCAO: o microfone entregou so ruido de fundo nesta gravacao inteira');
     }
+
+    // No fallback save here: with the WAV off, it would write the whole file on every stop.
+    if (wavPath.isNotEmpty) _log('WAV de depuracao em $wavPath');
 
     String text = '';
     if (samples.isNotEmpty && _modelLoaded && _worker != null) {
+      // O headset entrega fala ate 30x mais fraca em alguns momentos (medido: rms 0.0003 contra
+      // 0.0091 na mesma voz). O WAV em disco fica intacto; so o que vai ao Whisper e normalizado.
+      final ganho = gainFor(samples);
+      if (ganho > 1) {
+        _log('sinal fraco: aplicando ganho de ${ganho.toStringAsFixed(1)}x para transcrever');
+        for (var i = 0; i < samples.length; i++) {
+          samples[i] = (samples[i] * ganho).clamp(-1.0, 1.0);
+        }
+      }
       try {
         text = await _worker!.transcribe(samples, language: language);
       } catch (e) {
@@ -384,8 +404,8 @@ class NativeEngine {
   Future<void> shutdown() async {
     _levelTimer?.cancel();
     _levelTimer = null;
-    // Let a stop already writing the transcript/session finish before freeing the model.
-    await _stopInFlight;
+    // Let every stop already writing its transcript/session finish before freeing the model.
+    await Future.wait(_stopsInFlight.toList());
     if (_isRecording) {
       DitoWhisper.stopCapture();
       _isRecording = false;

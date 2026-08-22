@@ -4,6 +4,554 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-22 — a biblioteca guarda o texto, nao o audio: 211 MB viraram 2,5 MB, 1.6.4
+
+**O que mudou:** o app **nao escreve mais WAV**. Cada ditado deixa so o `.json` com o texto.
+
+**Por que.** O dono viu a pasta do dia crescendo e reclamou do peso. Medido antes de mexer, em
+`~/Documentos/Dito` com 6 dias de uso:
+
+| | arquivos | tamanho | fatia |
+|---|---|---|---|
+| `.wav` | 456 | **158,7 MB** | 99,92% |
+| `.json` | 495 | 129 KB | 0,08% |
+
+Sao ~22 MB/dia. A retencao existente (`library.keep_days = 30`, `library_reader.dart:138`) apaga
+pastas de **dia inteiro** com mais de 30 dias — a biblioteca tinha 6 dias, entao nunca varreu nada.
+Dia e a unidade errada para um arquivo que morre no instante em que a transcricao sai. Havia ainda
+uma pasta orfa `~/Documents/Dito` (47 MB), do padrao antigo, que o sweep **nunca** olha porque
+`boot.dart:372-375` so varre a pasta configurada.
+
+Levantado antes de decidir: **nada no app le o WAV depois que a sessao fecha** — nao ha reproducao,
+nao ha re-transcrever, e `hasAudio`/`sizeBytes` (`library_reader.dart:82,98`) sao calculados e nunca
+aparecem na tela. O `seconds` ja vem sempre no JSON.
+
+**Isso revoga a garantia nº 1** ("audio nunca se perde"), por decisao explicita do dono em
+2026-08-22. O `CLAUDE.md` foi corrigido junto, com o aviso de nao recolocar o WAV achando que
+restaura uma garantia. `DITO_SALVAR_WAV=1` liga o WAV de volta so para depurar.
+
+**Como foi feito:** `native_engine.dart` passa `wavPath` vazio; o C++ **nao mudou** — o
+`dito_whisper.cpp:378` ja tratava caminho vazio e o `drain_ring:155` corta a conversao float→int16,
+a escrita e o `flush()` de 1 em 1 s quando inativo. Removido tambem o fallback `DitoWhisper.saveWav`
+do `_handleStop`: sem WAV incremental a condicao dele seria sempre verdadeira e gravaria o arquivo
+**inteiro** a cada parada.
+
+**A fala de teste do portao mudou de casa.** `tool/regressao.py` e `tool/repro_ditado.py` usavam
+`~/Documentos/Dito/2026/08/22/05-26-41.wav` — dentro da biblioteca. Como o app nao gera mais WAV,
+essa era a ultima copia existente. Foi para `tool/fixtures/fala.wav`, no repo.
+
+**Como foi verificado — A/B/A com 18 ditados reais do `tool/regressao.py`:**
+
+| horario | build | ditados | JSON | WAV |
+|---|---|---|---|---|
+| 10:59 | com a mudanca | 6 | 6 | **0** |
+| 11:08 | revertido | 6 | 6 | 6 |
+| 11:10 | com a mudanca | 6 | 6 | **0** |
+
+Limpeza dos ja gravados: `211 MB → 2,5 MB`, 561 WAV apagados, os **610 JSON intactos**.
+`flutter analyze` limpo, **219 testes** verdes.
+
+**Nao confundir com o defeito do item 1.** Nestas rodadas o criterio `abre com conteudo` falhou
+2 de 4 vezes com a mudanca — e **1 de 3 vezes com o binario revertido**, que nao tem a mudanca.
+Rodadas 3 e 4 usaram o **mesmo binario** e deram 0/5 e 5/5. O criterio nao e deterministico; o
+defeito e o antigo, dos dois lados. Idem `sem pixel fantasma`, que deu 1/6 no build revertido.
+
+---
+
+## 2026-08-22 — sobe na bandeja, biblioteca acha o audio de novo, e a colagem para de mentir, 1.6.3
+
+Lote de baixo risco, distribuido em agentes (um dono por arquivo) e fechado por um **portao de
+regressao** novo (`tool/regressao.py`): um comando, 10 criterios com limiar medido, veredito por
+item. Nenhuma mudanca desta rodada foi publicada sem ele verde.
+
+**O que quebrava funcionalidade de verdade — separador `\` do Windows cravado no Linux:**
+- `lib/library/library_reader.dart:81` montava `'${'$'}{file.parent.path}\\$stem.wav'`. No Linux a
+  barra invertida e um caractere de NOME, nao separador — o arquivo procurado era
+  `.../07-42-13\07-42-13.wav`, que nunca existe. Resultado: **`hasAudio` era sempre falso**, a
+  biblioteca nunca encontrava o audio das gravacoes e a duracao pelo tamanho do arquivo nunca era
+  calculada.
+- `lib/state/dito_controller.dart` fazia o mesmo em `_saveToVault`: **salvar no Obsidian estava
+  simplesmente quebrado**, criava um arquivo com barra invertida no nome em vez de gravar na pasta.
+- Os dois passaram a usar `Platform.pathSeparator`. `lib/config/paths.dart` foi conferido e **esta
+  certo** — os `\` de la estao todos dentro de `if (Platform.isWindows)`.
+
+**Abrir o Dito passou a subir so na bandeja** (pedido do dono, e a garantia nº 4 do projeto). No
+Linux o padrao inverteu: sem argumento sobe escondido; `--janela` abre com a janela. Windows
+inalterado. Tres saidas verificadas: atalho do menu → janela `UNMAPPED`; `--janela` → janela
+visivel; **clicar no menu de novo apresenta a janela existente** (`my_application.cc`), entao nao ha
+cenario em que o dono fique sem interface.
+
+**Colagem parou de falhar em silencio:**
+- `paste_service.dart` — os retornos de `restoreFocus()` e `pressEnter()` eram descartados. Agora
+  sao lidos e registrados. Enter recusado **nao** vira falha de colagem (o texto ja foi colado), vira
+  `PasteResult(pasted: true, error: 'Enter recusado')`.
+- `dito_controller.dart` — colagem bem-sucedida nao gerava confirmacao nenhuma; sucesso e falha eram
+  indistinguiveis. Agora confirma. E o Enter recusado mostra falha, nao "colado".
+- `clipboard.set` no plugin respondia `TRUE` incondicional porque `gtk_clipboard_set_text` e `void`.
+  Trocado por `gtk_clipboard_set_with_data`, que devolve a posse real do seletor.
+- `focus.giveBack` era fire-and-forget. Agora faz **um** `XSync` e **uma** leitura, e avisa no log
+  quando o foco nao voltou. **Sem laco de espera** — copiar o busy-wait de `window.focus` para ca
+  trocaria uma falha silenciosa por uma trava.
+
+**Higiene que estava custando diagnostico:**
+- `g_warning` do plugin ia para o stderr e sumia quando o app roda pela bandeja. Agora ha
+  `g_log_set_default_handler` gravando em `~/.local/share/dito/logs/native.log` (respeitando
+  `XDG_DATA_HOME`), sem deixar de imprimir no stderr. Ja capturou o `Failed to setup compositor
+  shaders` que antes so aparecia lancando o app a mao.
+- `test.ownsForeground` e `keys.injectForTest` nao existiam no plugin Linux: o autoteste morria com
+  `MissingPluginException` a cada boot com `DITO_SELFTEST=1` (3 no crash.log do dia). Implementados;
+  o autoteste agora vai de ponta a ponta sem exceção.
+- A sobreposicao nascia `_NET_WM_WINDOW_TYPE_NORMAL`, a categoria EWMH com o tratamento de
+  foco/stacking mais pesado. Agora nasce `UTILITY` — nunca `NOTIFICATION`, porque ela **precisa** de
+  foco quando ha cartao, e sempre **antes** do `show_all` (hint depois nao retroage, armadilha 4.6).
+- `HudState` morto em `boot.dart`: era alimentado em todo `_toHud()` e nunca lido, rodando um
+  `Timer.periodic(50 ms)` com `wave.tick()` na thread que desenha. Removido.
+
+**Como foi verificado.** `flutter analyze` limpo e **219 testes verdes** (eram 211), mais o portao em
+app real, 10/10: boot 0,68 s; sobreposicao nao rouba clique 0/20; laco GTK parado com mediana
+1,2 ms; cartao aparece 6/6; **pixel fantasma 0/6**; foco no cartao com `input focus: True` 6/6;
+zero excecao nova. Uma auditoria adversarial reprovou a primeira versao do lote e achou dois
+defeitos que o portao verde nao pegava — falha do vault sendo reportada como sucesso, e o toast novo
+de colagem atropelando a pilula de uma gravacao mais nova (armadilha 3.2). Os dois foram corrigidos
+antes de publicar.
+
+**Ressalvas assumidas, nao corrigidas:**
+- Falha ao salvar no vault quando `toVault` **e** `output.paste` estao ligados continua escondida
+  atras do sinal da colagem; so o caminho sem colagem reporta a falha.
+- `restoreFocus()` recusado vira log, nunca chega ao dono na tela. Falso negativo desse retorno e
+  conhecido nesta pilha, entao abortar a colagem por causa dele seria pior.
+- Com `output.confirm = false` (nao e o padrao) a pilula some por ~120 ms antes de o toast de
+  "colado" aparecer: o fade dura 180 ms e a colagem leva no minimo 300 ms.
+
+**Ainda aberto, com numero medido:** gravando, o laco GTK responde em **58-63 ms** (parado: 1,2 ms),
+porque a thread de plataforma — que no Flutter 3.47/Linux **e** a thread de UI do Dart — gasta o
+tempo apresentando frame (`gdk_cairo_draw_from_gl` → `XSync` → `libGLX_nvidia`, 6 de 10 amostras de
+`gdb`). E o `window.focus` ainda tem espera ocupada de ate 200 ms; `cartao recebido` → `cartao no ar`
+mede 114-181 ms.
+
+**O "abre congelado" NAO foi resolvido — e o que se aprendeu sobre ele.** Reproduzido e
+fotografado: a janela mostra "Iniciando..." muito depois de `boot completo` estar no log. Tres
+hipoteses caidas, todas medidas:
+- **Nao e o esconder/desmapear** (armadilha 4.3 na janela principal): com `--janela`, janela sempre
+  visivel e nunca escondida, ela ficou **12 s em "Iniciando..."**.
+- **Nao e frame velho simples**: nenhuma forma de forcar repintura funciona — `markNeedsPaint`,
+  `handleMetricsChanged`, `scheduleForcedFrame`, `reassembleApplication`, redimensionar (1, 5 e
+  40 px), mover o mouse, clicar, e alternar o proprio `ValueNotifier` que a arvore escuta. **So o
+  F9 conserta**, sempre.
+- **E intermitente**: uma execucao bootou em 0,7 s com uma unica trava de 149 ms; outra levou ~10 s.
+  Numa delas o Muffin **acinzentou** a janela, marca de quem nao responde ao `_NET_WM_PING`, ou seja
+  thread de plataforma bloqueada.
+Todas as tentativas de correcao foram **revertidas** por nao terem prova; nada de palpite foi
+publicado.
+
+**Registrado** em `docs/armadilhas.md` 4.9, 5.3 e secao 6.
+
+---
+
+## 2026-08-22 — o "Descartado" que ficava na tela era pixel fantasma do compositor, 1.6.2
+
+**O sintoma.** Depois de gravar e dar Tab (descartar) — e tambem depois do Enter (enviar) — a pilula
+ficava desenhada na tela e nao saia mais. O dono descrevia como "a interface travou", e um F9 novo
+"destravava".
+
+**Causa raiz, medida.** O app estava **certo**: o log mostra `cartao descartado`, e a regiao de
+clique da sobreposicao zera no tempo previsto (1,2 s de toast + saida). O que sobrava eram **pixels
+que o Muffin nunca repintava**. Provado com foto: com a regiao de clique vazia ha 2,5 s, **100% dos
+pixels da pilula continuavam identicos** aos de quando ela estava visivel, e um `xrefresh` os
+limpava. O gatilho e o recorte de forma **vazio**: `gtk_widget_shape_combine_region` com uma regiao
+vazia nao faz o compositor repintar a area liberada.
+
+**A correcao.** Havendo compositor, esconder deixou de ser "forma vazia" e passou a ser
+**`_NET_WM_WINDOW_OPACITY = 0`**; o recorte de *input* continua vazio, entao o clique segue passando
+para a janela de tras. Sem compositor, o comportamento antigo (forma vazia) permanece como
+alternativa. `gtk_widget_set_opacity` **nao serve**: no GTK3 ele nao grava a propriedade que o
+gerenciador le — foi preciso `XChangeProperty` direto.
+
+**Como foi verificado.** Medicao A/B com o mesmo instrumento (`tool/repro_ditado.py`, que injeta uma
+fala real num microfone virtual, espera o cartao, resolve, e so julga depois de a regiao ficar vazia
+por 2,5 s seguidos):
+
+| build | fantasma |
+|---|---|
+| sem a correcao | **20 / 20 (100%)** |
+| tentativa 1 (forma vazia + opacidade) | 1 / 20 (5%) |
+| **entregue (forma nunca vazia, esconde por opacidade)** | **0 / 20 no Tab e 0 / 10 no Enter** |
+
+`flutter analyze` limpo e **211 testes verdes**. Sem regressao na armadilha 4.6: com o cartao no ar,
+`xprop WM_HINTS` segue mostrando `input focus: True` e a sobreposicao continua sendo a janela ativa;
+escondida, volta a `False`.
+
+**Descartado no caminho, tudo medido:** reduzir o canvas de 900x900 (o ganho era artefato — a pilula
+saia para fora da janela encolhida, entao nao havia frame nenhum); e, num fantasma **ja assentado**,
+nem opacidade, nem mover a janela, nem redimensionar limpam (4-5 de 5 continuam sujos) — o remedio so
+funciona aplicado **junto** com a mudanca de forma.
+
+**Registrado** em `docs/armadilhas.md` 4.8.
+
+**Ainda aberto, medido nesta rodada:** enquanto grava, o laco GTK responde em **58-63 ms** (contra
+1,2 ms parado), porque a thread de plataforma — que no Flutter 3.47/Linux **e** a thread de UI do
+Dart (nao existe `io.flutter.ui`) — gasta o tempo apresentando frame: `gdk_cairo_draw_from_gl` →
+`XSync` → `libGLX_nvidia` em 6 de 10 amostras de `gdb`. E `gainFor` (`native_engine.dart:272`) nao
+amplifica quando o pico fica abaixo de `audibleRms` (0,008), entao fala fraca de verdade e descartada
+sem transcrever.
+
+---
+
+## 2026-08-22 — o Enter ia para o terminal: a janela estava marcada como "nao pode receber foco", 1.6.1
+
+**O sintoma.** Com o cartao de revisao na tela, o cursor piscava no campo de texto, mas o Enter e o
+Tab iam para a janela de tras (o terminal). Clicar no cartao nao adiantava. Ctrl+C/Ctrl+V do proprio
+dono tambem paravam de funcionar. A interface "travava" ao abrir e depois de cada Enter, e so
+normalizava depois de um F9/F10.
+
+**Causa raiz** (achada por auditoria dedicada do port Linux): `adoptAsHud()` e chamado toda vez que a
+sobreposicao sobe (`hud_window.dart`) e executa `gtk_window_set_accept_focus(FALSE)`, que grava
+`WM_HINTS.input = False`. Para o Mutter/Muffin isso nao e uma preferencia — e uma declaracao de
+**incapacidade estrutural**: o gerenciador passa a recusar foco aquela janela para sempre, e nem
+`_NET_ACTIVE_WINDOW` nem `XSetInputFocus` contornam. **Nao existia nenhuma chamada no codigo que
+devolvesse o hint para `TRUE`.** No Windows o equivalente (`WS_EX_NOACTIVATE`) e fraco e da para
+furar com `SetForegroundWindow` — a traducao 1:1 do port mudou a semantica sem ninguem perceber.
+
+**As correcoes.**
+1. **`window.setFocusable`** (novo, no plugin Linux): o hint passa a acompanhar o estado —
+   `true` antes de pedir foco para o cartao, `false` quando resta so a pilula.
+2. **`gtk_widget_grab_focus` no `FlView` da sub-janela**: o runner principal ja fazia isso; o fork do
+   multi-window nao — sem ele, o teclado nao chega ao motor Flutter mesmo com a janela focada.
+3. **O alvo do foco anterior parou de ser esquecido**: `focus.take` zerava o alvo salvo quando a
+   sobreposicao ja estava ativa (2o cartao seguido), e o `giveBack` virava no-op — o foco ficava
+   preso na sobreposicao e **as teclas do sistema sumiam**. Agora o alvo so e substituido por um
+   valido.
+4. **Foco devolvido apenas quando nao resta cartao** (antes era devolvido mesmo com outro cartao na
+   tela, deixando os seguintes sem teclado).
+5. **XTEST no lugar de subprocesso**: `Ctrl+V` e `Enter` eram enviados com `g_spawn_sync` do
+   `xdotool` — fork+exec+espera **na thread do GTK**, 20–150 ms de interface congelada por tecla.
+   Agora e `XTestFakeKeyEvent` via `libXtst`, com o `xdotool` so como ultimo recurso.
+6. **Reentrancia do laco principal removida**: a criacao da sub-janela chamava
+   `while (gtk_events_pending()) gtk_main_iteration()` **segurando um mutex global** — risco de
+   travar o processo inteiro para sempre, alem de congelar o boot.
+
+**Como foi verificado.** `flutter analyze` limpo, **211 testes verdes**, e a prova em app real, com
+o dono falando: `cartao recebido: id=... texto=18 chars` → `cartao no ar: focado=true itens=1`, e
+`xprop WM_HINTS` mostrando **`Client accepts input or input focus: True`** com o cartao na tela
+(antes: `False` sempre). O dono confirmou na sequencia que o Ctrl+C voltou a funcionar.
+
+**Registrado** em `docs/armadilhas.md` 4.6 e 4.7.
+
+---
+
+## 2026-08-22 — uma sobreposicao so, e ela nasce viva, 1.6.0
+
+**O defeito que sobrou do dia anterior.** O cartao de revisao — e as vezes o proprio HUD — nascia
+morto: a janela existia com o tamanho de fabrica (560x180), o codigo Dart dentro dela nunca rodava, e
+o que ficava na tela era um quadro congelado que nao respondia a clique nenhum. Era isso que o dono
+via como "modal preso que nao fecha". Intermitente entre boots, e no log sempre a mesma linha:
+`Failed to setup compositor shaders, unable to make OpenGL context current`, **uma por sub-janela**.
+
+**Causa raiz.** O `FlView` da sub-janela so consegue contexto GL sobre uma janela **realmente
+mapeada**. O fork criava a view com a janela apenas realizada (`gtk_widget_realize`), o que nao
+basta: dependendo do timing, a view nascia sem contexto e o engine daquela janela nunca desenhava um
+frame — e sem frame, o `initState` do Dart nunca roda.
+
+**A correcao, em duas partes.**
+1. **A sub-janela sobe mapeada**: `gtk_widget_show_all` acontece **antes** de a view ser criada, ja
+   com recorte vazio (nasce invisivel), e o loop de eventos e drenado antes de seguir.
+2. **Uma sub-janela so**: a pilula e os cartoes de revisao passaram a viver na MESMA sobreposicao
+   (canvas 900x900, pilula no rodape e cartoes empilhados acima). Cada sub-janela extra era mais uma
+   chance de nascer morta — e a janela de revisao separada deixou de existir
+   (`lib/ui/review/review_window.dart` removido, junto com o papel `review` no roteamento).
+
+**Como foi verificado.** `flutter analyze` limpo, **211 testes verdes**, e a medicao que importa:
+**3 de 3 boots seguidos** com a sobreposicao viva (canvas 900x900 aplicado pelo proprio Dart da
+janela) — antes, no ultimo teste da vespera, ela falhava. Erros de compositor cairam de 2 para 1
+(uma sub-janela em vez de duas).
+
+**Descartado no caminho, tudo testado:** atrasar a criacao da segunda janela (piorou: nenhuma subia),
+esperar `endOfFrame` (piorou igual), `LIBGL_ALWAYS_SOFTWARE`, `GDK_GL=gles`, `GDK_GL=glx-legacy`,
+criar a janela sem foco e realizar a janela antes da view. Registrado em `docs/armadilhas.md` 4.4.
+
+---
+
+## 2026-08-21 — ganho automatico para a fala fraca, e o cartao que nao aceitava clique, 1.5.4
+
+**O cartao ficava preso, sem aceitar clique nem Enter/Tab.** Causa provada com `xwininfo -shape`:
+`Window shape extents: 0x0+0+0` — a mascara de cliques estava **vazia**. Quando o cartao reaparece
+antes de o layout ter sido medido, `_clipToCard` saia sem aplicar nada e a regiao do "escondido"
+(vazia, introduzida na 1.5.0) continuava valendo: a janela desenhava, mas nao recebia clique nenhum.
+Agora, sem medida ainda, a janela inteira e liberada; o recorte fino vem no frame seguinte. Mesma
+correcao no HUD.
+
+**Ganho automatico.** Medicao simultanea no momento em que o dono relatou o problema:
+`pw-record` fora do app deu pico 1826 / RMS 306, e o Dito no mesmo instante deu pico 1925 / RMS 310 —
+**identicos**. O app capta exatamente o que o sistema entrega; o que oscila e a forca do sinal do
+headset (a mesma voz media RMS 806 uma hora antes, e ate 30x menos em alguns momentos). Como o
+Whisper nao ouve fala nesse nivel, o audio passa a ser normalizado antes de transcrever: ganho de ate
+20x quando o pico esta abaixo do alvo, **nunca** quando o sinal e ruido de fundo (abaixo do limiar de
+voz do proprio app, para nao gerar alucinacao). O WAV em disco continua intacto — o ganho vale so
+para a transcricao, entao a gravacao segue sendo a prova do que o microfone entregou.
+
+**Como foi verificado.** `flutter analyze` limpo e **211 testes verdes**, 6 novos guardando o ganho:
+fala fraca chega ao alvo, fala boa nao e tocada, ruido NAO vira voz, o teto existe, o pior caso
+medido no headset (pico 0.010) cabe nele, e lista vazia nao quebra. Em app real, o log passou a
+registrar `sinal fraco: aplicando ganho de 20.0x para transcrever`.
+
+---
+
+## 2026-08-21 — cartoes empilhados como cartas: embaixo, meio, cima, 1.5.3
+
+O dono descreveu como quer a pilha: **o primeiro cartao embaixo, o segundo no meio, o terceiro em
+cima, e o quarto volta para baixo** — tres posicoes que ciclam, com os cartoes se sobrepondo como um
+baralho aberto em leque, em vez da coluna sem sobreposicao da 1.5.1.
+
+A janela de revisao passou a desenhar os cartoes num `Stack` ancorado no rodape, com degrau de
+`AppSize.reviewStackStep` por posicao (`i % 3`): o mais recente fica na frente, colado embaixo, e os
+anteriores aparecem como faixas acima dele.
+
+**Como foi verificado.** `flutter analyze` limpo e 205 testes verdes, incluindo o teste que varre
+`lib/ui/**` proibindo valor de espacamento fora dos tokens.
+
+---
+
+## 2026-08-21 — cartao clicavel e cantos redondos no recorte, 1.5.2
+
+**Clicar num cartao empilhado nao o selecionava** para Enter/Tab: com varios cartoes na tela, o foco
+ficava em quem pediu por ultimo e o clique nao mudava isso. Cada cartao passou a pedir o foco no
+`onPointerDown` (`review_card.dart`), entao clicar escolhe quem recebe Enter e Tab.
+
+**O recorte da janela cortava quadrado.** A regiao era aproximada por dois retangulos unidos — os
+cantos arredondados do cartao e da pilula ficavam com quina visivel. Agora a regiao e montada faixa a
+faixa, uma linha por pixel do raio, acompanhando a curva (`dito_win32_plugin.cc`, `window.setHitRect`).
+
+**Como foi verificado.** `flutter analyze` limpo e 205 testes verdes; build Linux OK.
+
+**Ainda aberto:** as vezes a janela do cartao nao aceita clique (a regiao de clique fica defasada
+quando o cartao muda de tamanho) — proximo alvo.
+
+---
+
+## 2026-08-21 — varias falas esperando revisao ao mesmo tempo, 1.5.1
+
+**Pedido do dono:** falar 1, falar 2, falar 3 sem confirmar nenhuma, e depois ir resolvendo cada uma
+com Enter, Tab ou mouse. Antes, cada gravacao nova **sobrescrevia** a revisao pendente e o texto
+anterior sumia sem aviso.
+
+**O que mudou.** O controller passou a manter uma **fila** de sessoes pendentes
+(`pendingReviews`) em vez de um unico `pendingReview`, e cada envio/descarte carrega o `sessionId`
+para resolver **so o seu** cartao. A janela de revisao empilha os cartoes numa coluna (mais antigo em
+cima, mais recente embaixo, junto do HUD) e so sai da tela quando o ultimo for resolvido; o foco
+volta ao aplicativo de origem a cada envio, entao cada texto e colado onde o cursor estiver naquele
+momento — que foi o combinado.
+
+A janela de revisao tambem parou de se esconder desmapeando, pelo mesmo motivo que o HUD (armadilha
+4.3): desmapear mata o contexto GL da sub-janela nesta pilha NVIDIA/GLX.
+
+**Como foi verificado.** `flutter analyze` limpo e **205 testes verdes**, com 4 novos guardando a
+regra: tres falas seguidas deixam tres cartoes; confirmar um resolve so ele; descartar um nao leva os
+outros; e o envio sem id continua limpando a fila (compatibilidade).
+
+**Ainda aberto:** clicar num cartao ainda nao o seleciona para Enter/Tab, e faltam os cantos
+arredondados no recorte da janela.
+
+---
+
+## 2026-08-21 — o HUD "Gravando" finalmente aparece no Linux, 1.5.0
+
+**O sintoma que sobrou o dia inteiro.** A pilula "Gravando" nunca aparecia no Linux. A janela
+existia (900x200, no lugar certo), o Dart dentro dela rodava, recebia as mensagens e calculava o
+estado correto — mas o X dizia `IsUnMapped`, e nem `xdotool windowmap` conseguia mapear. No boot,
+duas linhas: `Failed to setup compositor shaders, unable to make OpenGL context current`.
+
+**Causa raiz.** Esconder a sub-janela chamava `hide` de verdade, desmapeando-a. Nesta pilha
+(NVIDIA/GLX com visual RGBA), a sub-janela desmapeada **perde o contexto GL do `FlView` e nao
+volta**: todo `show` seguinte retorna sucesso sem mapear coisa alguma, e a flag `_visible` do Dart
+passa a mentir para sempre — por isso a pilula aparecia em algumas gravacoes e em outras nao, e
+depois em nenhuma.
+
+**A correcao.** A sub-janela sobe uma vez e **fica**: esconder passou a ser recortar a forma para uma
+regiao vazia, e mostrar, recortar de volta para a forma da pilula
+(`gtk_widget_shape_combine_region`). O `show` virou idempotente — chamado sempre que o estado pede,
+sem consultar flag. Com a janela sempre mapeada, o **visual RGBA volta a funcionar** e a
+transparencia foi recuperada, sem o retangulo preto.
+
+**Descartados no caminho, todos testados:** recortar a `GdkWindow` filha do Flutter (apaga o conteudo
+inteiro), realizar a janela antes da view, `LIBGL_ALWAYS_SOFTWARE`, `GDK_GL=gles`, `glx-legacy` e
+criar a janela sem foco.
+
+**Como foi verificado.** `flutter analyze` limpo, 201 testes verdes, e a medicao no X: **6 de 6
+gravacoes seguidas com a janela do HUD em `IsViewable`** (antes: 0 de 6). Captura de tela confirma a
+pilula "● Gravando ▮▮▮▮ 00:03 (Parar)" desenhada sobre a area de trabalho, com transparencia.
+
+**Documentado** em `docs/armadilhas.md` 4.3, para nao voltar.
+
+---
+
+## 2026-08-21 — captura de audio reescrita com a arquitetura do Dito em Python, 1.4.9
+
+**Por que.** O dono perguntou por que o problema de audio nao existe no Windows nem existia na versao
+antiga em Python. A resposta estava no codigo antigo, recuperado da Lixeira
+(`~/.local/share/Trash/files/dito/`): o callback do driver **so media nivel e enfileirava**
+(`src/dito/audio/capture.py:57-76`), com a escrita em disco numa thread consumidora separada
+(`src/dito/core/session.py:158-159,255`), e o bloco era de **50 ms explicitos** (`BLOCKSIZE = 800`).
+O comentario da linha 58 diz o que o port esqueceu: *"Realtime thread: slow work here drops blocks."*
+
+O C++ fazia o oposto, tudo dentro do callback de tempo real: `push_back` num vetor sem `reserve()`,
+conversao float para int16, `ofstream::write` a cada bloco e `flush()` sincrono de disco a cada
+segundo, segurando o mesmo mutex do medidor de nivel de 20 Hz. No backend PulseAudio,
+`pa_stream_drop()` — o "ja consumi" que o servidor espera — so acontece **depois** que o callback
+retorna (`miniaudio.h:31757-31771`): callback preso significa buffer cheio e amostras descartadas
+(`pipewire-pulse ... overrun recover ... skip:4082` no journal). No Windows o mesmo pecado passa
+batido porque o WASAPI eleva a thread a "Pro Audio" via MMCSS (`miniaudio.h:24546`); no caminho
+PulseAudio nao ha elevacao nenhuma (`miniaudio.h:43909-43912`).
+
+**O que mudou.**
+1. **Callback so copia e mede**: escreve num ring pre-alocado de 8 s e atualiza RMS/pico em atomicos.
+   Sem alocacao, sem disco, sem mutex compartilhado.
+2. **Thread consumidora** drena o ring a cada 20 ms e faz o trabalho pesado fora da thread de audio,
+   com `reserve()` em blocos de 60 s. Se ela se atrasar, o log diz quantas amostras se perderam.
+3. **Periodo de 50 ms e 4 buffers**, `performance_profile_conservative` — o default herdado era
+   10 ms x 3 (`miniaudio.h:12217-12222`).
+4. **Servidor de som primeiro**: `ma_context_init` pede PulseAudio/JACK explicitamente; ALSA so como
+   ultimo recurso **e com aviso**. E a regra 1.7/1.12 do `armadilhas.md` do Python voltando: ALSA cru
+   abre o card 0 (entrada da placa-mae, sem nada plugado) e grava ruido de fundo.
+5. **Log do que foi realmente aberto**: backend, nome do dispositivo, taxa pedida x taxa real, formato
+   e periodo, a cada captura. Era impossivel saber se o app tinha aberto o headset ou outra entrada.
+6. **`docs/armadilhas.md` criado** — o Python tinha esse arquivo, o port nao o trouxe, e metade dos
+   defeitos do dia foi reaprender o que ele ja documentava.
+
+**Como foi verificado.** `flutter analyze` limpo, 201 testes verdes, e a prova que importa: gravacao
+**simultanea** pelo Dito e por fora (`pw-record`), com o dono falando —
+**pico 6554 x 6555 e RMS 806,5 x 808,5** (diferenca de 0,2%), 29,7% de zeros (normal para fala com
+pausas), maior buraco de 50 ms, e a transcricao saindo exatamente o que foi dito. Segunda tomada:
+pico 13727, RMS 1516, transcricao correta. Zero ocorrencias de "consumidora atrasada" no log.
+O dispositivo aberto foi `H510-PRO Wireless headset Mono` via PulseAudio a 16000 Hz reais.
+
+**Ainda aberto:** a janela do HUD nao aparece no Linux (grava certo, falta o indicador na tela).
+
+---
+
+## 2026-08-21 — "sem audio para captar": o alarme piscava, o aquecimento nao existia, e nada provava nada, 1.4.8
+
+**O que a investigacao provou — e o que ela DERRUBOU.** Tres frentes de diagnostico rodaram sobre o
+episodio real: medicao dos WAV gravados, leitura do caminho de captura e auditoria do PipeWire.
+
+Medindo os arquivos do dono: a tomada que funcionou (21-19-40) tem RMS 263 e pico 1738; a que saiu
+vazia (21-19-49) tem RMS 38 e pico 367 — **17 dB abaixo**, sem nunca cruzar o `audibleRms = 0.008`
+do proprio app. Ou seja: **o alarme estava certo, o microfone e que nao captou**. Whisper e
+`dropSoundTags` inocentes.
+
+A hipotese natural era a suspensao do WirePlumber (5 s de ociosidade, ja documentada em 1.4.4).
+**Os dados do dono a derrubaram**: no dia inteiro, gravacoes depois de intervalo LONGO (>=5 s)
+acertaram 46%, e depois de intervalo CURTO apenas 19% — o inverso do previsto. Gravações apos 25 s,
+43 s e ate 290 s parado sairam com RMS 780, 627 e 921. Nao e o mic dormindo.
+
+Comparacao lado a lado no mesmo instante fechou o cerco: `pw-record` fora do app mediu RMS 684
+enquanto a reuniao que o Dito gravava media 598-1165. **O caminho de captura do app entrega
+exatamente o que o sistema entrega.** Quando o sistema manda so ruido, o Dito relata isso
+corretamente — o defeito de captacao esta abaixo do app (link do headset wireless), e o que cabia
+consertar era o comportamento do app diante disso.
+
+**O que foi corrigido, tudo com defeito confirmado:**
+
+1. **Alarme sem histerese** (`silence_alarm.dart`): com o RMS dancando em torno de `deadRms`, o
+   estado alternava `dead`↔`quiet` **a cada tick de 50 ms** — o log mostrava 5 trocas em menos de
+   1 s. Agora uma troca so vale depois de 3 ticks consecutivos concordando.
+2. **Aquecimento medido em amostras, nao em tempo**: `warmUpSeconds = 0.05` eram 800 amostras, e um
+   unico bloco maior que isso (burst do driver ao acordar) liberava o gate no primeiro tick, com o
+   sinal ainda subindo — o triangulo vermelho aparecia com o dono ja falando. Agora sao 1200 ms de
+   tempo real, e fala durante o aquecimento ja conta como voz ouvida.
+3. **Nada provava nada**: cada gravacao agora registra `rms medio`, `pico` e `ouviu voz` no
+   `native_engine.log`, mais um `ATENCAO` explicito quando a gravacao inteira foi ruido de fundo.
+   O alarme tambem passou a ser logado (`alarme: dead (motivo=..., fase=...)`), o que ate ontem nao
+   existia — foi essa cegueira que fez o problema durar o dia todo.
+4. **Sumico calado**: transcricao vazia com o microfone entregando so ruido agora mostra
+   "O microfone nao captou sua voz" no HUD, em vez de a pilula simplesmente desaparecer.
+
+**Como foi verificado.** `flutter analyze` limpo e **201 testes verdes** (3 novos: histerese contra
+o pisca-pisca, aquecimento por tempo, e fala dentro do aquecimento). Os testes antigos do alarme
+foram ajustados ao aquecimento novo mantendo a garantia: mic que nunca capta **continua** ficando
+vermelho, so que depois de 1,2 s + 700 ms.
+
+**Ainda aberto:** a janela do HUD nao aparece no Linux (grava certo, falta o indicador na tela).
+
+---
+
+## 2026-08-21 — fix Linux: o Dito brigava consigo mesmo pela tecla (F9/F10 mudos), 1.4.7
+
+**Causa raiz, achada com o log da 1.4.6 na mao.** O sintoma sobreviveu aos quatro fixes anteriores:
+apertava F10, funcionava; apertava de novo, nada; e so voltava fechando e abrindo. O log mostrava o
+absurdo: `grab:meeting: true` (achamos que temos a tecla) e `_seen` congelado (nenhum evento chega).
+
+`dito_win32_plugin_register_with_registrar` roda **uma vez por janela** — main, HUD e Review — e
+cada registro criava `new PluginState()` e chamava `StartKeyHook`, subindo uma thread X11 com o seu
+**proprio `XOpenDisplay`**. Conexoes X distintas sao **clientes X distintos**: as tres janelas do
+mesmo Dito disputavam o `XGrabKey` de F9/F10, que e exclusivo. Uma ganhava, duas levavam
+`BadAccess`. E o Dart so escuta o canal `dito/keys` da **janela principal**
+(`native_key_source.dart`): quando quem vencia a corrida era o plugin do HUD ou da Review, as teclas
+iam para um engine que ninguem ouvia — app mudo, com o snapshot da principal relatando o proprio
+palpite. Isso explica a intermitencia, o "fecha e abre resolve" (muda quem ganha a corrida) e por
+que no Windows nunca houve nada disso: la o hook e `WH_KEYBOARD_LL`, que **nao e exclusivo**.
+
+**A correcao:** um unico hook de teclado por PROCESSO. Estado do teclado compartilhado
+(`SharedKeyState()`), uma thread X11 so (`StartKeyHook` idempotente — os registros seguintes apenas
+entram na lista de entrega), e os eventos passam a ser transmitidos para **todos** os canais
+registrados, entao nao importa qual janela subiu primeiro. `keys.bind` substitui a acao em vez de
+empilhar, e fechar uma janela nao derruba mais o hook das outras.
+
+**Como foi verificado.** `flutter analyze` limpo e 198 testes verdes. No app real, **dois boots
+seguidos** (o defeito era uma corrida, passar uma vez nao provaria nada): 10 F10 alternados em cada
+um resultaram em **10/10 `start aceito` e 10 sessoes gravadas**, com o contador de eventos do hook
+subindo a cada aperto (40 e 205) em vez de congelar — que era a assinatura exata do defeito.
+
+**Ainda aberto:** a janela do HUD nao aparece no Linux (grava certo, falta o indicador na tela).
+
+---
+
+## 2026-08-21 — fix Linux: F9/F10 travavam e so voltavam fechando e abrindo o Dito, 1.4.6
+
+Quatro defeitos distintos, cada um capaz de produzir sozinho o sintoma relatado ("so funciona uma
+vez"). Todos sao do porte Linux; no Windows nada disso existia.
+
+**1. O Linux abria varios Ditos, e a tecla e exclusiva.** O runner GTK usava
+`G_APPLICATION_NON_UNIQUE`, entao cada clique subia outra instancia — enquanto o Windows sempre
+teve mutex + `FindWindow` (`windows/runner/main.cpp`). No X11 o `XGrabKey` e **exclusivo por
+(tecla, modificador, root)**: a segunda instancia levava `BadAccess`, o erro era descartado por um
+handler que so fazia `return 0`, e `keys.bind` respondia `TRUE` de qualquer jeito. Resultado: a
+janela que o dono estava olhando ficava surda, e a tecla ia para a instancia velha na bandeja.
+Prova nos logs do dia: 80 `boot completo` para 8 `encerrando`, com linhas fora de ordem e uma
+truncada no meio — dois processos escrevendo no mesmo arquivo ao mesmo tempo. Agora: instancia
+unica de verdade (o segundo lancamento foca a janela existente e sai), grab verificado com `XSync`,
+falha logada e avisada na tela, e re-tentativa a cada ~2 s ate recuperar.
+
+**2. Gravacao fantasma.** Com o modelo frio, o motor demorava mais que os 5 s do timeout; o app
+voltava a fase para `idle` **sem avisar o motor**, a tecla era solta sem parar nada (`_stopPending`
+so era marcado se o timer ainda estivesse vivo) e o `StartedEvent` atrasado cravava a fase em
+`recording`/`meeting`. Dali em diante nenhum evento podia gerar `StopCommand` e toda tecla era
+recusada — o unico self-heal (`_resyncFromEngine`) so rodava em `transcribing`. Agora o timeout
+manda `StopCommand`, a sessao abandonada e encerrada quando chega, e a recusa em qualquer fase
+ocupada consulta o motor (que so destrava quando ELE diz que nao ha sessao).
+
+**3. O fix 1.4.5 cobria so metade.** O filtro de sessao protegia a gravacao nova enquanto ela
+**capturava**; se ela ja estava **transcrevendo**, o `finished` da sessao velha idlava a fase,
+cancelava o watchdog da nova e ainda virava o cartao de revisao dela. E o isolate do whisper subia
+sem `onExit`/`onError`: morrendo, o `await` da transcricao nunca resolvia.
+
+**4. A pilula "gravando" sumia sozinha.** `dismiss()` armava um timer de 180 ms que forcava
+`visual = hidden` sem checar nada, e nenhum outro estado cancelava esse timer: um F10 dentro dessa
+janela mostrava o HUD e o timer velho o escondia em seguida. Os pacotes de nivel (20 Hz) nao
+religavam nada. Agora todo estado visivel cancela a saida pendente, o nivel religa a pilula (ele so
+existe com o motor capturando) e as chamadas nativas de show/hide sao serializadas, com `_visible`
+seguindo o resultado real e re-tentativa em falha.
+
+**Como foi verificado.** `flutter analyze` limpo e **198 testes verdes** (22 novos). Cada teste novo
+foi provado revertendo o fix correspondente e vendo o vermelho — nenhum passa por acidente. No app
+real: segunda execucao nao sobe processo e foca a janela existente (`pgrep -c` = 1); com outro
+cliente X segurando o F10, o log diz `tecla f10 esta tomada por outro app` e, ao liberar,
+`tecla f10 recuperada para meeting` sem reiniciar; **10 F10 seguidos = 10 `start aceito` e 10
+sessoes gravadas** no binario instalado em `/opt/dito`.
+
+**Ainda aberto:** a janela do HUD nao aparece no Linux (a gravacao acontece, o indicador nao sobe).
+
+---
+
 ## 2026-08-21 — fix Linux: F9/F10 so funcionava uma vez, e as gravacoes iam para a pasta errada, 1.4.5
 
 **F9/F10 parava de responder depois do primeiro uso.** Causa raiz nos logs: ao parar, a fase ia

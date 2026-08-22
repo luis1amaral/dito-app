@@ -20,7 +20,10 @@ do plugin `packages/dito_win32` — nome herdado do Windows, mas serve as duas p
 
 ## As 4 garantias inegociáveis (herdadas do dito-app)
 
-1. Áudio nunca se perde — vai ao disco desde o 1º bloco, WAV válido a qualquer instante.
+1. **O áudio NÃO vai para o disco.** Revogada pelo dono em 2026-08-22 (1.6.4): o WAV era seguro
+   contra queda no meio da gravação e custava **99,9% da biblioteca** (158,7 MB contra 129 KB de
+   JSON, em 6 dias). O que se guarda é o texto. `DITO_SALVAR_WAV=1` liga o WAV de volta só para
+   depurar. **Não recoloque o WAV** achando que está restaurando uma garantia.
 2. Quando não capta, **avisa em ~1 s** — forma + cor no pill são obrigatórias e sempre ligadas;
    som e notificação são canais opcionais (`audio.alerts.sound`/`notify`), desligados por escolha
    do dono em 2026-08-21 por serem ruído: com o pill vermelho funcionando, bastam forma + cor.
