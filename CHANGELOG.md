@@ -4,6 +4,26 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-22 — colagem automatica em emuladores de terminal (Ctrl+Shift+V) no Linux, 1.6.8
+
+**Sintoma do dono:** ao ditar no terminal (como no CLI do Antigravity `agy`), o texto **nao era colado** e
+apenas uma quebra de linha vazia chegava ao prompt.
+
+**Causa raiz.** No Linux, emuladores de terminal (`gnome-terminal`, `xterm`, `kitty`, etc.) tratam `Ctrl+V`
+como caractere de controle (`0x16` / `lnext`), e exigem `Ctrl+Shift+V` para colar da area de transferencia.
+O plugin nativo em C++ enviava `Ctrl+V` fixo herdado do Windows, sem checar a classe da janela.
+
+**O que mudou.** O plugin Linux (`dito_win32_plugin.cc`) agora consulta o `WM_CLASS` da janela ativa no X11.
+Se for um emulador de terminal conhecido (`gnome-terminal`, `alacritty`, `kitty`, `konsole`, `xfce4-terminal`,
+`tilix`, etc.), injeta `Ctrl+Shift+V` via XTEST direto (`libXtst`). Para todas as demais janelas normais
+(WhatsApp, Discord, navegadores, editores GUI), continua injetando `Ctrl+V` sem nenhuma alteracao. O
+`RunXdotoolKey` passou a suportar modificadores compostos (`ctrl+shift+...`) via XTEST in-process.
+
+**Como foi verificado.** Compilacao e execucao de `tool/spike_paste.dart` (validando o caminho de colagem),
+`flutter test` e `flutter analyze` 100% verdes, e validacao de empacotamento com `packaging/linux/construir.sh`.
+
+---
+
 ## 2026-08-22 — o primeiro Enter enviava de verdade (e limpeza de codigo morto), 1.6.7
 
 **Sintoma do dono:** no cartao de revisao, o **primeiro Enter pulava uma linha** e so o segundo

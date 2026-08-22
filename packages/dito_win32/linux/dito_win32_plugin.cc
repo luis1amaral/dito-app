@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
@@ -147,6 +148,7 @@ struct PluginState {
 
   // Mirrors GetForegroundWindow() bookkeeping on the Windows plugin (focus.take/giveBack).
   Window saved_focus_target{0};
+  Window last_paste_target{0};
 
   // Tray
   void* app_indicator{nullptr};
@@ -699,10 +701,55 @@ static void RequestActivateWindow(Display* display, Window target, Time when = C
   XFlush(display);
 }
 
+// Inspects WM_CLASS to determine if the target window is a Linux terminal emulator.
+static bool IsTerminalWindow(Display* display, Window window) {
+  if (!display || window == 0) return false;
+
+  Window curr = window;
+  for (int depth = 0; depth < 5 && curr != 0; ++depth) {
+    XClassHint hint = {};
+    if (XGetClassHint(display, curr, &hint) != 0) {
+      std::string res_name = hint.res_name ? hint.res_name : "";
+      std::string res_class = hint.res_class ? hint.res_class : "";
+      if (hint.res_name) XFree(hint.res_name);
+      if (hint.res_class) XFree(hint.res_class);
+
+      for (auto& c : res_name) c = tolower(c);
+      for (auto& c : res_class) c = tolower(c);
+
+      static const char* const kTerminals[] = {
+          "gnome-terminal", "gnome-terminal-server", "xterm", "alacritty",
+          "kitty", "konsole", "xfce4-terminal", "tilix", "terminator",
+          "urxvt", "foot", "st-256color", "wezterm", "mate-terminal",
+          "lxterminal", "qterminal", "cinnamon-terminal"
+      };
+
+      for (const char* term : kTerminals) {
+        if (res_name.find(term) != std::string::npos ||
+            res_class.find(term) != std::string::npos) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    Window root = 0, parent = 0, *children = nullptr;
+    unsigned int nchildren = 0;
+    if (XQueryTree(display, curr, &root, &parent, &children, &nchildren) != 0) {
+      if (children) XFree(children);
+      if (parent == root || parent == curr) break;
+      curr = parent;
+    } else {
+      break;
+    }
+  }
+
+  return false;
+}
+
 // Synchronous on purpose: Windows uses SendInput, and Enter must never outrun the paste.
 static bool RunXdotoolKey(const std::string& keyspec) {
-  // XTEST direto em vez de subprocesso: g_spawn_sync congelava a interface inteira (fork+exec+wait
-  // na thread do GTK) a cada Ctrl+V e a cada Enter. Ver docs/armadilhas.md 4.7.
+  // Direct XTEST instead of subprocess: avoids UI freeze on GTK thread (armadilhas 4.7).
   static bool xtest_ok = false;
   static bool xtest_tentado = false;
   static void* xtest_lib = nullptr;
@@ -722,15 +769,39 @@ static bool RunXdotoolKey(const std::string& keyspec) {
   if (xtest_ok) {
     Display* d = XOpenDisplay(nullptr);
     if (d) {
-      // "ctrl+v" e "Return": so estes dois formatos existem no app.
-      const bool com_ctrl = keyspec.rfind("ctrl+", 0) == 0;
-      const std::string tecla = com_ctrl ? keyspec.substr(5) : keyspec;
+      bool com_ctrl = false;
+      bool com_shift = false;
+      bool com_alt = false;
+      std::string tecla = keyspec;
+
+      while (true) {
+        if (tecla.rfind("ctrl+", 0) == 0) {
+          com_ctrl = true;
+          tecla = tecla.substr(5);
+        } else if (tecla.rfind("shift+", 0) == 0) {
+          com_shift = true;
+          tecla = tecla.substr(6);
+        } else if (tecla.rfind("alt+", 0) == 0) {
+          com_alt = true;
+          tecla = tecla.substr(4);
+        } else {
+          break;
+        }
+      }
+
       const KeyCode kc = XKeysymToKeycode(d, KeySymFromName(tecla));
       const KeyCode ctrl = XKeysymToKeycode(d, XK_Control_L);
+      const KeyCode shift = XKeysymToKeycode(d, XK_Shift_L);
+      const KeyCode alt = XKeysymToKeycode(d, XK_Alt_L);
+
       if (kc != 0) {
         if (com_ctrl) fake_key(d, ctrl, True, 0);
+        if (com_shift) fake_key(d, shift, True, 0);
+        if (com_alt) fake_key(d, alt, True, 0);
         fake_key(d, kc, True, 0);
         fake_key(d, kc, False, 0);
+        if (com_alt) fake_key(d, alt, False, 0);
+        if (com_shift) fake_key(d, shift, False, 0);
         if (com_ctrl) fake_key(d, ctrl, False, 0);
         XFlush(d);
         XCloseDisplay(d);
@@ -962,7 +1033,20 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
 
   if (g_strcmp0(method, "input.sendCtrlV") == 0 ||
       g_strcmp0(method, "paste.ctrl_v") == 0) {
-    g_autoptr(FlValue) result = fl_value_new_bool(RunXdotoolKey("ctrl+v"));
+    bool is_terminal = false;
+    Display* display = XOpenDisplay(nullptr);
+    if (display) {
+      Window target = ReadNetActiveWindow(display);
+      if (target == 0 && self->state) {
+        target = self->state->last_paste_target;
+      }
+      if (target != 0) {
+        is_terminal = IsTerminalWindow(display, target);
+      }
+      XCloseDisplay(display);
+    }
+    const std::string spec = is_terminal ? "ctrl+shift+v" : "ctrl+v";
+    g_autoptr(FlValue) result = fl_value_new_bool(RunXdotoolKey(spec));
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
@@ -1011,6 +1095,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       // sistema sumiam. Ver docs/armadilhas.md 4.5.
       if (current != self_xid && current != 0) {
         self->state->saved_focus_target = current;
+        self->state->last_paste_target = current;
       }
     }
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
@@ -1025,6 +1110,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       GdkDisplay* gdk_display = gtk_widget_get_display(GTK_WIDGET(win));
       Display* display = GDK_DISPLAY_XDISPLAY(gdk_display);
       const Window target = self->state->saved_focus_target;
+      self->state->last_paste_target = target;
       RequestActivateWindow(display, target);
       self->state->saved_focus_target = 0;
       // One check, no retry loop: window.focus's busy-wait is a known issue left for later.
