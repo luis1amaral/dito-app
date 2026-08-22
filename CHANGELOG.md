@@ -4,6 +4,53 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-22 — a sobreposicao nascia com forma VAZIA e o compositor parava de repintar o monitor, 1.6.5
+
+**Sintoma do dono:** abrir o Dito e a janela ficar parada em "Iniciando…" ate um F9; **a imagem do
+monitor inteiro congelar**; arrastar uma janela e ficar o rastro dela parado na tela. Sempre no
+monitor onde o Dito abre.
+
+**Causa raiz.** `desktop_multi_window_plugin.cc:197-201` criava a sobreposicao assim:
+
+```cpp
+gtk_widget_show_all(win);
+cairo_region_t* vazio = cairo_region_create();
+gtk_widget_shape_combine_region(win, vazio);   // forma VAZIA numa janela MAPEADA
+```
+
+Ou seja: uma janela 900×900, `_NET_WM_STATE_ABOVE`, **mapeada**, sobre o monitor primario, com a
+regiao **bounding vazia** — exatamente o que a armadilha **4.8** deste projeto ja tinha documentado e
+medido (*"`gtk_widget_shape_combine_region` com regiao vazia nao gera a repintura da area liberada"*).
+O remedio do 4.8 (opacidade 0 + forma nunca vazia) tinha sido aplicado **so no caminho de esconder**.
+O caminho de **nascer** ficou de fora, e e nele que o dono abre o app. Por isso um F9 "consertava":
+ele da forma nao-vazia a janela e o compositor volta a repintar.
+
+Estado medido no X11, ocioso:
+
+| | mapeada | forma (bounding) | opacidade |
+|---|---|---|---|
+| antes, pos-boot | VIEWABLE | **VAZIA** | **ausente** |
+| antes, depois de um F9 | VIEWABLE | 34.247 px | opaca |
+| **depois do fix** | VIEWABLE | **1×1 (1 px)** | **0** |
+
+**O que mudou.** A sobreposicao nasce ja no estado que o 4.8 provou correto: forma de **1 px**
+(nunca vazia), recorte de clique vazio e `_NET_WM_WINDOW_OPACITY = 0` via `XChangeProperty` —
+`gtk_widget_set_opacity` nao serve no GTK3, o 4.8 ja media isso. O `CMakeLists.txt` do
+`desktop_multi_window` passou a linkar `x11`, como o `dito_win32` ja fazia.
+
+**Como foi verificado.** O experimento que isolou a causa, antes do fix, com uma variavel so
+(`DITO_HUD_HOLD=1` faz a sobreposicao desenhar no boot):
+
+| braco | aberturas congeladas |
+|---|---|
+| sem o HUD desenhar | **6/20** |
+| com o HUD desenhar | 0/20 |
+
+Depois do fix, sem HUD nenhum: **0/25**. Portao **11/11**, `analyze` limpo, 219 testes verdes.
+Conferido tambem que a sobreposicao ociosa **nao rouba clique**: 0/20 amostras no centro dela.
+
+---
+
 ## 2026-08-22 — a biblioteca guarda o texto, nao o audio: 211 MB viraram 2,5 MB, 1.6.4
 
 **O que mudou:** o app **nao escreve mais WAV**. Cada ditado deixa so o `.json` com o texto.

@@ -203,6 +203,24 @@ não retroage. Não usar `transient_for` junto.
 **Cuidado ao aplicar:** o bloco `if (!focusable)` do fork **não roda** para esta janela — ela é
 criada com `focusable: true` (`boot.dart`). Colocar o hint lá dentro é um conserto que nunca executa.
 
+### 4.10 Corrigir o caminho de ESCONDER não corrige o de NASCER
+**Sintoma:** abrir o Dito e a janela ficar em "Iniciando…" até um F9; **a imagem do monitor inteiro
+congelar**; arrastar uma janela e o rastro dela ficar parado. Sempre no monitor onde o Dito abre.
+**Causa:** a 4.8 foi corrigida só no `hudShape` (esconder). A **criação** da sobreposição
+(`desktop_multi_window_plugin.cc`) continuava fazendo `gtk_widget_shape_combine_region(win, vazio)`
+logo depois do `show_all` — uma janela 900×900 `ABOVE`, **mapeada**, com forma **vazia**, parada
+sobre o monitor primário desde o boot até o primeiro F9. O Muffin para de repintar aquela área, e o
+que congela não é o app: é o compositor. Um app não consegue congelar o rastro de *outras* janelas.
+**Regra:** o estado "escondido" tem **um** lugar de verdade e vale desde o nascimento — forma
+**nunca vazia** (1 px basta), recorte de clique vazio e `_NET_WM_WINDOW_OPACITY = 0`. Ao pagar uma
+armadilha num caminho, procure o **outro caminho que produz o mesmo estado**.
+**Medição A/B:** com `DITO_HUD_HOLD=1` (a sobreposição desenha no boot) o defeito sumia — 6/20
+aberturas congeladas sem, 0/20 com. Foi isso que apontou a sobreposição. Depois do conserto,
+**0/25** sem HUD nenhum.
+**Falso alarme registrado:** o `input shape` da ociosa aparece como 900×900 cheio numa consulta X,
+o que sugere roubo de clique. **Não rouba** — 0/20 amostras no centro dela. A consulta cai no frame
+do WM, não na janela que recebe evento.
+
 ### 4.2 Canal entre janelas é fire-and-forget: não confie só na transição
 **Sintoma:** sub-janela dessincronizada quando uma mensagem se perde.
 **Regra:** além de empurrar transições, a sub-janela **pergunta o estado atual** ao dono no boot

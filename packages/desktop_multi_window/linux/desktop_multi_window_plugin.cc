@@ -1,9 +1,11 @@
 #include "include/desktop_multi_window/desktop_multi_window_plugin.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <gdk/gdkx.h>
 #include <gtk/gtk.h>
 #include <libgen.h>
 #include <unistd.h>
+#include <X11/Xatom.h>
 #include <linux/limits.h>
 
 #include <map>
@@ -15,6 +17,19 @@
 #define DESKTOP_MULTI_WINDOW_PLUGIN(obj) \
   (G_TYPE_CHECK_INSTANCE_CAST((obj), desktop_multi_window_plugin_get_type(), \
                               DesktopMultiWindowPlugin))
+
+// GTK3 nao grava a propriedade que o WM le; so XChangeProperty serve. Ver armadilhas.md 4.8.
+static void SetOpacityZero(GtkWidget* win) {
+  GdkWindow* gdk_win = gtk_widget_get_window(win);
+  if (!gdk_win || !GDK_IS_X11_WINDOW(gdk_win)) return;
+  Display* display = GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win));
+  Atom prop = XInternAtom(display, "_NET_WM_WINDOW_OPACITY", False);
+  if (prop == None) return;
+  unsigned long value = 0ul;
+  XChangeProperty(display, GDK_WINDOW_XID(gdk_win), prop, XA_CARDINAL, 32,
+                  PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+  XFlush(display);
+}
 
 struct WindowRecord {
   std::string id;
@@ -195,10 +210,16 @@ static FlMethodResponse* handle_main_method_call(DesktopMultiWindowPlugin* self,
     // A janela sobe invisivel (recorte vazio) e so aparece quando o Dart pede a forma.
     // Ver docs/armadilhas.md 4.4.
     gtk_widget_show_all(win);
+    // Nasce escondida como o 4.8 exige: forma de 1 px (NUNCA vazia), clique nenhum, opacidade 0.
+    // Mapeada com forma vazia, o Muffin para de repintar o monitor inteiro. Ver armadilhas.md 4.10.
+    cairo_rectangle_int_t ponto = {0, 0, 1, 1};
+    cairo_region_t* minima = cairo_region_create_rectangle(&ponto);
     cairo_region_t* vazio = cairo_region_create();
-    gtk_widget_shape_combine_region(win, vazio);
+    gtk_widget_shape_combine_region(win, minima);
     gtk_widget_input_shape_combine_region(win, vazio);
+    cairo_region_destroy(minima);
     cairo_region_destroy(vazio);
+    SetOpacityZero(win);
     // Nada de reentrar o main loop aqui: este bloco segura g_plugin_mutex, e um gtk_main_iteration
     // que despache outra chamada deste mesmo canal trava o processo para sempre.
     // Ver docs/armadilhas.md 4.4.

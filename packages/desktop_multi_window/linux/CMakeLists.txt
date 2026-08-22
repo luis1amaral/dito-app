@@ -17,8 +17,12 @@ apply_standard_settings(${PLUGIN_NAME})
 
 target_compile_features(${PLUGIN_NAME} PUBLIC cxx_std_17)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(X11 REQUIRED x11)
+
 target_include_directories(${PLUGIN_NAME} PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  ${X11_INCLUDE_DIRS}
 )
 
 target_compile_definitions(${PLUGIN_NAME} PRIVATE
@@ -28,6 +32,7 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE
 target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter
   PkgConfig::GTK
+  ${X11_LIBRARIES}
 )
 
 set(desktop_multi_window_bundled_libraries
