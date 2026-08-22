@@ -32,7 +32,8 @@ DITO_EXPORT void dito_whisper_set_backend_dir(const char* dir);
 
 // Audio capture
 DITO_EXPORT int dito_audio_list_devices(char* out_json, int max_len);
-DITO_EXPORT int dito_audio_start_capture(const char* device_name);
+// wav_path may be NULL/empty to skip incremental disk writes (kept for tests only; real callers must pass it).
+DITO_EXPORT int dito_audio_start_capture(const char* device_name, const char* wav_path);
 DITO_EXPORT int dito_audio_get_level(float* out_rms, float* out_peak, float* out_seconds);
 DITO_EXPORT int dito_audio_stop_capture(float** out_pcm_data, int* out_n_samples);
 DITO_EXPORT void dito_audio_free_samples(float* pcm_data);

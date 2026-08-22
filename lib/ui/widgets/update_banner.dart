@@ -193,8 +193,8 @@ class _UpdateDialogContent extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       size.isEmpty
-                          ? '${strings.installedVersion.split(':').first}: v${info.current}'
-                          : '${strings.installedVersion.split(':').first}: v${info.current} | $size',
+                          ? '${strings.installedVersion}: v${info.current}'
+                          : '${strings.installedVersion}: v${info.current} | $size',
                       style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                             color: colors.textMuted,
                           ),

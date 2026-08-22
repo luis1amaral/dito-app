@@ -98,7 +98,7 @@ void main() {
       expect(find.text('Corrigir'), findsOneWidget);
     });
 
-    testWidgets('prolonged silence goes red like no-audio, but keeps its live wave',
+    testWidgets('low audio warns without red, which belongs to no-audio alone',
         (tester) async {
       state.apply(HudMessage.quiet('fale mais perto'));
       await show(tester);
@@ -112,8 +112,8 @@ void main() {
       final deadFill =
           tester.widget<FloatingSurface>(find.byType(FloatingSurface)).fill;
 
-      expect(quietFill, deadFill,
-          reason: 'silencio prolongado grita em vermelho igual sem audio');
+      expect(quietFill, isNot(deadFill),
+          reason: 'pausar para respirar nao pode parecer microfone mudo');
     });
   });
 

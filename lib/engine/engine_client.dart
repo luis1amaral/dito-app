@@ -10,12 +10,16 @@ import 'native_engine.dart';
 /// EngineClient providing complete in-process native execution via whisper.cpp & miniaudio.
 /// Implements 100% of the EngineProtocol events and commands without external Python processes.
 class EngineClient {
-  EngineClient({List<String>? candidates, Logbook? log})
+  EngineClient({List<String>? candidates, Logbook? log, String Function()? localeCode})
       : _log = log ?? Logbook('engine'),
-        _engine = NativeEngine(log: log);
+        _engine = NativeEngine(log: log, localeCode: localeCode),
+        _localeCode = localeCode;
 
   final Logbook _log;
   final NativeEngine _engine;
+
+  /// The user's chosen UI language, read live so a later change in Settings applies at once.
+  final String Function()? _localeCode;
 
   StreamSubscription<EngineEvent>? _sub;
   final StreamController<EngineEvent> _events =
@@ -31,9 +35,17 @@ class EngineClient {
   String? get executablePath => 'native (in-process whisper.cpp)';
 
   Future<String?> start() async {
-    if (_isAlive) return null;
+    // In-process engine never really left; a supervisor retry has to be able to see it is ready.
+    if (_isAlive) {
+      _events.add(const EngineReadyEvent());
+      return null;
+    }
 
     try {
+      _engine.onWorkerDied = (reason) {
+        _log('motor degradado: $reason');
+        _exits.add(null);
+      };
       _sub = _engine.events.listen(
         (event) => _events.add(event),
         onError: (Object e) => _log('erro nos eventos do motor nativo: $e'),
@@ -45,8 +57,7 @@ class EngineClient {
     } catch (e) {
       _log('falha ao iniciar motor nativo: $e');
       _isAlive = false;
-      // No BuildContext here: resolve against the system locale, same convention as the tray.
-      return stringsFor(null).errEngineStartFailed('$e');
+      return stringsFor(_localeCode?.call()).errEngineStartFailed('$e');
     }
   }
 

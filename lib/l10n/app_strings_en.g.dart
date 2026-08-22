@@ -273,7 +273,7 @@ class AppStringsEn extends AppStrings {
   String get sectionUpdates => 'Updates & About';
 
   @override
-  String get installedVersion => 'Installed version: v1.0.0 (Flutter)';
+  String get installedVersion => 'Installed version';
 
   @override
   String get btnCheckUpdates => 'Check now';
@@ -553,6 +553,23 @@ class AppStringsEn extends AppStrings {
   String errEngineStartFailed(String detail) {
     return 'failed to start the native engine: $detail';
   }
+
+  @override
+  String errKeyTaken(Object key, Object action) {
+    return 'The $key key is held by another program: $action does not respond';
+  }
+
+  @override
+  String errKeyBack(Object key, Object action) {
+    return 'Key $key released: $action works again';
+  }
+
+  @override
+  String get toastNoVoiceHeard => 'The microphone did not pick up your voice';
+
+  @override
+  String get toastNoVoiceHeardWhy =>
+      'Only background noise arrived: check the headset and try again';
 
   @override
   String get errEngineNoResponse => 'the engine did not respond';

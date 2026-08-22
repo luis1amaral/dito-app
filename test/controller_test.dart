@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dito_app/config/config_model.dart';
 import 'package:dito_app/config/config_service.dart';
@@ -246,6 +247,134 @@ void main() {
 
       expect(backend.pasted, isEmpty);
       expect(reviewed, isEmpty);
+    });
+  });
+
+  group('paste confirmation', () {
+    test('a successful paste confirms with a toast, not silence', () async {
+      await config.update(config.config
+          .copyWith(output: config.config.output.copyWith(confirm: false)));
+
+      emit(<String, Object?>{
+        'event': 'finished',
+        'session_id': 's1',
+        'mode': 'dictation',
+        'text': 'ola mundo',
+        'seconds': 3.0,
+        'folder': 'C:/x',
+        'ever_heard_audio': true,
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      expect(backend.pasted, <String>['ola mundo']);
+      final toasts =
+          hudLog.where((m) => m.kind == HudKind.toast).map((m) => m.toastKind);
+      expect(toasts, contains(HudToast.pasted),
+          reason: 'sucesso sem sinal e indistinguivel de falha');
+    });
+
+    test('onReviewSend with toVault and paste emits exactly one toast', () async {
+      // Redirects away from the real ~/notas vault so the test never touches the dono's disk.
+      await config.update(config.config.copyWith(
+          obsidian: config.config.obsidian
+              .copyWith(vault: '.dart_tool/controller_test_vault')));
+
+      emit(<String, Object?>{
+        'event': 'finished',
+        'session_id': 's1',
+        'mode': 'dictation',
+        'text': 'ola mundo',
+        'seconds': 3.0,
+        'folder': 'C:/x',
+        'ever_heard_audio': true,
+      });
+      await settle();
+      hudLog.clear();
+
+      await controller.onReviewSend('ola mundo', toVault: true, sessionId: 's1');
+
+      final pastedToasts = hudLog.where(
+          (m) => m.kind == HudKind.toast && m.toastKind == HudToast.pasted);
+      expect(pastedToasts, hasLength(1),
+          reason: 'toVault + paste nao pode duplicar a confirmacao');
+    });
+
+    test('onReviewSend with paste and without toVault pastes and confirms once', () async {
+      // The most common path in practice: no vault, just paste. Left uncovered before this round.
+      await config.update(config.config
+          .copyWith(output: config.config.output.copyWith(paste: true)));
+
+      emit(<String, Object?>{
+        'event': 'finished',
+        'session_id': 's1',
+        'mode': 'dictation',
+        'text': 'ola mundo',
+        'seconds': 3.0,
+        'folder': 'C:/x',
+        'ever_heard_audio': true,
+      });
+      await settle();
+      hudLog.clear();
+
+      await controller.onReviewSend('ola mundo', toVault: false, sessionId: 's1');
+
+      expect(backend.pasted, <String>['ola mundo']);
+      final finalSignals = hudLog.where((m) =>
+          m.kind == HudKind.dismiss ||
+          (m.kind == HudKind.toast && m.toastKind == HudToast.pasted));
+      expect(finalSignals, hasLength(1),
+          reason: 'paste direto pela review card tem que confirmar exatamente uma vez');
+    });
+
+    test('a failed vault save reports failure, never the success toast', () async {
+      // Parent is a FILE, not a directory: mkdir -p fails with ENOTDIR, never touching ~/notas.
+      final blocker = File('.dart_tool/controller_test_vault_blocker');
+      blocker.createSync(recursive: true);
+      addTearDown(() {
+        if (blocker.existsSync()) blocker.deleteSync();
+      });
+      await config.update(config.config.copyWith(
+          obsidian: config.config.obsidian.copyWith(vault: blocker.path),
+          output: config.config.output.copyWith(paste: false)));
+
+      await controller.onReviewSend('ola mundo', toVault: true, sessionId: null);
+
+      final last = hudLog.last;
+      expect(last.kind, HudKind.toast);
+      expect(last.toastKind, HudToast.failed,
+          reason: 'falha ao gravar a nota nao pode parecer "colado"');
+    });
+  });
+
+  group('session ordering', () {
+    test('an old session finishing while a newer one is on air pastes silently', () async {
+      await config.update(config.config.copyWith(
+          output: config.config.output.copyWith(confirm: false, paste: true)));
+
+      emit(<String, Object?>{'event': 'started', 'session_id': 's1', 'mode': 'dictation'});
+      await settle();
+      // s2 takes over as the session on air before s1's late transcript arrives.
+      emit(<String, Object?>{'event': 'started', 'session_id': 's2', 'mode': 'dictation'});
+      await settle();
+      hudLog.clear();
+
+      emit(<String, Object?>{
+        'event': 'finished',
+        'session_id': 's1',
+        'mode': 'dictation',
+        'text': 'texto da sessao antiga',
+        'seconds': 3.0,
+        'folder': 'C:/x',
+        'ever_heard_audio': true,
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      expect(controller.state.phase, AppPhase.recording,
+          reason: 'a pilula da sessao nova nao pode ser mexida pelo evento antigo');
+      expect(
+          hudLog.where((m) => m.kind == HudKind.toast && m.toastKind == HudToast.pasted),
+          isEmpty,
+          reason: 'colar da sessao antiga nao pode atropelar a pilula "Gravando" da sessao nova');
     });
   });
 

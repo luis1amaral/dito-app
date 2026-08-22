@@ -10,7 +10,7 @@ import 'engine_protocol.dart';
 
 /// Keeps the engine alive and reports what happened to it.
 class EngineSupervisor extends ChangeNotifier {
-  EngineSupervisor({required this.client, Logbook? log})
+  EngineSupervisor({required this.client, Logbook? log, this.localeCode})
       : _log = log ?? Logbook('supervisor') {
     _events = client.events.listen(_onEvent);
     _exits = client.onExit.listen((_) => _onDeath());
@@ -18,6 +18,9 @@ class EngineSupervisor extends ChangeNotifier {
 
   final EngineClient client;
   final Logbook _log;
+
+  /// The user's chosen UI language, read live so a later change in Settings applies at once.
+  final String Function()? localeCode;
 
   static const List<Duration> _backoff = <Duration>[
     Duration(milliseconds: 500),
@@ -71,8 +74,7 @@ class EngineSupervisor extends ChangeNotifier {
     if (_stopping) return;
     final wasMidRecording = wasRecording;
     wasRecording = false;
-    // No BuildContext here: resolve against the system locale, same convention as the tray.
-    final s = stringsFor(null);
+    final s = stringsFor(localeCode?.call());
     final reason = wasMidRecording ? s.errEngineDiedRecording : s.errEngineDiedIdle;
     _log('morte do motor (gravando=$wasMidRecording)');
     _set(_health.copyWith(

@@ -17,6 +17,7 @@ enum HudToast {
   pasteToClipboard,
   pasteToFolder,
   discarded,
+  noVoiceHeard,
   copied,
   pasted,
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -9,7 +10,6 @@ import 'app/boot.dart';
 import 'core/logbook.dart';
 import 'ui/hud/hud_window.dart';
 import 'ui/main/main_window.dart';
-import 'ui/review/review_window.dart';
 
 /// One entry point for every window; the role arrives as the sub-window argument.
 Future<void> main(List<String> args) async {
@@ -30,16 +30,15 @@ Future<void> main(List<String> args) async {
   switch (role) {
     case WindowRole.hud:
       await runHudWindow(controller, ownerId);
-    case WindowRole.review:
-      await runReviewWindow(controller, ownerId);
     default:
-      // Boot com o Windows passa --startup (ver dito.iss): o app sobe pronto, mas na bandeja,
-      // sem abrir a janela na cara de quem acabou de ligar o PC. Abrir manual = janela normal.
-      final startHidden = args.contains('--startup') ||
-          args.contains('--minimized') ||
-          args.contains('--tray') ||
-          args.contains('listen') ||
-          args.contains('--hidden');
+      // Linux shortcut has no flag: default hidden; Windows keeps --startup/manual behavior.
+      final startHidden = Platform.isLinux
+          ? !args.contains('--janela')
+          : args.contains('--startup') ||
+              args.contains('--minimized') ||
+              args.contains('--tray') ||
+              args.contains('listen') ||
+              args.contains('--hidden');
       await _runMainWindow(startHidden: startHidden);
   }
 }
@@ -65,8 +64,7 @@ Future<void> _runMainWindow({bool startHidden = false}) async {
     await windowManager.setSize(const Size(880, 760));
     await windowManager.center();
     if (startHidden) {
-      // Fica pronto na bandeja: sem barra de tarefas e sem roubar foco no boot. O runner
-      // (flutter_window.cpp) tambem segura o Show() quando ha --startup, para nao piscar.
+      // Fica pronto na bandeja: sem barra de tarefas e sem roubar foco no boot.
       await windowManager.setSkipTaskbar(true);
       await windowManager.hide();
     } else {

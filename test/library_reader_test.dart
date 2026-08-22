@@ -28,6 +28,7 @@ void main() {
     String mode = 'dictation',
     bool audio = false,
     bool brokenJson = false,
+    double seconds = 12.5,
   }) {
     final dir = Directory('${root.path}/$y/$m/$d')..createSync(recursive: true);
     final json = File('${dir.path}/$time.json');
@@ -38,7 +39,7 @@ void main() {
         'id': '$y-$m-${d}_$time',
         'mode': mode,
         'state': state,
-        'seconds': 12.5,
+        'seconds': seconds,
         'text': text,
       }));
     }
@@ -97,6 +98,15 @@ void main() {
     test('an empty library is not an error', () async {
       await reader.load('${root.path}/nao-existe');
       expect(reader.sessions, isEmpty);
+    });
+
+    test('a real wav beside the json is found, and its size gives the duration', () async {
+      writeSession('2026', '08', '16', '07-42-13', audio: true, seconds: 0);
+      await reader.load(root.path);
+
+      final session = reader.sessions.single;
+      expect(session.hasAudio, isTrue);
+      expect(session.seconds, closeTo(1.0, 0.001));
     });
   });
 

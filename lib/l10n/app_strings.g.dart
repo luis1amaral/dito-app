@@ -575,7 +575,7 @@ abstract class AppStrings {
   /// No description provided for @installedVersion.
   ///
   /// In en, this message translates to:
-  /// **'Installed version: v1.0.0 (Flutter)'**
+  /// **'Installed version'**
   String get installedVersion;
 
   /// No description provided for @btnCheckUpdates.
@@ -1093,6 +1093,30 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'failed to start the native engine: {detail}'**
   String errEngineStartFailed(String detail);
+
+  /// No description provided for @errKeyTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'The {key} key is held by another program: {action} does not respond'**
+  String errKeyTaken(Object key, Object action);
+
+  /// No description provided for @errKeyBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Key {key} released: {action} works again'**
+  String errKeyBack(Object key, Object action);
+
+  /// No description provided for @toastNoVoiceHeard.
+  ///
+  /// In en, this message translates to:
+  /// **'The microphone did not pick up your voice'**
+  String get toastNoVoiceHeard;
+
+  /// No description provided for @toastNoVoiceHeardWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'Only background noise arrived: check the headset and try again'**
+  String get toastNoVoiceHeardWhy;
 
   /// No description provided for @errEngineNoResponse.
   ///

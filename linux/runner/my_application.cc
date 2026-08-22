@@ -7,6 +7,8 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
+#include <glib/gstdio.h>
+#include <stdio.h>
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -14,6 +16,76 @@ struct _MyApplication {
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// Guards the file below since g_log handlers may run on any thread.
+static GMutex native_log_mutex;
+
+static gboolean native_log_env_is_blank(const gchar* value) {
+  if (value == nullptr) return TRUE;
+  for (const gchar* p = value; *p != '\0'; ++p) {
+    if (!g_ascii_isspace(*p)) return FALSE;
+  }
+  return TRUE;
+}
+
+// Mirrors DitoPaths.dataDir/logsDir in lib/config/paths.dart: XDG_DATA_HOME, else $HOME/.local/share, then /dito/logs.
+static gchar* native_log_directory() {
+  const gchar* xdg_data_home = g_getenv("XDG_DATA_HOME");
+  gchar* base;
+  if (!native_log_env_is_blank(xdg_data_home)) {
+    base = g_strdup(xdg_data_home);
+  } else {
+    const gchar* home = g_getenv("HOME");
+    if (native_log_env_is_blank(home)) {
+      home = g_get_home_dir();
+    }
+    base = g_build_filename(home, ".local", "share", nullptr);
+  }
+  gchar* dir = g_build_filename(base, "dito", "logs", nullptr);
+  g_free(base);
+  return dir;
+}
+
+static const gchar* native_log_level_name(GLogLevelFlags log_level) {
+  if (log_level & G_LOG_LEVEL_ERROR) return "ERROR";
+  if (log_level & G_LOG_LEVEL_CRITICAL) return "CRITICAL";
+  if (log_level & G_LOG_LEVEL_WARNING) return "WARNING";
+  if (log_level & G_LOG_LEVEL_MESSAGE) return "MESSAGE";
+  if (log_level & G_LOG_LEVEL_INFO) return "INFO";
+  if (log_level & G_LOG_LEVEL_DEBUG) return "DEBUG";
+  return "LOG";
+}
+
+// Writes every g_log() message to disk too, since the tray/shortcut launch path has no visible stderr.
+static void native_log_handler(const gchar* log_domain, GLogLevelFlags log_level,
+                                const gchar* message, gpointer user_data) {
+  g_log_default_handler(log_domain, log_level, message, user_data);
+
+  g_mutex_lock(&native_log_mutex);
+
+  gchar* dir = native_log_directory();
+  g_mkdir_with_parents(dir, 0755);
+  gchar* path = g_build_filename(dir, "native.log", nullptr);
+  g_free(dir);
+
+  g_autoptr(GDateTime) now = g_date_time_new_now_local();
+  gchar* date_part = g_date_time_format(now, "%Y-%m-%dT%H:%M:%S");
+  gchar* timestamp =
+      g_strdup_printf("%s.%06d", date_part, g_date_time_get_microsecond(now));
+  g_free(date_part);
+
+  // Open/close per message: warnings are rare, so a held-open FILE* is not worth the extra state.
+  FILE* file = g_fopen(path, "a");
+  if (file != nullptr) {
+    fprintf(file, "[%s] [native] [%s] %s\n", timestamp, native_log_level_name(log_level),
+            message != nullptr ? message : "");
+    fclose(file);
+  }
+  g_free(path);
+  g_free(timestamp);
+
+  g_mutex_unlock(&native_log_mutex);
+}
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
@@ -36,6 +108,14 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+
+  // Second launch must focus the running Dito, never start a rival that loses the X key grab.
+  GList* existing = gtk_application_get_windows(GTK_APPLICATION(application));
+  if (existing != nullptr) {
+    gtk_window_present(GTK_WINDOW(existing->data));
+    return;
+  }
+
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
@@ -162,13 +242,17 @@ static void my_application_class_init(MyApplicationClass* klass) {
 static void my_application_init(MyApplication* self) {}
 
 MyApplication* my_application_new() {
+  // Installed before anything else so no early g_warning/g_critical is lost to an invisible stderr.
+  g_log_set_default_handler(native_log_handler, nullptr);
+
   // Set the program name to the application ID, which helps various systems
   // like GTK and desktop environments map this running application to its
   // corresponding .desktop file. This ensures better integration by allowing
   // the application to be recognized beyond its binary name.
   g_set_prgname(APPLICATION_ID);
 
+  // Single instance on purpose: XGrabKey is exclusive, so a second Dito would be deaf to F9/F10.
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",
-                                     G_APPLICATION_NON_UNIQUE, nullptr));
+                                     G_APPLICATION_DEFAULT_FLAGS, nullptr));
 }

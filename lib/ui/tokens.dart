@@ -32,6 +32,9 @@ class AppType {
 }
 
 class AppSize {
+  /// Degrau entre cartoes empilhados: embaixo, meio, cima, e o proximo volta para baixo.
+  static const double reviewStackStep = 132;
+
   /// Floor, not width: in Portuguese "Corrigir" is wider than "Fix" and used to get clipped.
   static const double hudMinWidth = 340;
   static const double hudMinHeight = 52;
@@ -67,8 +70,10 @@ class AppSize {
   /// Overlay windows are a FIXED canvas the content is centred in. Sizing a window to its
   /// own content means measuring inside the thing you are resizing, and that loop clipped
   /// the pill and collapsed the card.
+  /// UMA sub-janela para a pilula E os cartoes: duas sub-janelas disputavam o contexto GL e a
+  /// segunda nascia sem renderizar. Ver docs/armadilhas.md 4.4.
   static const double hudCanvasWidth = 900;
-  static const double hudCanvasHeight = 200;
+  static const double hudCanvasHeight = 900;
   static const double reviewCanvasWidth = 700;
   // Canvas ALTO de proposito: o cartao (ancorado no rodape) cresce PRA CIMA com o texto, sem
   // scroll. O clip-to-card mostra so o cartao, entao o espaco transparente extra e invisivel; ele
@@ -91,6 +96,9 @@ class AppMotion {
 
   /// HUD repaint tick; the clock and the wave both ride it.
   static const Duration tick = Duration(milliseconds: 50);
+
+  /// Wait before retrying a native show/hide that failed.
+  static const Duration retry = Duration(milliseconds: 300);
 
   static const double shakePixels = 7;
   static const double dotPeriodSeconds = 1.2;

@@ -16,9 +16,11 @@ class SettingsPage extends StatelessWidget {
   final DitoApp app;
 
   Future<void> _update(AppConfig next) async {
+    // Read before update(): afterwards app.config already holds the new value.
+    final rebind = next.hotkeys != app.config.config.hotkeys;
     await app.config.update(next);
     // Rebinding is live: the gap between changing a shortcut and it working must be zero.
-    await app.hotkeys.apply(next.hotkeys);
+    if (rebind) await app.hotkeys.apply(next.hotkeys);
   }
 
   @override

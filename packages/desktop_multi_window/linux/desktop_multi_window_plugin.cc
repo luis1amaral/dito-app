@@ -165,6 +165,12 @@ static FlMethodResponse* handle_main_method_call(DesktopMultiWindowPlugin* self,
 
     // Without a real RGBA visual the compositor has nothing alpha to blend; "transparent" paints opaque.
     GdkScreen* screen = gtk_widget_get_screen(win);
+    // Visual RGBA impede o FlView de obter contexto GL nesta pilha (NVIDIA/GLX): a janela nunca
+    // chega a ser mapeada. Sem ele a janela aparece, e o recorte de forma (window.setHitRect)
+    // e quem tira o retangulo opaco. Ver docs/armadilhas.md 4.3.
+    // Visual RGBA da a transparencia; ele so funciona porque a sub-janela nunca e desmapeada
+    // (esconder = recortar para nada). Desmapear e remapear quebrava o contexto GL nesta pilha
+    // NVIDIA/GLX e a janela nunca mais subia. Ver docs/armadilhas.md 4.3.
     GdkVisual* rgba_visual = gdk_screen_get_rgba_visual(screen);
     if (rgba_visual) {
       gtk_widget_set_visual(win, rgba_visual);
@@ -181,6 +187,21 @@ static FlMethodResponse* handle_main_method_call(DesktopMultiWindowPlugin* self,
       gtk_window_set_decorated(GTK_WINDOW(win), FALSE);
       gtk_window_set_skip_taskbar_hint(GTK_WINDOW(win), TRUE);
     }
+
+    // UTILITY (never NOTIFICATION/DOCK) so this overlay stays focusable for review-card Enter/Tab.
+    gtk_window_set_type_hint(GTK_WINDOW(win), GDK_WINDOW_TYPE_HINT_UTILITY);
+
+    // A view so consegue contexto GL sobre uma janela REALMENTE mapeada: realizar nao basta.
+    // A janela sobe invisivel (recorte vazio) e so aparece quando o Dart pede a forma.
+    // Ver docs/armadilhas.md 4.4.
+    gtk_widget_show_all(win);
+    cairo_region_t* vazio = cairo_region_create();
+    gtk_widget_shape_combine_region(win, vazio);
+    gtk_widget_input_shape_combine_region(win, vazio);
+    cairo_region_destroy(vazio);
+    // Nada de reentrar o main loop aqui: este bloco segura g_plugin_mutex, e um gtk_main_iteration
+    // que despache outra chamada deste mesmo canal trava o processo para sempre.
+    // Ver docs/armadilhas.md 4.4.
 
     std::string exe_dir = GetExecutableDir();
     std::string assets_path = exe_dir + "/data/flutter_assets";
@@ -206,6 +227,10 @@ static FlMethodResponse* handle_main_method_call(DesktopMultiWindowPlugin* self,
     gtk_container_add(GTK_CONTAINER(win), GTK_WIDGET(view));
     gtk_widget_show(GTK_WIDGET(view));
     gtk_widget_realize(GTK_WIDGET(view));
+
+    // O runner principal faz isso (my_application.cc); a sub-janela nao fazia, e sem isso o
+    // teclado nao chega ao motor Flutter mesmo com a janela focada. Ver armadilhas 4.6.
+    gtk_widget_grab_focus(GTK_WIDGET(view));
 
     if (g_window_created_callback != nullptr) {
       g_window_created_callback(FL_PLUGIN_REGISTRY(view));

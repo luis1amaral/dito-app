@@ -11,6 +11,9 @@ const Duration kGrace = Duration(milliseconds: 300);
 /// A push-to-talk of ten minutes is a defect; the unlimited mode is the toggle.
 const Duration kHoldCeiling = Duration(minutes: 10);
 
+/// A release the keymap never reports would mute the toggle forever; hold it this long at most.
+const Duration kToggleReleaseCeiling = Duration(seconds: 2);
+
 enum HotkeyMode { hold, toggle }
 
 class HotkeyBinding {
@@ -29,6 +32,7 @@ class HotkeyMachine {
     required this.onStop,
     this.grace = kGrace,
     this.holdCeiling = kHoldCeiling,
+    this.toggleReleaseCeiling = kToggleReleaseCeiling,
     this.onCeilingReached,
     this.onRefused,
   });
@@ -44,6 +48,7 @@ class HotkeyMachine {
   final void Function(String action, String blockedBy)? onRefused;
   final Duration grace;
   final Duration holdCeiling;
+  final Duration toggleReleaseCeiling;
 
   final List<HotkeyBinding> _bindings = <HotkeyBinding>[];
   final Map<String, StreamSubscription<void>> _subs = <String, StreamSubscription<void>>{};
@@ -57,8 +62,8 @@ class HotkeyMachine {
   bool _paused = false;
   bool _shuttingDown = false;
 
-  /// Toggles held from the previous press, so auto-repeat cannot flip them.
-  final Set<String> _awaitingRelease = <String>{};
+  /// Toggles held from the previous press, so auto-repeat cannot flip them; value is when it began.
+  final Map<String, int> _awaitingRelease = <String, int>{};
 
   String? get active => _active;
   bool get isPaused => _paused;
@@ -98,8 +103,8 @@ class HotkeyMachine {
 
       case HotkeyMode.toggle:
         // Still held from last time: 1.5 s on the key used to produce 17 start/stop pairs.
-        if (_awaitingRelease.contains(binding.action)) return;
-        _awaitingRelease.add(binding.action);
+        if (_awaitingRelease.containsKey(binding.action)) return;
+        _awaitingRelease[binding.action] = signal.micros;
         if (_active == binding.action) {
           _active = null;
           _activeSince = null;
@@ -113,23 +118,31 @@ class HotkeyMachine {
     }
   }
 
-  /// A start the controller refuses must not leave the machine marked active.
+  /// A start the controller refuses - or that throws - must not leave the machine marked active.
   void _begin(String action, int micros) {
     _active = action;
     _activeSince = micros;
     _upSince = null;
-    if (!onStart(action)) {
-      _active = null;
-      _activeSince = null;
-      _upSince = null;
+    bool accepted = false;
+    try {
+      accepted = onStart(action);
+    } finally {
+      if (!accepted) {
+        _active = null;
+        _activeSince = null;
+        _upSince = null;
+      }
     }
   }
 
   void _onTick(KeyTickSignal signal) {
     if (_shuttingDown) return;
 
-    // A toggle is free to fire again only once the keymap says the key really came up.
-    _awaitingRelease.removeWhere((action) => !signal.down.contains(action));
+    // A toggle is free to fire again once the keymap says the key came up - or after the ceiling,
+    // because a release that never arrives would otherwise mute the key until the app restarts.
+    _awaitingRelease.removeWhere((action, since) =>
+        !signal.down.contains(action) ||
+        signal.micros - since >= toggleReleaseCeiling.inMicroseconds);
 
     final active = _active;
     if (active == null) return;

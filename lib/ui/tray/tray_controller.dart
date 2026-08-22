@@ -32,7 +32,8 @@ class TrayController {
   /// The icon carries the app logo; the state is a badge, so shape still tells them apart.
   static String _iconFor(AppSnapshot state) {
     final ext = Platform.isWindows ? '.ico' : '.svg';
-    if (state.alarm != AudioState.ok || state.engine.state == EngineState.dead) {
+    // Only a take that heard nothing is an alert; a pause (quiet) must not paint the tray red.
+    if (state.alarm == AudioState.dead || state.engine.state == EngineState.dead) {
       return 'tray-alert$ext';
     }
     if (state.isRecording) return 'tray-recording$ext';
@@ -65,7 +66,7 @@ class TrayController {
     return asset;
   }
 
-  Future<bool> init() async {
+  Future<bool> init(AppStrings s) async {
     try {
       _ready = await DitoWin32.trayCreate(tooltip: 'Dito');
       if (!_ready) {
@@ -75,8 +76,6 @@ class TrayController {
       _events = DitoWin32.trayEvents.listen(_onEvent);
       final initialIcon = Platform.isWindows ? 'tray-idle.ico' : 'tray-idle.svg';
       await DitoWin32.traySetIcon(_resolve(initialIcon));
-      // No config loaded yet at this point: resolve against the system locale like update() does.
-      final s = stringsFor(null);
       await DitoWin32.traySetMenu(<TrayItem>[
         TrayItem(id: 'status', label: '${s.appTitle} - ${s.statusReady}', enabled: false),
         const TrayItem.separator(),

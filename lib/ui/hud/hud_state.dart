@@ -101,6 +101,15 @@ class HudState extends ChangeNotifier {
         });
       case HudKind.level:
         wave.push(message.rms);
+        // Level only exists while the engine captures: a hidden pill here is out of sync, and
+        // nothing else would ever bring it back (CHANGELOG 2026-08-21).
+        if (!isOnScreen) {
+          _enter(HudVisual.recording);
+          detail = null;
+          action = meeting ? HudAction.stop : HudAction.none;
+          wave.flat = false;
+          break;
+        }
         return;
       case HudKind.dismiss:
         dismiss();
@@ -110,7 +119,11 @@ class HudState extends ChangeNotifier {
   }
 
   void _enter(HudVisual next) {
-    final wasHidden = visual == HudVisual.hidden;
+    // Coming back mid-fade is a new session: the clock and the wave restart with it.
+    final wasHidden = visual == HudVisual.hidden || _leaving;
+    // A pending exit from the previous session would hide this one 180 ms after it appeared.
+    _exitTimer?.cancel();
+    _exitTimer = null;
     visual = next;
     _leaving = false;
     if (wasHidden) {

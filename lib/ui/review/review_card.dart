@@ -60,7 +60,7 @@ class _ReviewCardState extends State<ReviewCard> {
   }
 
   /// Pede o foco no proximo frame. Junto com autofocus: true no TextField e a ativacao da janela
-  /// nativa (review_window: focusWindow/ForceForeground), o teclado cai no editor SEM clique.
+  /// nativa (hud_window: focusWindow/ForceForeground), o teclado cai no editor SEM clique.
   /// Sem timers de proposito: um Future.delayed pendente derrubaria os testes de widget.
   void _grabFocusSoon() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -121,13 +121,16 @@ class _ReviewCardState extends State<ReviewCard> {
       height: 1.5,
     );
 
-    // O cartao esta ancorado no rodape (Align.bottomCenter em review_window) e cresce COM o texto
+    // O cartao esta ancorado no rodape (Align.bottomCenter em hud_window) e cresce COM o texto
     // (maxLines: null, SEM scroll): ele SOBE para mostrar tudo, o rodape nunca sai da tela. UMA cor
     // so: o editor vive direto sobre a superficie do cartao, sem uma "caixa preta" em volta. Fundo
     // escuro + texto branco, reusando os componentes e tokens do app (FloatingSurface, AppColors).
     return SizedBox(
       width: AppSize.reviewWidth + AppShadow.margin * 2,
-      child: FloatingSurface(
+      // Com varios cartoes empilhados, clicar tem de escolher qual recebe Enter/Tab.
+      child: Listener(
+        onPointerDown: (_) => _focus.requestFocus(),
+        child: FloatingSurface(
         fill: c.hudSurface,
         border: null,
         child: Padding(
@@ -188,7 +191,7 @@ class _ReviewCardState extends State<ReviewCard> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
                   Icon(Icons.bookmark_add_rounded,
-                      size: 18, color: _toVault ? c.primary : c.hudMuted),
+                      size: 18, color: _toVault ? c.hudOk : c.hudMuted),
                   const SizedBox(width: AppSpacing.xs),
                   Text(context.strings.reviewObsidianLabel,
                       style: TextStyle(color: c.hudText, fontSize: AppType.caption)),
@@ -196,6 +199,13 @@ class _ReviewCardState extends State<ReviewCard> {
                   Switch(
                     value: _toVault,
                     onChanged: _setVault,
+                    // Thumb/track ignore ColorScheme.primary (brand purple): this card is a dark HUD surface.
+                    thumbColor: WidgetStateProperty.resolveWith((states) =>
+                        states.contains(WidgetState.selected) ? c.hudSurface : c.hudMuted),
+                    trackColor: WidgetStateProperty.resolveWith((states) =>
+                        states.contains(WidgetState.selected) ? c.hudOk : c.hudWash),
+                    trackOutlineColor: WidgetStateProperty.resolveWith((states) =>
+                        states.contains(WidgetState.selected) ? c.hudOk : c.hudEdge),
                     // No hover/focus glow ring: it was Material's default purple, not a token.
                     overlayColor: const WidgetStatePropertyAll(Colors.transparent),
                   ),
@@ -212,6 +222,7 @@ class _ReviewCardState extends State<ReviewCard> {
                 ],
               ),
             ],
+          ),
           ),
         ),
       ),

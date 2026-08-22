@@ -35,15 +35,49 @@ class WhisperWorker {
   final SendPort _commands;
   final Isolate _isolate;
   final Set<ReceivePort> _pending = {};
+  ReceivePort? _exits;
+  ReceivePort? _errors;
+  bool _dead = false;
+
+  /// A native crash used to hang every future transcription; now it fails loud and once.
+  void Function(String reason)? onDied;
+
+  bool get isDead => _dead;
 
   static Future<WhisperWorker> spawn() async {
     final ready = ReceivePort();
-    final isolate = await Isolate.spawn(_main, ready.sendPort, debugName: 'whisper_worker');
+    final exits = ReceivePort();
+    final errors = ReceivePort();
+    final isolate = await Isolate.spawn(
+      _main,
+      ready.sendPort,
+      debugName: 'whisper_worker',
+      onExit: exits.sendPort,
+      onError: errors.sendPort,
+    );
     final commands = await ready.first as SendPort;
-    return WhisperWorker._(commands, isolate);
+    ready.close();
+    final worker = WhisperWorker._(commands, isolate);
+    worker._exits = exits;
+    worker._errors = errors;
+    exits.listen((_) => worker._onDeath('o isolate do whisper morreu'));
+    errors.listen((e) => worker._onDeath('erro no isolate do whisper: $e'));
+    return worker;
+  }
+
+  /// Frees every caller waiting on a reply that will never come.
+  void _onDeath(String reason) {
+    if (_dead) return;
+    _dead = true;
+    for (final port in _pending) {
+      port.close();
+    }
+    _pending.clear();
+    onDied?.call(reason);
   }
 
   Future<Object?> _call(Object? request) async {
+    if (_dead) throw StateError('whisper worker morto');
     final reply = ReceivePort();
     _pending.add(reply);
     try {
@@ -70,10 +104,13 @@ class WhisperWorker {
 
   void dispose() {
     // Closing each port fails any in-flight _call with a StateError instead of hanging forever.
+    _dead = true;
     for (final port in _pending) {
       port.close();
     }
     _pending.clear();
+    _exits?.close();
+    _errors?.close();
     _isolate.kill(priority: Isolate.immediate);
   }
 

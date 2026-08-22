@@ -13,6 +13,7 @@ class NativeKeySource implements KeySource {
   final _downs = StreamController<KeyDownSignal>.broadcast();
   final _ticks = StreamController<KeyTickSignal>.broadcast();
   final _hook = StreamController<bool>.broadcast();
+  final _grabs = StreamController<KeyGrabSignal>.broadcast();
   StreamSubscription<win32.KeySignal>? _sub;
 
   @override
@@ -24,6 +25,9 @@ class NativeKeySource implements KeySource {
   @override
   Stream<bool> get hookAlive => _hook.stream;
 
+  @override
+  Stream<KeyGrabSignal> get grabs => _grabs.stream;
+
   void _onSignal(win32.KeySignal signal) {
     switch (signal) {
       case win32.KeyDown(:final action, :final micros):
@@ -32,6 +36,8 @@ class NativeKeySource implements KeySource {
         _ticks.add(KeyTickSignal(down, micros));
       case win32.HookStatus(:final installed):
         _hook.add(installed);
+      case win32.GrabStatus(:final action, :final key, :final ok):
+        _grabs.add(KeyGrabSignal(action, key, ok));
       case win32.KeyUp():
         // Informative only: the tick is the authority on whether a key is up.
         break;
@@ -45,5 +51,6 @@ class NativeKeySource implements KeySource {
     await _downs.close();
     await _ticks.close();
     await _hook.close();
+    await _grabs.close();
   }
 }

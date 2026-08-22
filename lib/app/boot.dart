@@ -19,9 +19,9 @@ import '../output/alert_service.dart';
 import '../output/native_paste_backend.dart';
 import '../output/paste_service.dart';
 import '../platform/window_bus.dart';
+import '../state/app_snapshot.dart';
 import '../state/dito_controller.dart';
 import '../state/hud_commands.dart';
-import '../ui/hud/hud_state.dart';
 import '../ui/tray/tray_controller.dart';
 
 /// Window roles, carried as the sub-window argument.
@@ -36,14 +36,14 @@ class DitoApp {
   DitoApp() : log = Logbook('app');
 
   final Logbook log;
-  final HudState hudState = HudState();
 
   // Built eagerly, never late: the window renders before start() finishes, and a late
   // field there is a LateInitializationError on the very first frame.
   final ConfigService config = ConfigService();
   final LibraryReader library = LibraryReader();
-  final EngineClient client = EngineClient();
-  late final EngineSupervisor supervisor = EngineSupervisor(client: client);
+  late final EngineClient client = EngineClient(localeCode: () => config.config.ui.language);
+  late final EngineSupervisor supervisor =
+      EngineSupervisor(client: client, localeCode: () => config.config.ui.language);
   final HotkeyService hotkeys = createHotkeyService();
   final TrayController tray = TrayController();
   final AlertService alerts = createAlertService();
@@ -89,6 +89,7 @@ class DitoApp {
     hotkeys.onStop = controller.onHotkeyStop;
     hotkeys.onHoldCeiling = controller.onHoldCeiling;
     hotkeys.onRefused = controller.onHotkeyRefused;
+    hotkeys.onGrabChanged = _onGrabChanged;
     hotkeys.addListener(_onHotkeys);
     await hotkeys.start(config.config.hotkeys);
 
@@ -96,13 +97,16 @@ class DitoApp {
     tray.onCopy = () => unawaited(controller.copyLastText());
     tray.onTogglePause = () => unawaited(togglePause());
     tray.onQuit = () => unawaited(shutdown());
-    await tray.init();
+    await tray.init(strings);
     await tray.update(controller.state, strings, config.config.hotkeys.pushToTalk,
         paused: paused.value);
 
     await supervisor.start();
     isReady.value = true;
     log('boot completo');
+    if (Platform.environment['DITO_DIAG'] == '1') {
+      log('diag: isReady setado, hash=${identityHashCode(isReady)}');
+    }
 
     if (Platform.environment['DITO_SELFTEST'] == '1') unawaited(_selfTest());
     if (Platform.environment['DITO_HUD_HOLD'] == '1') unawaited(_holdHud());
@@ -135,7 +139,8 @@ class DitoApp {
       log('hud_hold: ${scene.key} rect=${await _bus?.request(id, 'hudRect')}');
       log('hud_hold: ${scene.key} probe=${await _bus?.request(id, 'hudProbe')}');
       if (dir != null) {
-        await _bus?.request(id, 'hudShot', <String, Object?>{'path': '$dir\\${scene.key}.png'});
+        await _bus?.request(id, 'hudShot',
+            <String, Object?>{'path': '$dir${Platform.pathSeparator}${scene.key}.png'});
       }
     }
     final reviewId = _reviewWindowId;
@@ -154,11 +159,14 @@ class DitoApp {
         'meeting': true,
         'folder': '',
       });
-      await Future<void>.delayed(const Duration(milliseconds: 900));
+      // Ajustavel para o arnes conseguir mandar Tab no cartao antes dele sair (tool/repro_toast.py).
+      final seguraMs =
+          int.tryParse(Platform.environment['DITO_HUD_CARD_MS'] ?? '') ?? 900;
+      await Future<void>.delayed(Duration(milliseconds: seguraMs));
       log('hud_hold: cartao probe=${await _bus?.request(reviewId, 'reviewProbe')}');
       if (dir != null) {
-        await _bus?.request(
-            reviewId, 'reviewShot', <String, Object?>{'path': '$dir\\cartao.png'});
+        await _bus?.request(reviewId, 'reviewShot',
+            <String, Object?>{'path': '$dir${Platform.pathSeparator}cartao.png'});
       }
       await _bus?.send(reviewId, 'reviewHide', <String, Object?>{});
     }
@@ -234,19 +242,17 @@ class DitoApp {
   Future<void> _openSubWindows() async {
     try {
       final self = await WindowController.fromCurrentEngine();
+      // Uma sub-janela so, focavel: a pilula nunca pede foco (showNoActivate), mas o cartao
+      // precisa dele para Enter/Tab. Ver docs/armadilhas.md 4.4.
       final hud = await WindowController.create(WindowConfiguration(
         arguments: '${WindowRole.hud}:${self.windowId}',
-        focusable: false,
+        focusable: true,
       ));
       _hudWindowId = hud.windowId;
-
-      final review = await WindowController.create(
-        WindowConfiguration(arguments: '${WindowRole.review}:${self.windowId}'),
-      );
-      _reviewWindowId = review.windowId;
+      _reviewWindowId = hud.windowId;
 
       _bus = MultiWindowBus(self)..onMessage(_onWindowMessage);
-      log('janelas: principal=${self.windowId} hud=$_hudWindowId review=$_reviewWindowId');
+      log('janelas: principal=${self.windowId} sobreposicao=$_hudWindowId');
     } catch (e) {
       log('nao consegui abrir as sub-janelas: $e');
     }
@@ -262,14 +268,28 @@ class DitoApp {
         await controller.onReviewSend(
           data['text'] as String? ?? '',
           toVault: data['toVault'] == true,
+          sessionId: data['id'] as String?,
         );
       case 'reviewDiscard':
-        controller.onReviewDiscard();
+        controller.onReviewDiscard(sessionId: data['id'] as String?);
       case 'appearance':
         // Pulled, not only pushed: a sub-window boots after us and misses the broadcast.
         return _appearance();
+      case 'hudState':
+        // Same reason as appearance, for what matters most: whether we are recording right now.
+        return _currentHudMessage().toMap();
     }
     return null;
+  }
+
+  HudMessage _currentHudMessage() {
+    final phase = controller.state.phase;
+    return switch (phase) {
+      AppPhase.recording => HudMessage.recording(meeting: false),
+      AppPhase.meeting => HudMessage.recording(meeting: true),
+      AppPhase.transcribing => HudMessage.working(HudWork.transcribing),
+      _ => HudMessage.dismiss,
+    };
   }
 
   Map<String, Object?> _appearance() => <String, Object?>{
@@ -285,7 +305,6 @@ class DitoApp {
   }
 
   void _toHud(HudMessage message) {
-    hudState.apply(message);
     final id = _hudWindowId;
     if (id == null) return;
     unawaited(_bus?.send(id, 'hud', message.toMap()));
@@ -296,6 +315,7 @@ class DitoApp {
     final id = _reviewWindowId;
     if (id == null) return;
     unawaited(_bus?.send(id, 'review', <String, Object?>{
+      'id': event.sessionId,
       'text': event.text,
       'meeting': event.isMeeting,
       'folder': event.folder,
@@ -319,6 +339,22 @@ class DitoApp {
   }
 
   void _onHotkeys() => controller.setHookInstalled(hotkeys.hookInstalled);
+
+  /// A key another program is holding is a dead shortcut: silence here is what forced a restart.
+  void _onGrabChanged(String action, String key, bool ok) {
+    final label = key.toUpperCase();
+    final what = action == 'meeting' ? strings.meetingLabel : strings.dictationLabel;
+    _toHud(HudMessage.toast(
+      ok ? HudToast.pasted : HudToast.failed,
+      detail: ok
+          ? strings.errKeyBack(label, what)
+          : strings.errKeyTaken(label, what),
+      ms: ok ? 4000 : 8000,
+    ));
+    unawaited(tray.update(controller.state, strings,
+        config.config.hotkeys.pushToTalk,
+        paused: paused.value));
+  }
 
   Future<void> togglePause() async {
     paused.value = !paused.value;

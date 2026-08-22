@@ -16,10 +16,16 @@ abstract class HotkeyService extends ChangeNotifier {
   void Function(String action)? onHoldCeiling;
   void Function(String action, String blockedBy)? onRefused;
 
+  /// Fires when a key changes hands: `ok` false means another app is holding it.
+  void Function(String action, String key, bool ok)? onGrabChanged;
+
   /// False means the app cannot hear the keyboard: it has to say so, not fail silently.
   bool get hookInstalled;
   bool get isPaused;
   String? get activeAction;
+
+  /// Keys the OS refused to hand over; empty when everything is ours.
+  Map<String, String> get blockedKeys;
 
   Future<void> start(HotkeyConfig config);
   Future<void> apply(HotkeyConfig config);
@@ -51,7 +57,9 @@ class WindowsHotkeyService extends HotkeyService {
   HotkeyMachine? _machine;
   StreamSubscription<bool>? _hookSub;
   StreamSubscription<KeyDownSignal>? _downSpy;
+  StreamSubscription<KeyGrabSignal>? _grabSub;
   List<HotkeyBinding> _bindings = <HotkeyBinding>[];
+  final Map<String, String> _blocked = <String, String>{};
 
   bool _hookInstalled = false;
   bool _paused = false;
@@ -62,6 +70,8 @@ class WindowsHotkeyService extends HotkeyService {
   bool get isPaused => _paused;
   @override
   String? get activeAction => _machine?.active;
+  @override
+  Map<String, String> get blockedKeys => Map.unmodifiable(_blocked);
 
   @override
   Future<void> start(HotkeyConfig config) async {
@@ -89,6 +99,22 @@ class WindowsHotkeyService extends HotkeyService {
       _hookInstalled = alive;
       _log(alive ? 'hook instalado' : 'hook perdido');
       notifyListeners();
+    });
+
+    _grabSub ??= _source.grabs.listen((grab) {
+      final wasBlocked = _blocked.containsKey(grab.action);
+      if (grab.ok) {
+        _blocked.remove(grab.action);
+      } else {
+        _blocked[grab.action] = grab.key;
+      }
+      if (wasBlocked == grab.ok) {
+        _log(grab.ok
+            ? 'tecla ${grab.key} recuperada para ${grab.action}'
+            : 'tecla ${grab.key} esta tomada por outro app: ${grab.action} nao responde');
+        onGrabChanged?.call(grab.action, grab.key, grab.ok);
+        notifyListeners();
+      }
     });
 
     await apply(config);
@@ -138,6 +164,11 @@ class WindowsHotkeyService extends HotkeyService {
     _watchdog = Timer.periodic(const Duration(seconds: 3), (_) async {
       try {
         final snapshot = await DitoWin32.keySnapshot();
+        // A failed resume would leave the hook deaf forever: reconcile instead of trusting the flag.
+        if (!_paused && snapshot['_paused'] == true) {
+          _log('hook estava pausado sem motivo: retomando');
+          await DitoWin32.resumeKeys();
+        }
         final seen = (snapshot['_seen'] as num?)?.toInt() ?? 0;
         if (seen == _lastSeen) return;
         _lastSeen = seen;
@@ -185,6 +216,7 @@ class WindowsHotkeyService extends HotkeyService {
     _watchdog?.cancel();
     await _hookSub?.cancel();
     await _downSpy?.cancel();
+    await _grabSub?.cancel();
     await _machine?.dispose();
     await _log.close();
     super.dispose();
@@ -204,6 +236,8 @@ class LinuxHotkeyService extends HotkeyService {
   bool get isPaused => _paused;
   @override
   String? get activeAction => null;
+  @override
+  Map<String, String> get blockedKeys => const <String, String>{};
 
   @override
   Future<void> start(HotkeyConfig config) async {

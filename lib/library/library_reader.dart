@@ -78,7 +78,7 @@ class LibraryReader extends ChangeNotifier {
       // Unreadable metadata is not a reason to hide a recording.
     }
 
-    final wav = File('${file.parent.path}\\$stem.wav');
+    final wav = File('${file.parent.path}${Platform.pathSeparator}$stem.wav');
     final hasAudio = wav.existsSync();
     var seconds = (meta['seconds'] as num?)?.toDouble() ?? 0;
     if (seconds == 0 && hasAudio) {

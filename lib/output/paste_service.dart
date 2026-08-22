@@ -71,9 +71,14 @@ class PasteService {
           pasted: false, copied: false, error: 'area de transferencia indisponivel');
     }
 
+    var enterFailed = false;
     try {
       // Focus goes back BEFORE the paste, or the Ctrl+V lands in our own window.
-      if (giveBackFocus) await backend.restoreFocus();
+      if (giveBackFocus) {
+        final focusRestored = await backend.restoreFocus();
+        // Known false negative: the WM refuses yet focus lands anyway, so log and go on.
+        if (!focusRestored) _log.call('paste: falha ao restaurar foco (prosseguindo mesmo assim)');
+      }
 
       await Future<void>.delayed(settle);
       final pasted = await backend.pressCtrlV();
@@ -84,7 +89,11 @@ class PasteService {
 
       if (sendEnter) {
         await Future<void>.delayed(beforeEnter);
-        await backend.pressEnter();
+        final entered = await backend.pressEnter();
+        if (!entered) {
+          _log.call('paste: falha ao pressionar Enter');
+          enterFailed = true;
+        }
       }
     } catch (e) {
       _scheduleRestore(previous);
@@ -92,6 +101,10 @@ class PasteService {
     }
 
     _scheduleRestore(previous);
+    // Text is already pasted by this point, so a refused Enter qualifies the result instead of failing it.
+    if (enterFailed) {
+      return const PasteResult(pasted: true, copied: true, error: 'Enter recusado');
+    }
     return const PasteResult.ok();
   }
 

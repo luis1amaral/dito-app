@@ -13,13 +13,16 @@
 #include <poll.h>
 
 #include <algorithm>
+#include <cmath>
 #include <atomic>
 #include <cctype>
 #include <chrono>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #define DITO_WIN32_PLUGIN(obj) \
@@ -82,7 +85,11 @@ struct X11Binding {
   std::string key;
   KeyCode keycode;
   bool suppress;
+  bool grabbed{false};
 };
+
+// XGrabKey is exclusive: another client holding F9/F10 makes ours fail, and X reports it only here.
+std::atomic<int64_t> g_x11_error_count{0};
 
 // AppIndicator dynamic bindings
 typedef void* (*fn_app_indicator_new)(const gchar*, const gchar*, int);
@@ -134,6 +141,10 @@ struct PluginState {
   std::thread thread;
   std::atomic<bool> running{false};
 
+  // Grab/ungrab happen only on the X11 thread; other threads leave work here.
+  std::vector<KeyCode> pending_ungrab;
+  std::atomic<bool> sync_now{false};
+
   // Mirrors GetForegroundWindow() bookkeeping on the Windows plugin (focus.take/giveBack).
   Window saved_focus_target{0};
 
@@ -158,9 +169,32 @@ struct _DitoWin32Plugin {
 
 G_DEFINE_TYPE(DitoWin32Plugin, dito_win32_plugin, g_object_get_type())
 
-static void SendKeyEdge(DitoWin32Plugin* self, const std::string& type,
-                        const std::string& action, const std::string& key,
-                        int64_t micros) {
+// One keyboard hook per PROCESS, never per window: this plugin is registered once per window
+// (main+HUD+Review) and a separate XOpenDisplay per window means separate X clients fighting each
+// other for the exclusive XGrabKey of F9/F10. See CHANGELOG 2026-08-21.
+static PluginState* SharedKeyState() {
+  static PluginState* shared = new PluginState();
+  return shared;
+}
+
+static std::mutex g_plugins_mutex;
+static std::vector<DitoWin32Plugin*> g_plugins;
+
+/// Keys reach every registered window: only the main one listens, and it is not always the first.
+static void ForEachKeyChannel(const std::function<void(DitoWin32Plugin*)>& send) {
+  std::vector<DitoWin32Plugin*> targets;
+  {
+    std::lock_guard<std::mutex> lock(g_plugins_mutex);
+    for (DitoWin32Plugin* p : g_plugins) {
+      if (p->key_channel_active && p->key_channel != nullptr) targets.push_back(p);
+    }
+  }
+  for (DitoWin32Plugin* p : targets) send(p);
+}
+
+static void SendKeyEdgeTo(DitoWin32Plugin* self, const std::string& type,
+                          const std::string& action, const std::string& key,
+                          int64_t micros) {
   if (!self->key_channel_active || self->key_channel == nullptr) return;
 
   FlValue* map = fl_value_new_map();
@@ -174,9 +208,17 @@ static void SendKeyEdge(DitoWin32Plugin* self, const std::string& type,
   fl_value_unref(map);
 }
 
-static void SendKeyTick(DitoWin32Plugin* self,
-                        const std::vector<std::string>& down_actions,
+static void SendKeyEdge(DitoWin32Plugin*, const std::string& type,
+                        const std::string& action, const std::string& key,
                         int64_t micros) {
+  ForEachKeyChannel([&](DitoWin32Plugin* p) {
+    SendKeyEdgeTo(p, type, action, key, micros);
+  });
+}
+
+static void SendKeyTickTo(DitoWin32Plugin* self,
+                          const std::vector<std::string>& down_actions,
+                          int64_t micros) {
   if (!self->key_channel_active || self->key_channel == nullptr) return;
 
   FlValue* map = fl_value_new_map();
@@ -192,6 +234,14 @@ static void SendKeyTick(DitoWin32Plugin* self,
   g_autoptr(GError) error = nullptr;
   fl_event_channel_send(self->key_channel, map, nullptr, &error);
   fl_value_unref(map);
+}
+
+static void SendKeyTick(DitoWin32Plugin*,
+                        const std::vector<std::string>& down_actions,
+                        int64_t micros) {
+  ForEachKeyChannel([&](DitoWin32Plugin* p) {
+    SendKeyTickTo(p, down_actions, micros);
+  });
 }
 
 static void SendHookStatus(DitoWin32Plugin* self, bool installed) {
@@ -246,33 +296,132 @@ static gboolean on_tick_timer(gpointer user_data) {
 }
 
 static int X11ErrorHandler(Display* d, XErrorEvent* e) {
+  g_x11_error_count.fetch_add(1);
+  g_warning("dito: erro do X (code=%d, request=%d) — tecla global pode estar tomada",
+            e->error_code, e->request_code);
   return 0;
+}
+
+static int X11IOErrorHandler(Display* d) {
+  g_warning("dito: conexao com o X caiu");
+  return 0;
+}
+
+// Returns false when another client already holds the key (BadAccess); X11 thread only.
+static bool GrabOnThread(PluginState* state, KeyCode kc) {
+  static const unsigned int modifiers[] = {
+      0,
+      Mod2Mask,                  // NumLock
+      LockMask,                  // CapsLock
+      Mod2Mask | LockMask,       // NumLock + CapsLock
+  };
+
+  const int64_t before = g_x11_error_count.load();
+  for (unsigned int mod : modifiers) {
+    XGrabKey(state->display, kc, mod, state->root_window, True, GrabModeAsync,
+             GrabModeAsync);
+  }
+  XSync(state->display, False);
+  return g_x11_error_count.load() == before;
+}
+
+static void SendGrabStatusTo(DitoWin32Plugin* self, const std::string& action,
+                             const std::string& key, bool ok) {
+  if (!self->key_channel_active || self->key_channel == nullptr) return;
+
+  FlValue* map = fl_value_new_map();
+  fl_value_set_string_take(map, "type", fl_value_new_string("grab"));
+  fl_value_set_string_take(map, "name", fl_value_new_string(action.c_str()));
+  fl_value_set_string_take(map, "key", fl_value_new_string(key.c_str()));
+  fl_value_set_string_take(map, "ok", fl_value_new_bool(ok));
+
+  g_autoptr(GError) error = nullptr;
+  fl_event_channel_send(self->key_channel, map, nullptr, &error);
+  fl_value_unref(map);
+}
+
+static void SendGrabStatus(DitoWin32Plugin*, const std::string& action,
+                           const std::string& key, bool ok) {
+  ForEachKeyChannel([&](DitoWin32Plugin* p) {
+    SendGrabStatusTo(p, action, key, ok);
+  });
+}
+
+// Grab result travels to Dart on the main loop, same trip the key edges take.
+static void PostGrabStatus(DitoWin32Plugin* self, const std::string& action,
+                           const std::string& key, bool ok) {
+  struct GrabData {
+    DitoWin32Plugin* plugin;
+    std::string action;
+    std::string key;
+    bool ok;
+  };
+  auto* d = new GrabData{self, action, key, ok};
+  g_idle_add(
+      [](gpointer data) -> gboolean {
+        auto* g = static_cast<GrabData*>(data);
+        SendGrabStatus(g->plugin, g->action, g->key, g->ok);
+        delete g;
+        return G_SOURCE_REMOVE;
+      },
+      d);
+}
+
+// Grabs every binding that is not held yet; called on the X11 thread, retried while it fails.
+static void SyncGrabsOnThread(DitoWin32Plugin* self) {
+  PluginState* state = self->state;
+  std::vector<KeyCode> ungrab;
+  std::vector<std::tuple<std::string, std::string, KeyCode>> to_grab;
+
+  {
+    std::lock_guard<std::mutex> lock(state->mutex);
+    ungrab.swap(state->pending_ungrab);
+    for (const auto& b : state->bindings) {
+      if (!b.grabbed) to_grab.emplace_back(b.action, b.key, b.keycode);
+    }
+  }
+
+  static const unsigned int modifiers[] = {0, Mod2Mask, LockMask,
+                                           Mod2Mask | LockMask};
+  for (const KeyCode kc : ungrab) {
+    for (unsigned int mod : modifiers) {
+      XUngrabKey(state->display, kc, mod, state->root_window);
+    }
+  }
+  if (!ungrab.empty()) XFlush(state->display);
+
+  for (const auto& [action, key, kc] : to_grab) {
+    const bool ok = GrabOnThread(state, kc);
+    bool changed = false;
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      for (auto& b : state->bindings) {
+        if (b.keycode == kc && b.action == action && b.grabbed != ok) {
+          b.grabbed = ok;
+          changed = true;
+        }
+      }
+    }
+    if (changed || !ok) PostGrabStatus(self, action, key, ok);
+  }
 }
 
 static void X11ThreadMain(DitoWin32Plugin* self) {
   XSetErrorHandler(X11ErrorHandler);
+  XSetIOErrorHandler(X11IOErrorHandler);
   Display* display = XOpenDisplay(nullptr);
-  if (!display) return;
-
-  const unsigned int modifiers[] = {
-      0,
-      Mod2Mask,
-      LockMask,
-      Mod2Mask | LockMask,
-  };
+  if (!display) {
+    self->state->running = false;
+    g_warning("dito: XOpenDisplay falhou — teclas globais fora do ar");
+    return;
+  }
 
   {
     std::lock_guard<std::mutex> lock(self->state->mutex);
     self->state->display = display;
     self->state->root_window = DefaultRootWindow(display);
-    for (const auto& b : self->state->bindings) {
-      for (unsigned int mod : modifiers) {
-        XGrabKey(display, b.keycode, mod, self->state->root_window, True,
-                 GrabModeAsync, GrabModeAsync);
-      }
-    }
-    XFlush(display);
   }
+  SyncGrabsOnThread(self);
 
   Bool supp = False;
   XkbSetDetectableAutoRepeat(display, True, &supp);
@@ -282,7 +431,13 @@ static void X11ThreadMain(DitoWin32Plugin* self) {
   pfd.fd = x11_fd;
   pfd.events = POLLIN;
 
+  int64_t ticks_since_sync = 0;
   while (self->state && self->state->running) {
+    // ~2s: retries the grab a rival client is holding; bind/unbind ask for it right away.
+    if (++ticks_since_sync >= 200 || self->state->sync_now.exchange(false)) {
+      ticks_since_sync = 0;
+      SyncGrabsOnThread(self);
+    }
     while (XPending(display) > 0) {
       XEvent event;
       XNextEvent(display, &event);
@@ -331,6 +486,7 @@ static void X11ThreadMain(DitoWin32Plugin* self) {
         }
       }
     }
+
     poll(&pfd, 1, 10);
   }
 
@@ -341,44 +497,28 @@ static void X11ThreadMain(DitoWin32Plugin* self) {
   }
 }
 
-static void GrabX11Key(DitoWin32Plugin* self, KeyCode kc) {
-  if (!self->state) return;
-  std::lock_guard<std::mutex> lock(self->state->mutex);
-  if (!self->state->display) return;
-
-  const unsigned int modifiers[] = {
-      0,
-      Mod2Mask,                  // NumLock
-      LockMask,                  // CapsLock
-      Mod2Mask | LockMask,       // NumLock + CapsLock
-  };
-
-  for (unsigned int mod : modifiers) {
-    XGrabKey(self->state->display, kc, mod, self->state->root_window, True,
-             GrabModeAsync, GrabModeAsync);
-  }
-  XFlush(self->state->display);
+// Bind/unbind from Dart only leave a mark; the X11 thread owns every Xlib call on this display.
+static void RequestGrabSync(DitoWin32Plugin* self) {
+  if (self->state) self->state->sync_now = true;
 }
 
-static void UngrabX11Key(DitoWin32Plugin* self, KeyCode kc) {
+static void RequestUngrab(DitoWin32Plugin* self, KeyCode kc) {
   if (!self->state) return;
-  std::lock_guard<std::mutex> lock(self->state->mutex);
-  if (!self->state->display) return;
-
-  const unsigned int modifiers[] = {
-      0,
-      Mod2Mask,
-      LockMask,
-      Mod2Mask | LockMask,
-  };
-
-  for (unsigned int mod : modifiers) {
-    XUngrabKey(self->state->display, kc, mod, self->state->root_window);
+  {
+    std::lock_guard<std::mutex> lock(self->state->mutex);
+    self->state->pending_ungrab.push_back(kc);
   }
-  XFlush(self->state->display);
+  self->state->sync_now = true;
 }
 
+// Idempotent across windows: the second and third registration only join the broadcast list.
 static void StartKeyHook(DitoWin32Plugin* self) {
+  {
+    std::lock_guard<std::mutex> lock(g_plugins_mutex);
+    if (std::find(g_plugins.begin(), g_plugins.end(), self) == g_plugins.end()) {
+      g_plugins.push_back(self);
+    }
+  }
   if (!self->state || self->state->running) return;
   self->state->running = true;
   self->state->thread = std::thread(X11ThreadMain, self);
@@ -405,7 +545,19 @@ static void dito_win32_plugin_dispose(GObject* object) {
 
   self->key_channel_active = FALSE;
   self->tray_channel_active = FALSE;
-  StopKeyHook(self);
+
+  // Closing one window must not take the shared hook down with it.
+  bool alone = false;
+  {
+    std::lock_guard<std::mutex> lock(g_plugins_mutex);
+    alone = g_plugins.size() <= 1;
+  }
+  if (alone) {
+    StopKeyHook(self);
+  } else if (self->tick_timer_id != 0) {
+    g_source_remove(self->tick_timer_id);
+    self->tick_timer_id = 0;
+  }
 
   if (self->registrar != nullptr) {
     g_clear_object(&self->registrar);
@@ -419,13 +571,19 @@ static void dito_win32_plugin_dispose(GObject* object) {
   if (self->tray_channel != nullptr) {
     g_clear_object(&self->tray_channel);
   }
-  if (self->state != nullptr) {
+  // The state is shared by every window now: only the LAST plugin standing may tear it down.
+  bool last = false;
+  {
+    std::lock_guard<std::mutex> lock(g_plugins_mutex);
+    g_plugins.erase(std::remove(g_plugins.begin(), g_plugins.end(), self), g_plugins.end());
+    last = g_plugins.empty();
+  }
+  if (last && self->state != nullptr) {
     if (self->state->app_indicator && g_indicator_lib.set_status) {
       g_indicator_lib.set_status(self->state->app_indicator, 0); // PASSIVE
     }
-    delete self->state;
-    self->state = nullptr;
   }
+  self->state = nullptr;
 
   G_OBJECT_CLASS(dito_win32_plugin_parent_class)->dispose(object);
 }
@@ -442,7 +600,7 @@ static void dito_win32_plugin_init(DitoWin32Plugin* self) {
   self->key_channel_active = FALSE;
   self->tray_channel_active = FALSE;
   self->tick_timer_id = 0;
-  self->state = new PluginState();
+  self->state = SharedKeyState();
 }
 
 struct MenuCallbackData {
@@ -457,12 +615,42 @@ static void on_menu_item_activate(GtkMenuItem* item, gpointer user_data) {
   }
 }
 
+// Tecla sintetica ISOLADA (so down ou so up), que o autoteste precisa e o Ctrl+V nao cobre.
+static int InjectKeyForTest(const std::string& nome, bool down) {
+  void* lib = dlopen("libXtst.so.6", RTLD_LAZY);
+  if (!lib) return 0;
+  auto fake_key = (int (*)(Display*, unsigned int, int, unsigned long))
+      dlsym(lib, "XTestFakeKeyEvent");
+  if (!fake_key) return 0;
+  Display* d = XOpenDisplay(nullptr);
+  if (!d) return 0;
+  const KeyCode kc = XKeysymToKeycode(d, KeySymFromName(nome));
+  int enviados = 0;
+  if (kc != 0 && fake_key(d, kc, down ? True : False, 0)) enviados = 1;
+  XFlush(d);
+  XCloseDisplay(d);
+  return enviados;
+}
+
 static GtkWindow* GetToplevel(DitoWin32Plugin* self) {
   if (!self->registrar) return nullptr;
   FlView* view = fl_plugin_registrar_get_view(self->registrar);
   if (!view) return nullptr;
   GtkWidget* win = gtk_widget_get_toplevel(GTK_WIDGET(view));
   return (win && GTK_IS_WINDOW(win)) ? GTK_WINDOW(win) : nullptr;
+}
+
+// Weak-pointer targets so a delayed tick can outlive the view/window without touching freed memory.
+static void SetWindowOpacity(GtkWindow* win, bool opaque) {
+  GdkWindow* gdk_win = gtk_widget_get_window(GTK_WIDGET(win));
+  if (!gdk_win) return;
+  Display* display = GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win));
+  Atom prop = XInternAtom(display, "_NET_WM_WINDOW_OPACITY", False);
+  if (prop == None) return;
+  unsigned long value = opaque ? 0xFFFFFFFFul : 0ul;
+  XChangeProperty(display, GDK_WINDOW_XID(gdk_win), prop, XA_CARDINAL, 32,
+                  PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+  XFlush(display);
 }
 
 // EWMH property is the WM's single "what has focus" concept, read cooperatively instead of raced.
@@ -489,7 +677,8 @@ static Window ReadNetActiveWindow(Display* display) {
   return result;
 }
 
-static void RequestActivateWindow(Display* display, Window target) {
+// Monitor of the window the dono is actually using, not the OS-wide "primary" that never moves.
+static void RequestActivateWindow(Display* display, Window target, Time when = CurrentTime) {
   if (!display || target == 0) return;
   Atom net_active = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
 
@@ -500,7 +689,10 @@ static void RequestActivateWindow(Display* display, Window target) {
   event.xclient.window = target;
   event.xclient.message_type = net_active;
   event.xclient.format = 32;
-  event.xclient.data.l[0] = 1;  // source indication: normal application
+  // Source 2 (pager): source 1 with a zero timestamp is what the WM drops as focus stealing.
+  event.xclient.data.l[0] = 2;
+  event.xclient.data.l[1] = static_cast<long>(when);
+  event.xclient.data.l[2] = static_cast<long>(ReadNetActiveWindow(display));
 
   XSendEvent(display, DefaultRootWindow(display), False,
              SubstructureRedirectMask | SubstructureNotifyMask, &event);
@@ -509,9 +701,48 @@ static void RequestActivateWindow(Display* display, Window target) {
 
 // Synchronous on purpose: Windows uses SendInput, and Enter must never outrun the paste.
 static bool RunXdotoolKey(const std::string& keyspec) {
+  // XTEST direto em vez de subprocesso: g_spawn_sync congelava a interface inteira (fork+exec+wait
+  // na thread do GTK) a cada Ctrl+V e a cada Enter. Ver docs/armadilhas.md 4.7.
+  static bool xtest_ok = false;
+  static bool xtest_tentado = false;
+  static void* xtest_lib = nullptr;
+  static int (*fake_key)(Display*, unsigned int, int, unsigned long) = nullptr;
+
+  if (!xtest_tentado) {
+    xtest_tentado = true;
+    xtest_lib = dlopen("libXtst.so.6", RTLD_LAZY);
+    if (xtest_lib) {
+      fake_key = (int (*)(Display*, unsigned int, int, unsigned long))
+          dlsym(xtest_lib, "XTestFakeKeyEvent");
+      xtest_ok = fake_key != nullptr;
+    }
+    if (!xtest_ok) g_warning("dito: sem XTest, caindo para xdotool (interface pode travar)");
+  }
+
+  if (xtest_ok) {
+    Display* d = XOpenDisplay(nullptr);
+    if (d) {
+      // "ctrl+v" e "Return": so estes dois formatos existem no app.
+      const bool com_ctrl = keyspec.rfind("ctrl+", 0) == 0;
+      const std::string tecla = com_ctrl ? keyspec.substr(5) : keyspec;
+      const KeyCode kc = XKeysymToKeycode(d, KeySymFromName(tecla));
+      const KeyCode ctrl = XKeysymToKeycode(d, XK_Control_L);
+      if (kc != 0) {
+        if (com_ctrl) fake_key(d, ctrl, True, 0);
+        fake_key(d, kc, True, 0);
+        fake_key(d, kc, False, 0);
+        if (com_ctrl) fake_key(d, ctrl, False, 0);
+        XFlush(d);
+        XCloseDisplay(d);
+        return true;
+      }
+      XCloseDisplay(d);
+    }
+  }
+
   const gchar* argv[] = {"xdotool", "key", "--clearmodifiers", keyspec.c_str(), nullptr};
-  g_autoptr(GError) error = nullptr;
   gint status = 0;
+  g_autoptr(GError) error = nullptr;
   if (!g_spawn_sync(nullptr, const_cast<gchar**>(argv), nullptr, G_SPAWN_SEARCH_PATH, nullptr,
                     nullptr, nullptr, nullptr, &status, &error)) {
     g_warning("xdotool key %s nao executou: %s", keyspec.c_str(), error->message);
@@ -522,6 +753,16 @@ static bool RunXdotoolKey(const std::string& keyspec) {
     return false;
   }
   return true;
+}
+
+// gtk_clipboard_set_text has no return value; these mirror it but report real selection ownership.
+static void ClipboardGetFunc(GtkClipboard* clipboard, GtkSelectionData* selection_data,
+                             guint info, gpointer user_data) {
+  gtk_selection_data_set_text(selection_data, static_cast<const gchar*>(user_data), -1);
+}
+
+static void ClipboardClearFunc(GtkClipboard* clipboard, gpointer user_data) {
+  g_free(user_data);
 }
 
 static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
@@ -549,9 +790,15 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
             if (kc != 0) {
               {
                 std::lock_guard<std::mutex> lock(self->state->mutex);
-                self->state->bindings.push_back({action, key, kc, suppress});
+                auto& bindings = self->state->bindings;
+                bindings.erase(std::remove_if(bindings.begin(), bindings.end(),
+                                              [&](const X11Binding& b) {
+                                                return b.action == action;
+                                              }),
+                               bindings.end());
+                bindings.push_back({action, key, kc, suppress, false});
               }
-              GrabX11Key(self, kc);
+              RequestGrabSync(self);
             }
           }
           XCloseDisplay(d);
@@ -568,15 +815,19 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       FlValue* name_val = fl_value_lookup_string(args, "name");
       const std::string action = name_val ? fl_value_get_string(name_val) : "";
       if (!action.empty()) {
-        std::lock_guard<std::mutex> lock(self->state->mutex);
-        for (auto it = self->state->bindings.begin(); it != self->state->bindings.end();) {
-          if (it->action == action) {
-            UngrabX11Key(self, it->keycode);
-            it = self->state->bindings.erase(it);
-          } else {
-            ++it;
+        std::vector<KeyCode> keycodes;
+        {
+          std::lock_guard<std::mutex> lock(self->state->mutex);
+          for (auto it = self->state->bindings.begin(); it != self->state->bindings.end();) {
+            if (it->action == action) {
+              keycodes.push_back(it->keycode);
+              it = self->state->bindings.erase(it);
+            } else {
+              ++it;
+            }
           }
         }
+        for (const KeyCode kc : keycodes) RequestUngrab(self, kc);
       }
     }
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
@@ -586,12 +837,14 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
 
   if (g_strcmp0(method, "keys.unbindAll") == 0) {
     if (self->state) {
-      std::lock_guard<std::mutex> lock(self->state->mutex);
-      for (const auto& b : self->state->bindings) {
-        UngrabX11Key(self, b.keycode);
+      std::vector<KeyCode> keycodes;
+      {
+        std::lock_guard<std::mutex> lock(self->state->mutex);
+        for (const auto& b : self->state->bindings) keycodes.push_back(b.keycode);
+        self->state->bindings.clear();
+        self->state->seen.clear();
       }
-      self->state->bindings.clear();
-      self->state->seen.clear();
+      for (const KeyCode kc : keycodes) RequestUngrab(self, kc);
     }
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
     fl_method_call_respond_success(method_call, result, nullptr);
@@ -627,6 +880,10 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       for (const auto& [action, down] : self->state->seen) {
         fl_value_set_string_take(result, action.c_str(), fl_value_new_bool(down));
       }
+      for (const auto& b : self->state->bindings) {
+        fl_value_set_string_take(result, ("grab:" + b.action).c_str(),
+                                 fl_value_new_bool(b.grabbed));
+      }
     } else {
       fl_value_set_string_take(result, "_installed", fl_value_new_bool(FALSE));
     }
@@ -650,6 +907,20 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
+  if (g_strcmp0(method, "keys.injectForTest") == 0) {
+    std::string tecla;
+    bool down = true;
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* k = fl_value_lookup_string(args, "key");
+      FlValue* dv = fl_value_lookup_string(args, "down");
+      if (k && fl_value_get_type(k) == FL_VALUE_TYPE_STRING) tecla = fl_value_get_string(k);
+      if (dv && fl_value_get_type(dv) == FL_VALUE_TYPE_BOOL) down = fl_value_get_bool(dv);
+    }
+    g_autoptr(FlValue) result = fl_value_new_int(InjectKeyForTest(tecla, down));
+    fl_method_call_respond_success(method_call, result, nullptr);
+    return;
+  }
+
   if (g_strcmp0(method, "clipboard.get") == 0) {
     GtkClipboard* clip = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
     gchar* text = gtk_clipboard_wait_for_text(clip);
@@ -661,15 +932,30 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
   }
 
   if (g_strcmp0(method, "clipboard.set") == 0) {
+    bool ok = false;
     if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
       FlValue* text_val = fl_value_lookup_string(args, "text");
       if (text_val && fl_value_get_type(text_val) == FL_VALUE_TYPE_STRING) {
         const gchar* text = fl_value_get_string(text_val);
         GtkClipboard* clip = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-        gtk_clipboard_set_text(clip, text, -1);
+
+        GtkTargetList* target_list = gtk_target_list_new(nullptr, 0);
+        gtk_target_list_add_text_targets(target_list, 0);
+        gint n_targets = 0;
+        GtkTargetEntry* targets = gtk_target_table_new_from_list(target_list, &n_targets);
+
+        // Selection ownership can outlive this call; Get/Clear own this copy, not the stack text.
+        gchar* owned_text = g_strdup(text);
+        ok = gtk_clipboard_set_with_data(clip, targets, n_targets, ClipboardGetFunc,
+                                         ClipboardClearFunc, owned_text);
+        // ok==FALSE means our callbacks were never installed, so nothing else will free this.
+        if (!ok) g_free(owned_text);
+
+        gtk_target_table_free(targets, n_targets);
+        gtk_target_list_unref(target_list);
       }
     }
-    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+    g_autoptr(FlValue) result = fl_value_new_bool(ok);
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
@@ -720,8 +1006,12 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       Display* display = GDK_DISPLAY_XDISPLAY(gdk_display);
       Window self_xid = GDK_WINDOW_XID(gtk_widget_get_window(GTK_WIDGET(win)));
       Window current = ReadNetActiveWindow(display);
-      // Never remember ourselves — mirrors the Windows plugin's same guard.
-      self->state->saved_focus_target = (current != self_xid) ? current : 0;
+      // Nunca lembrar de nos mesmos, MAS tambem nunca esquecer quem estava antes: zerar aqui
+      // (2o cartao abrindo com a sobreposicao ja ativa) deixava o foco preso nela e as teclas do
+      // sistema sumiam. Ver docs/armadilhas.md 4.5.
+      if (current != self_xid && current != 0) {
+        self->state->saved_focus_target = current;
+      }
     }
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
     fl_method_call_respond_success(method_call, result, nullptr);
@@ -734,8 +1024,14 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     if (win && self->state && self->state->saved_focus_target != 0) {
       GdkDisplay* gdk_display = gtk_widget_get_display(GTK_WIDGET(win));
       Display* display = GDK_DISPLAY_XDISPLAY(gdk_display);
-      RequestActivateWindow(display, self->state->saved_focus_target);
+      const Window target = self->state->saved_focus_target;
+      RequestActivateWindow(display, target);
       self->state->saved_focus_target = 0;
+      // One check, no retry loop: window.focus's busy-wait is a known issue left for later.
+      XSync(display, False);
+      if (ReadNetActiveWindow(display) != target) {
+        g_warning("focus.giveBack: foco nao voltou para o alvo salvo (0x%lx)", target);
+      }
       ok = true;
     }
     g_autoptr(FlValue) result = fl_value_new_bool(ok);
@@ -800,6 +1096,24 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
+  // accept_focus=FALSE grava WM_HINTS.input=False, e o Mutter trata isso como "esta janela NUNCA
+  // pode receber foco" — nem XSetInputFocus contorna. No Windows o equivalente (WS_EX_NOACTIVATE) e
+  // fraco e da para furar depois; aqui nao. Ver docs/armadilhas.md 4.6.
+  if (g_strcmp0(method, "window.setFocusable") == 0) {
+    GtkWindow* win = GetToplevel(self);
+    bool focusable = true;
+    if (fl_value_get_type(args) == FL_VALUE_TYPE_BOOL) {
+      focusable = fl_value_get_bool(args);
+    }
+    if (win) {
+      gtk_window_set_accept_focus(win, focusable ? TRUE : FALSE);
+      gtk_window_set_focus_on_map(win, focusable ? TRUE : FALSE);
+    }
+    g_autoptr(FlValue) result = fl_value_new_bool(win != nullptr);
+    fl_method_call_respond_success(method_call, result, nullptr);
+    return;
+  }
+
   if (g_strcmp0(method, "window.adoptAsPanel") == 0) {
     GtkWindow* win = GetToplevel(self);
     if (!win) {
@@ -838,15 +1152,42 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     }
     gtk_widget_show_all(GTK_WIDGET(win));
     GdkWindow* gdk_win = gtk_widget_get_window(GTK_WIDGET(win));
-    if (gdk_win) {
-      // A WM ignores present() without a real timestamp, so Tab/Enter never reached the card.
-      gtk_window_present_with_time(win, gdk_x11_get_server_time(gdk_win));
-      RequestActivateWindow(GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win)),
-                            GDK_WINDOW_XID(gdk_win));
-    } else {
+    if (!gdk_win) {
       gtk_window_present(win);
+      g_autoptr(FlValue) unrealized = fl_value_new_bool(FALSE);
+      fl_method_call_respond_success(method_call, unrealized, nullptr);
+      return;
     }
-    g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
+
+    Display* display = GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win));
+    const Window xid = GDK_WINDOW_XID(gdk_win);
+    bool active = false;
+    // Ask, then confirm: answering TRUE without checking is what hid this bug for a whole day.
+    for (int attempt = 0; attempt < 2 && !active; attempt++) {
+      const Time when = gdk_x11_get_server_time(gdk_win);
+      // Muffin/Mutter judge focus stealing by the window's user time; a stale one is refused.
+      gdk_x11_window_set_user_time(gdk_win, when);
+      gtk_window_present_with_time(win, when);
+      RequestActivateWindow(display, xid, when);
+      XSync(display, False);
+      // The WM is another client: give it a moment to act before calling the request refused.
+      for (int wait = 0; wait < 20 && !active; wait++) {
+        g_usleep(5000);
+        active = ReadNetActiveWindow(display) == xid;
+      }
+    }
+    if (!active) {
+      // A re-mapped window trips focus-stealing prevention; take the focus at the X level instead.
+      XWindowAttributes attrs = {};
+      if (XGetWindowAttributes(display, xid, &attrs) && attrs.map_state == IsViewable) {
+        XSetInputFocus(display, xid, RevertToParent, gdk_x11_get_server_time(gdk_win));
+        XSync(display, False);
+        active = true;
+      } else {
+        g_warning("window.focus: janela nao esta visivel, sem foco possivel");
+      }
+    }
+    g_autoptr(FlValue) result = fl_value_new_bool(active);
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
@@ -864,6 +1205,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
+  
   if (g_strcmp0(method, "window.setHitRect") == 0) {
     GtkWindow* win = GetToplevel(self);
     bool ok = false;
@@ -886,24 +1228,45 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       if (width > 0 && height > 0) {
         cairo_region_t* region;
         if (radius > 0) {
-          // cairo has no rounded-rect region builder; two unioned rects approximate it.
+          // Cairo nao tem regiao de canto redondo: montamos faixa a faixa, uma linha por pixel do
+          // arco, para o recorte acompanhar a curva em vez de cortar quadrado.
           cairo_rectangle_int_t body = {(int)left, (int)(top + radius),
                                         (int)width, (int)(height - 2 * radius)};
           region = cairo_region_create_rectangle(&body);
-          cairo_rectangle_int_t mid = {(int)(left + radius), (int)top,
-                                       (int)(width - 2 * radius), (int)height};
-          cairo_region_t* mid_region = cairo_region_create_rectangle(&mid);
-          cairo_region_union(region, mid_region);
-          cairo_region_destroy(mid_region);
+          const int r = (int)radius;
+          for (int i = 0; i < r; ++i) {
+            const double dy = r - i - 0.5;
+            const int inset = r - (int)(std::sqrt((double)r * r - dy * dy) + 0.5);
+            cairo_rectangle_int_t topo = {(int)left + inset, (int)top + i,
+                                          (int)width - 2 * inset, 1};
+            cairo_rectangle_int_t base = {(int)left + inset,
+                                          (int)(top + height) - i - 1,
+                                          (int)width - 2 * inset, 1};
+            cairo_region_union_rectangle(region, &topo);
+            cairo_region_union_rectangle(region, &base);
+          }
         } else {
           cairo_rectangle_int_t rect = {(int)left, (int)top, (int)width, (int)height};
           region = cairo_region_create_rectangle(&rect);
         }
-        // Input shape only — the bounding shape fights Flutter's own GL swapchain compositing.
+        // Sem visual RGBA a janela e opaca: o recorte de forma e o que faz sobrar so a pilula.
+        gtk_widget_shape_combine_region(GTK_WIDGET(win), region);
         gtk_widget_input_shape_combine_region(GTK_WIDGET(win), region);
         cairo_region_destroy(region);
+        SetWindowOpacity(win, true);
       } else {
-        gtk_widget_input_shape_combine_region(GTK_WIDGET(win), nullptr);
+        // Regiao vazia = janela invisivel sem desmapear. Mostrar/esconder de verdade falhava de
+        // forma intermitente neste WM: a janela ficava sem mapear. Ver docs/armadilhas.md 4.3.
+        cairo_region_t* empty = cairo_region_create();
+        gtk_widget_input_shape_combine_region(GTK_WIDGET(win), empty);
+        // Forma vazia e o que o Muffin erra: ele nao repinta a area liberada e o toast fica de
+        // fantasma na tela. Com compositor, esconder e opacidade 0. Ver docs/armadilhas.md 4.8.
+        if (gdk_screen_is_composited(gtk_widget_get_screen(GTK_WIDGET(win)))) {
+          SetWindowOpacity(win, false);
+        } else {
+          gtk_widget_shape_combine_region(GTK_WIDGET(win), empty);
+        }
+        cairo_region_destroy(empty);
       }
       ok = true;
     }
@@ -940,6 +1303,20 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     g_autoptr(FlValue) result = fl_value_new_map();
     fl_value_set_string_take(result, "self", fl_value_new_int(self_xid));
     fl_value_set_string_take(result, "foreground", fl_value_new_int(foreground_xid));
+    fl_method_call_respond_success(method_call, result, nullptr);
+    return;
+  }
+
+  if (g_strcmp0(method, "test.ownsForeground") == 0) {
+    bool owns = false;
+    GtkWindow* win = GetToplevel(self);
+    GdkWindow* gdk_win = win ? gtk_widget_get_window(GTK_WIDGET(win)) : nullptr;
+    if (gdk_win) {
+      Display* display = GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win));
+      // Read-only twin of the check in window.focus: compare, don't request.
+      owns = ReadNetActiveWindow(display) == GDK_WINDOW_XID(gdk_win);
+    }
+    g_autoptr(FlValue) result = fl_value_new_bool(owns);
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }

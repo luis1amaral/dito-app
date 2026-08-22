@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:dito_app/core/logbook.dart';
 import 'package:dito_app/core/result.dart';
 import 'package:dito_app/output/paste_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,11 +11,15 @@ class SpyBackend implements PasteBackend {
     this.clipboard,
     this.writeSucceeds = true,
     this.ctrlVSucceeds = true,
+    this.restoreFocusSucceeds = true,
+    this.pressEnterSucceeds = true,
   });
 
   String? clipboard;
   bool writeSucceeds;
   bool ctrlVSucceeds;
+  bool restoreFocusSucceeds;
+  bool pressEnterSucceeds;
 
   final List<String> log = <String>[];
   final Stopwatch clock = Stopwatch()..start();
@@ -46,19 +53,20 @@ class SpyBackend implements PasteBackend {
   @override
   Future<bool> pressEnter() async {
     _mark('enter');
-    return true;
+    return pressEnterSucceeds;
   }
 
   @override
   Future<bool> restoreFocus() async {
     _mark('focus');
-    return true;
+    return restoreFocusSucceeds;
   }
 }
 
 void main() {
-  PasteService serviceFor(SpyBackend spy) => PasteService(
+  PasteService serviceFor(SpyBackend spy, {Logbook? log}) => PasteService(
         backend: spy,
+        log: log,
         settle: const Duration(milliseconds: 20),
         beforeEnter: const Duration(milliseconds: 60),
         restoreAfter: const Duration(milliseconds: 120),
@@ -142,6 +150,36 @@ void main() {
       final spy = SpyBackend();
       final result = await serviceFor(spy).paste('ola');
       expect(result.pasted, isTrue);
+      expect(result.fallback, isNull);
+    });
+
+    test('a refused restoreFocus does not stop Ctrl+V, still reports success, and gets logged',
+        () async {
+      final tempDir = Directory.systemTemp.createTempSync('dito_paste_test_');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final log = Logbook('paste-test', directory: tempDir.path);
+      addTearDown(log.close);
+
+      final spy = SpyBackend(restoreFocusSucceeds: false);
+      final result = await serviceFor(spy, log: log).paste('ola');
+
+      expect(spy.log, contains('ctrl+v'), reason: 'foco recusado é aviso, nunca aborta a colagem');
+      expect(result.pasted, isTrue);
+      expect(result.fallback, isNull);
+      // Pins the log line paste_service.dart writes for this known false negative.
+      expect(
+        log.recent,
+        anyElement(contains('paste: falha ao restaurar foco (prosseguindo mesmo assim)')),
+      );
+    });
+
+    test('a refused Enter still reports the paste as done, but qualifies the result', () async {
+      final spy = SpyBackend(pressEnterSucceeds: false);
+      final result = await serviceFor(spy).paste('ola', sendEnter: true);
+
+      expect(result.pasted, isTrue, reason: 'o texto ja foi colado quando o Enter falha');
+      expect(result.copied, isTrue);
+      expect(result.error, isNotNull);
       expect(result.fallback, isNull);
     });
   });

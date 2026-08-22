@@ -29,6 +29,9 @@ class DitoController {
     this.notify,
     this.playSound,
     this.now = _defaultNow,
+    this.startTimeout = const Duration(seconds: 5),
+    this.transcribeTimeout = const Duration(seconds: 120),
+    this.aliveTimeout = const Duration(seconds: 3),
     Logbook? log,
   })  : _log = log ?? Logbook('controller'),
         alarms = AlarmPolicy(now: now) {
@@ -45,6 +48,12 @@ class DitoController {
   final PasteService paste;
   final AlarmPolicy alarms;
   final int Function() now;
+
+  /// Injectable so the stuck-phase tests do not wait on wall time.
+  final Duration startTimeout;
+  final Duration transcribeTimeout;
+  final Duration aliveTimeout;
+
   final Logbook _log;
 
   /// Sends one signal to the HUD window.
@@ -68,12 +77,23 @@ class DitoController {
   StreamSubscription<EngineEvent>? _events;
   Timer? _commandTimeout;
   Timer? _transcribeTimeout;
+  Timer? _aliveTimeout;
 
-  /// The finished session the review card is holding, if any.
-  FinishedEvent? pendingReview;
+  /// Sessions waiting for review, oldest first: falar 1, falar 2, falar 3 empilham em vez de se
+  /// atropelarem. Ver CHANGELOG 2026-08-21.
+  final List<FinishedEvent> pendingReviews = <FinishedEvent>[];
+
+  FinishedEvent? get pendingReview =>
+      pendingReviews.isEmpty ? null : pendingReviews.last;
 
   /// The recording currently on air, so a late transcript cannot idle a newer one.
   String? _activeSessionId;
+
+  /// A key released while the engine was still starting; the stop fires when it finally does.
+  bool _stopPending = false;
+
+  /// A start the timeout gave up on: the recording that shows up late must be closed, not kept.
+  bool _startAbandoned = false;
 
   AppConfig get _cfg => config.config;
 
@@ -105,11 +125,10 @@ class DitoController {
     if (!state.canStart) {
       _log('start ignorado: fase ${state.phase.name}'
           ' (revisao pendente=${pendingReview != null})');
-      // Auto-cura contra o "ainda terminando o anterior" preso: uma transcricao que travou ou
-      // morreu sem emitir finished/failed deixava a fase em transcribing para sempre. So agimos
-      // nesse estado - nunca numa gravacao ativa (essa recusa e legitima). Perguntamos o estado
-      // real ao motor e o handler de StatusEvent resincroniza para idle quando nao ha sessao.
-      if (state.phase == AppPhase.transcribing) _resyncFromEngine();
+      // Auto-cura de qualquer fase ocupada, gravacao inclusive: o handler de StatusEvent so volta
+      // para idle quando o MOTOR diz que nao ha sessao, entao gravacao de verdade nunca e morta.
+      // Ver CHANGELOG 2026-08-21 (gravacao fantasma).
+      _resyncFromEngine();
       // A refusal the user cannot see reads exactly like a dead shortcut.
       hud(HudMessage.toast(HudToast.stillBusy, ms: 1600));
       return false;
@@ -123,6 +142,8 @@ class DitoController {
     }
 
     final meeting = action == 'meeting';
+    _stopPending = false;
+    _startAbandoned = false;
     supervisor.wasRecording = true;
     final sent = client.send(StartCommand(
       mode: meeting ? 'meeting' : 'dictation',
@@ -154,7 +175,15 @@ class DitoController {
   }
 
   void onHotkeyStop(String action) {
-    if (!state.isRecording) return;
+    // Released before the engine started: without this the arriving recording has nobody to stop it.
+    // The flag does NOT depend on the timeout still running - that is what left the phantom
+    // recording behind (CHANGELOG 2026-08-21).
+    if (!state.isRecording) {
+      _stopPending = true;
+      return;
+    }
+    _stopPending = false;
+    _aliveTimeout?.cancel();
     supervisor.wasRecording = false;
     if (!client.send(const StopCommand())) {
       hud(HudMessage.toast(HudToast.engineUnreachable));
@@ -172,7 +201,9 @@ class DitoController {
   /// false and the phase is a lie anyway - then it is safe to go straight back to idle.
   void _resyncFromEngine() {
     final asked = client.send(const StatusCommand());
-    if (!asked) {
+    // A live recording is never dropped on a failed send: the WAV keeps growing on disk and the
+    // level watchdog already covers an engine that really went away.
+    if (!asked && !state.isRecording) {
       supervisor.wasRecording = false;
       _set(state.copyWith(phase: AppPhase.idle));
       hud(HudMessage.dismiss);
@@ -183,19 +214,33 @@ class DitoController {
   /// preflight with an alarm and no failure, so this is the only way back to idle.
   void _armTimeout() {
     _commandTimeout?.cancel();
-    _commandTimeout = Timer(const Duration(seconds: 5), () {
+    _commandTimeout = Timer(startTimeout, () {
       if (state.isRecording) return;
       supervisor.markDegraded('o motor nao respondeu ao start');
       supervisor.wasRecording = false;
+      // Giving up on our side is not enough: the engine may still be starting that capture, and a
+      // recording nobody can stop is what forced closing the app (CHANGELOG 2026-08-21).
+      _startAbandoned = true;
+      client.send(const StopCommand());
       _set(state.copyWith(phase: AppPhase.idle));
       hud(HudMessage.dead(_s.errEngineNoResponse, canFix: false));
+    });
+  }
+
+  /// The engine emits level at 20 Hz while it captures: silence here means the phase is a lie.
+  void _armAliveTimeout() {
+    _aliveTimeout?.cancel();
+    _aliveTimeout = Timer(aliveTimeout, () {
+      if (!state.isRecording) return;
+      _log('gravando sem sinal do motor ha 3s: conferindo com o motor');
+      _resyncFromEngine();
     });
   }
 
   /// ModelNotReady dies on stderr with no failed event; without this the app is stuck forever.
   void _armTranscribeTimeout() {
     _transcribeTimeout?.cancel();
-    _transcribeTimeout = Timer(const Duration(seconds: 120), () {
+    _transcribeTimeout = Timer(transcribeTimeout, () {
       if (state.phase != AppPhase.transcribing) return;
       _log('transcricao sem resposta ha 120s: liberando o app');
       supervisor.markDegraded('a transcricao nao respondeu');
@@ -216,7 +261,11 @@ class DitoController {
       case StatusEvent(:final isRecording):
         // Resynchronise: if we disagree with the engine, the engine wins.
         if (!isRecording && state.isBusy) {
+          _log('motor diz que nao ha sessao: destravando a fase ${state.phase.name}');
           _transcribeTimeout?.cancel();
+          _aliveTimeout?.cancel();
+          _activeSessionId = null;
+          supervisor.wasRecording = false;
           _set(state.copyWith(phase: AppPhase.idle));
           hud(HudMessage.dismiss);
         }
@@ -232,9 +281,17 @@ class DitoController {
           clearAlarm: true,
         ));
         hud(HudMessage.recording(meeting: isMeeting));
+        _armAliveTimeout();
+        if (_stopPending || _startAbandoned) {
+          _log('parar pedido durante o start: encerrando a gravacao que acabou de subir'
+              ' (abandonada=$_startAbandoned)');
+          _startAbandoned = false;
+          onHotkeyStop(isMeeting ? 'meeting' : 'dictation');
+        }
 
       case LevelEvent(:final rms):
         level.value = rms;
+        if (state.isRecording) _armAliveTimeout();
         hud(HudMessage.level(rms));
 
       case AlarmEvent(state: final audio, :final reason, :final fixHint):
@@ -242,6 +299,7 @@ class DitoController {
 
       case PhaseEvent(:final phase):
         if (phase == EnginePhase.transcribing) {
+          _aliveTimeout?.cancel();
           _set(state.copyWith(phase: AppPhase.transcribing));
           hud(HudMessage.working(HudWork.transcribing));
           _armTranscribeTimeout();
@@ -258,6 +316,8 @@ class DitoController {
       case FailedEvent(:final reason):
         _commandTimeout?.cancel();
         _transcribeTimeout?.cancel();
+        _aliveTimeout?.cancel();
+        _activeSessionId = null;
         supervisor.wasRecording = false;
         _set(state.copyWith(phase: AppPhase.idle));
         hud(HudMessage.toast(HudToast.failed, detail: reason, ms: 4000));
@@ -270,6 +330,8 @@ class DitoController {
   }
 
   void _onAlarm(AudioState audio, String? reason, String? fixHint) {
+    // Sem isto o "sem audio" nao deixava rastro: o dono via o triangulo e o log nao sabia de nada.
+    _log('alarme: ${audio.name} (motivo=${reason ?? "-"}, fase=${state.phase.name})');
     switch (audio) {
       case AudioState.dead:
         _set(state.copyWith(alarm: audio, alarmReason: reason, fixHint: fixHint));
@@ -300,14 +362,18 @@ class DitoController {
   }
 
   void _onFinished(FinishedEvent event) {
-    _commandTimeout?.cancel();
-    _transcribeTimeout?.cancel();
-    // A newer recording owns the phase; idling it here would break its own stop.
-    final live = state.isRecording && event.sessionId != _activeSessionId;
+    // A late transcript from an OLDER session must not touch the phase, the watchdogs or the
+    // review card of the session that is on air - capturing or transcribing (CHANGELOG 2026-08-21).
+    final mine = _activeSessionId == null || event.sessionId == _activeSessionId;
+    final live = !mine && state.isBusy;
     if (!live) {
+      _commandTimeout?.cancel();
+      _transcribeTimeout?.cancel();
+      _aliveTimeout?.cancel();
       supervisor.wasRecording = false;
       level.value = 0;
     }
+    if (mine) _activeSessionId = null;
     // "Sem audio" only means something while recording: stopping must not leave it stuck lit.
     _set(state.copyWith(
       phase: live ? state.phase : AppPhase.idle,
@@ -315,34 +381,49 @@ class DitoController {
       clearAlarm: !live,
     ));
 
+    // Dismissing while a newer recording is on air would hide the pill of a live session.
+    void dismissIfMine() {
+      if (!live) hud(HudMessage.dismiss);
+    }
+
     if (event.text.trim().isEmpty) {
+      // Nada transcrito com o microfone entregando so ruido nao e mis-tap: e falha de captacao,
+      // e sumir calado deixava o dono sem saber por que (CHANGELOG 2026-08-21).
+      if (!live && !event.everHeardAudio && event.seconds > 1) {
+        _log('gravacao sem voz: ${event.seconds.toStringAsFixed(1)}s sem nada audivel');
+        hud(HudMessage.toast(HudToast.noVoiceHeard,
+            detail: _s.toastNoVoiceHeardWhy, ms: 6000));
+        return;
+      }
       // A mis-tap leaves nothing behind and says nothing: the watchdog's grace makes a
       // recording this short always look silent, so alarming here is a guaranteed lie.
-      hud(HudMessage.dismiss);
+      dismissIfMine();
       return;
     }
 
     if (_cfg.output.confirm) {
-      pendingReview = event;
-      hud(HudMessage.dismiss);
+      pendingReviews.add(event);
+      dismissIfMine();
       review(event);
       return;
     }
 
-    hud(HudMessage.dismiss);
+    dismissIfMine();
 
     // A meeting is never pasted without review.
     if (event.isMeeting) return;
     if (!_cfg.output.paste) return;
-    unawaited(_paste(event.text));
+    // A newer session on air must not have its pill stomped by a stale session's toast.
+    unawaited(_paste(event.text, announce: !live));
   }
 
-  Future<void> _paste(String text) async {
+  Future<void> _paste(String text, {bool announce = true}) async {
     final result = await paste.paste(
       text,
       sendEnter: _cfg.output.enter,
       restoreClipboard: _cfg.output.restoreClipboard,
     );
+    if (!announce) return;
     final onde = result.fallback;
     if (onde != null) {
       hud(HudMessage.toast(
@@ -350,12 +431,21 @@ class DitoController {
               ? HudToast.pasteToClipboard
               : HudToast.pasteToFolder,
           ms: 6000));
+    } else if (result.error != null) {
+      // Pasted but the Enter never landed: saying "colado" here would hide an unsent message.
+      hud(HudMessage.toast(HudToast.failed, detail: result.error, ms: 4000));
+    } else {
+      // Success has to look different from silence, or success and failure are the same to the dono.
+      hud(HudMessage.toast(HudToast.pasted, ms: 1200));
     }
   }
 
   // ---- review card ----
 
-  Future<void> _saveToVault(String text) async {
+  /// Set only when _saveToVault last failed, so onReviewSend can report why.
+  String? _lastVaultError;
+
+  Future<bool> _saveToVault(String text) async {
     try {
       final targetDir = DitoPaths.resolveObsidianPath(
         _cfg.obsidian.vault,
@@ -372,40 +462,48 @@ class DitoController {
           '${n.hour.toString().padLeft(2, '0')}'
           '${n.minute.toString().padLeft(2, '0')}'
           '${n.second.toString().padLeft(2, '0')}';
-      final file = File('$targetDir\\$stamp.md');
+      final file = File('$targetDir${Platform.pathSeparator}$stamp.md');
       final content = '# Nota Dito - ${n.day.toString().padLeft(2, '0')}/${n.month.toString().padLeft(2, '0')}/${n.year} ${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}\n\n$text\n';
       await file.writeAsString(content);
       _log('salvo no obsidian em ${file.path}');
+      return true;
     } catch (e) {
       _log('falha ao salvar no obsidian: $e');
+      _lastVaultError = '$e';
+      return false;
     }
   }
 
-  Future<void> onReviewSend(String text, {required bool toVault}) async {
-    pendingReview = null;
+  Future<void> onReviewSend(String text, {required bool toVault, String? sessionId}) async {
+    pendingReviews.removeWhere((e) => sessionId == null || e.sessionId == sessionId);
     _set(state.copyWith(lastText: text));
     if (text.trim().isEmpty) return;
 
+    var vaultOk = true;
     if (toVault) {
       hud(HudMessage.working(HudWork.saving));
-      await _saveToVault(text);
+      vaultOk = await _saveToVault(text);
     }
 
     // 150 ms for the focus to settle after the card hands it back.
     await Future<void>.delayed(const Duration(milliseconds: 150));
     if (_cfg.output.paste) await _paste(text);
 
-    if (toVault) {
-      hud(HudMessage.toast(HudToast.pasted, ms: 1200));
+    // _paste already gave the final signal when it ran - this branch only covers vault-without-paste.
+    if (toVault && !_cfg.output.paste) {
+      // A failed save must never look like the toast that means "done" (silent-failure hunt).
+      hud(vaultOk
+          ? HudMessage.toast(HudToast.pasted, ms: 1200)
+          : HudMessage.toast(HudToast.failed, detail: _lastVaultError, ms: 4000));
     } else if (!_cfg.output.paste) {
       hud(HudMessage.dismiss);
     }
   }
 
-  void onReviewDiscard() {
+  void onReviewDiscard({String? sessionId}) {
     // Its absence is the only way to tell "Tab never arrived" from "the card was still open".
     _log('review descartado');
-    pendingReview = null;
+    pendingReviews.removeWhere((e) => sessionId == null || e.sessionId == sessionId);
     hud(HudMessage.toast(HudToast.discarded, ms: 1200));
   }
 
@@ -427,6 +525,7 @@ class DitoController {
   Future<void> dispose() async {
     _commandTimeout?.cancel();
     _transcribeTimeout?.cancel();
+    _aliveTimeout?.cancel();
     await _events?.cancel();
     supervisor.removeListener(_onHealth);
     snapshot.dispose();

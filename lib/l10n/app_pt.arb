@@ -230,7 +230,7 @@
   "@langEn": {},
   "sectionUpdates": "Atualizações e Versão",
   "@sectionUpdates": {},
-  "installedVersion": "Versão instalada: v1.0.0 (Flutter)",
+  "installedVersion": "Versão instalada",
   "@installedVersion": {},
   "btnCheckUpdates": "Verificar agora",
   "@btnCheckUpdates": {},
@@ -452,6 +452,18 @@
       }
     }
   },
+  "errKeyTaken": "A tecla {key} está tomada por outro programa: {action} não responde",
+  "@errKeyTaken": {
+    "placeholders": { "key": {}, "action": {} }
+  },
+  "errKeyBack": "Tecla {key} liberada: {action} voltou a funcionar",
+  "@errKeyBack": {
+    "placeholders": { "key": {}, "action": {} }
+  },
+  "toastNoVoiceHeard": "O microfone não captou sua voz",
+  "@toastNoVoiceHeard": {},
+  "toastNoVoiceHeardWhy": "Só chegou ruído de fundo: confira o headset e tente de novo",
+  "@toastNoVoiceHeardWhy": {},
   "errEngineNoResponse": "o motor não respondeu",
   "@errEngineNoResponse": {},
   "errTranscribeNoResponse": "a transcrição não respondeu",

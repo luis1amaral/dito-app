@@ -12,6 +12,16 @@ abstract class KeySource {
 
   /// Fires when the hook is lost or reinstalled.
   Stream<bool> get hookAlive;
+
+  /// Whether the OS handed a bound key over; on X11 a rival app can hold it.
+  Stream<KeyGrabSignal> get grabs;
+}
+
+class KeyGrabSignal {
+  const KeyGrabSignal(this.action, this.key, this.ok);
+  final String action;
+  final String key;
+  final bool ok;
 }
 
 class KeyDownSignal {
@@ -31,6 +41,7 @@ class FakeKeySource implements KeySource {
   final _downs = StreamController<KeyDownSignal>.broadcast();
   final _ticks = StreamController<KeyTickSignal>.broadcast();
   final _hook = StreamController<bool>.broadcast();
+  final _grabs = StreamController<KeyGrabSignal>.broadcast();
 
   final Set<String> _held = <String>{};
   int _micros = 0;
@@ -44,7 +55,13 @@ class FakeKeySource implements KeySource {
   @override
   Stream<bool> get hookAlive => _hook.stream;
 
+  @override
+  Stream<KeyGrabSignal> get grabs => _grabs.stream;
+
   int get micros => _micros;
+
+  void grab(String action, {String key = 'f9', bool ok = true}) =>
+      _grabs.add(KeyGrabSignal(action, key, ok));
 
   void press(String action) {
     _held.add(action);
@@ -87,5 +104,6 @@ class FakeKeySource implements KeySource {
     await _downs.close();
     await _ticks.close();
     await _hook.close();
+    await _grabs.close();
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
@@ -52,6 +53,8 @@ class MainWindow extends StatefulWidget {
   State<MainWindow> createState() => _MainWindowState();
 }
 
+final bool _diag = Platform.environment['DITO_DIAG'] == '1';
+
 class _MainWindowState extends State<MainWindow> with WindowListener {
   int _tab = 0;
 
@@ -96,9 +99,14 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
       ),
       body: ValueListenableBuilder<bool>(
         valueListenable: widget.app.isReady,
-        builder: (context, ready, _) => ready
-            ? _content()
-            : const Center(child: _Booting()),
+        builder: (context, ready, _) {
+          // DITO_DIAG=1 responde "o builder ve o mesmo isReady que o boot escreveu?".
+          if (_diag) {
+            widget.app.log('diag: builder ready=$ready '
+                'hash=${identityHashCode(widget.app.isReady)}');
+          }
+          return ready ? _content() : const Center(child: _Booting());
+        },
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,

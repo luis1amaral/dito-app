@@ -277,7 +277,7 @@ class AppStringsPt extends AppStrings {
   String get sectionUpdates => 'Atualizações e Versão';
 
   @override
-  String get installedVersion => 'Versão instalada: v1.0.0 (Flutter)';
+  String get installedVersion => 'Versão instalada';
 
   @override
   String get btnCheckUpdates => 'Verificar agora';
@@ -557,6 +557,23 @@ class AppStringsPt extends AppStrings {
   String errEngineStartFailed(String detail) {
     return 'falha ao iniciar o motor nativo: $detail';
   }
+
+  @override
+  String errKeyTaken(Object key, Object action) {
+    return 'A tecla $key está tomada por outro programa: $action não responde';
+  }
+
+  @override
+  String errKeyBack(Object key, Object action) {
+    return 'Tecla $key liberada: $action voltou a funcionar';
+  }
+
+  @override
+  String get toastNoVoiceHeard => 'O microfone não captou sua voz';
+
+  @override
+  String get toastNoVoiceHeardWhy =>
+      'Só chegou ruído de fundo: confira o headset e tente de novo';
 
   @override
   String get errEngineNoResponse => 'o motor não respondeu';

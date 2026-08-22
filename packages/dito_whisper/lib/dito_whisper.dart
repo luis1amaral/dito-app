@@ -36,8 +36,8 @@ typedef _SetBackendDirDart = void Function(Pointer<Utf8> dir);
 typedef _ListDevicesNative = Int32 Function(Pointer<Utf8> outJson, Int32 maxLen);
 typedef _ListDevicesDart = int Function(Pointer<Utf8> outJson, int maxLen);
 
-typedef _StartCaptureNative = Int32 Function(Pointer<Utf8> deviceName);
-typedef _StartCaptureDart = int Function(Pointer<Utf8> deviceName);
+typedef _StartCaptureNative = Int32 Function(Pointer<Utf8> deviceName, Pointer<Utf8> wavPath);
+typedef _StartCaptureDart = int Function(Pointer<Utf8> deviceName, Pointer<Utf8> wavPath);
 
 typedef _GetLevelNative = Int32 Function(
     Pointer<Float> outRms, Pointer<Float> outPeak, Pointer<Float> outSeconds);
@@ -260,14 +260,18 @@ class DitoWhisper {
     }
   }
 
-  static int startCapture({String? deviceName}) {
+  /// Starts capture; [wavPath], when set, makes the native side write the WAV to disk
+  /// incrementally from the first audio block, so the file is valid even if the app crashes.
+  static int startCapture({String? deviceName, String? wavPath}) {
     _ensureLoaded();
     if (_startCaptureFn == null) return 0;
     final devPtr = (deviceName ?? '').toNativeUtf8();
+    final wavPtr = (wavPath ?? '').toNativeUtf8();
     try {
-      return _startCaptureFn!(devPtr);
+      return _startCaptureFn!(devPtr, wavPtr);
     } finally {
       calloc.free(devPtr);
+      calloc.free(wavPtr);
     }
   }
 

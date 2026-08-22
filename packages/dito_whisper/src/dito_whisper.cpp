@@ -18,44 +18,183 @@
 #include <fstream>
 #include <algorithm>
 #include <sstream>
+#include <cstdint>
+#include <cstdio>
+#include <atomic>
+#include <thread>
+#include <chrono>
 
 static std::mutex g_audio_mutex;
 static std::vector<float> g_audio_buffer;
-static float g_latest_rms = 0.0f;
-static float g_latest_peak = 0.0f;
-static float g_recorded_seconds = 0.0f;
+static std::atomic<float> g_latest_rms{0.0f};
+static std::atomic<float> g_latest_peak{0.0f};
+static std::atomic<uint64_t> g_frames_captured{0};
 static bool g_is_capturing = false;
+
+// Ring pre-alocado entre a thread de audio e a consumidora: 8 s de folga a 16 kHz.
+static const size_t kRingSamples = 16000 * 8;
+static const size_t kReserveChunkSamples = 16000 * 60;
+static std::vector<float> g_ring;
+static std::atomic<uint64_t> g_ring_write{0};
+static std::atomic<uint64_t> g_ring_read{0};
+static std::thread g_consumer;
+static std::atomic<bool> g_consumer_running{false};
 static ma_device g_capture_device;
 static ma_context g_audio_context;
 static bool g_context_initialized = false;
 
+// Incremental WAV writer: file is kept valid (correct header sizes) after every flush, not just at stop.
+static const uint32_t kWavSampleRate = 16000;
+static const uint16_t kWavChannels = 1;
+static const uint16_t kWavBitsPerSample = 16;
+static const uint64_t kWavFlushIntervalSamples = kWavSampleRate; // patch header + flush about once a second
+static std::ofstream g_wav_file;
+static bool g_wav_active = false;
+static uint64_t g_wav_samples_written = 0;
+static uint64_t g_wav_samples_since_flush = 0;
+
+// Writes the 44-byte PCM WAV header with the sizes for data_size bytes of payload; caller must be positioned at 0.
+static void write_wav_header(std::ofstream& out, uint32_t data_size) {
+    uint32_t byte_rate = kWavSampleRate * kWavChannels * (kWavBitsPerSample / 8);
+    uint16_t block_align = kWavChannels * (kWavBitsPerSample / 8);
+    uint32_t file_size = 36 + data_size;
+    uint32_t subchunk1_size = 16;
+    uint16_t audio_format = 1; // PCM
+
+    out.write("RIFF", 4);
+    out.write((const char*)&file_size, 4);
+    out.write("WAVE", 4);
+    out.write("fmt ", 4);
+    out.write((const char*)&subchunk1_size, 4);
+    out.write((const char*)&audio_format, 2);
+    out.write((const char*)&kWavChannels, 2);
+    out.write((const char*)&kWavSampleRate, 4);
+    out.write((const char*)&byte_rate, 4);
+    out.write((const char*)&block_align, 2);
+    out.write((const char*)&kWavBitsPerSample, 2);
+    out.write("data", 4);
+    out.write((const char*)&data_size, 4);
+}
+
+// Rewrites just the RIFF/data size fields in place so the file on disk is a valid WAV right now.
+static void patch_wav_header_and_flush() {
+    if (!g_wav_active) return;
+    uint32_t data_size = (uint32_t)(g_wav_samples_written * (kWavBitsPerSample / 8));
+    std::streampos write_pos = g_wav_file.tellp();
+    g_wav_file.seekp(0);
+    write_wav_header(g_wav_file, data_size);
+    g_wav_file.seekp(write_pos);
+    g_wav_file.flush();
+    if (!g_wav_file.good()) {
+        fprintf(stderr, "[dito_whisper] falha ao gravar/atualizar WAV incremental em disco\n");
+        g_wav_active = false;
+    }
+}
+
+// Realtime thread: slow work here drops blocks. The Dito in Python already knew it
+// (src/dito/audio/capture.py:58) and the port forgot: this callback ONLY copies and measures.
+// Disco, conversao e crescimento de buffer vivem na thread consumidora. Ver docs/armadilhas.md.
 static void audio_data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
     (void)pDevice;
     (void)pOutput;
     const float* pInputF32 = (const float*)pInput;
-    if (!pInputF32 || frameCount == 0) return;
+    if (!pInputF32 || frameCount == 0 || g_ring.empty()) return;
 
-    std::lock_guard<std::mutex> lock(g_audio_mutex);
+    const size_t cap = g_ring.size();
+    const uint64_t write = g_ring_write.load(std::memory_order_relaxed);
     float sum_sq = 0.0f;
     float peak = 0.0f;
 
     for (ma_uint32 i = 0; i < frameCount; ++i) {
-        float s = pInputF32[i];
-        g_audio_buffer.push_back(s);
+        const float s = pInputF32[i];
+        g_ring[(size_t)((write + i) % cap)] = s;
         sum_sq += s * s;
-        float abs_s = std::fabs(s);
+        const float abs_s = std::fabs(s);
         if (abs_s > peak) peak = abs_s;
     }
+    g_ring_write.store(write + frameCount, std::memory_order_release);
 
-    g_latest_rms = std::sqrt(sum_sq / (float)frameCount);
-    g_latest_peak = peak;
-    g_recorded_seconds = (float)g_audio_buffer.size() / 16000.0f;
+    g_latest_rms.store(std::sqrt(sum_sq / (float)frameCount), std::memory_order_relaxed);
+    g_latest_peak.store(peak, std::memory_order_relaxed);
+    g_frames_captured.fetch_add(frameCount, std::memory_order_relaxed);
+}
+
+/// Consumidora: tudo que nao pode acontecer na thread de audio acontece aqui.
+static void drain_ring() {
+    const size_t cap = g_ring.size();
+    if (cap == 0) return;
+    uint64_t read = g_ring_read.load(std::memory_order_relaxed);
+    const uint64_t write = g_ring_write.load(std::memory_order_acquire);
+    if (write <= read) return;
+
+    uint64_t available = write - read;
+    // Ring pequeno demais para o atraso: perdeu o mais antigo, e isso precisa aparecer no log.
+    if (available > cap) {
+        fprintf(stderr, "[dito_whisper] consumidora atrasada: %llu amostras perdidas\n",
+                (unsigned long long)(available - cap));
+        read = write - cap;
+        available = cap;
+    }
+
+    static std::vector<float> chunk;
+    chunk.clear();
+    chunk.reserve((size_t)available);
+    for (uint64_t i = 0; i < available; ++i) {
+        chunk.push_back(g_ring[(size_t)((read + i) % cap)]);
+    }
+    g_ring_read.store(read + available, std::memory_order_release);
+
+    {
+        std::lock_guard<std::mutex> lock(g_audio_mutex);
+        g_audio_buffer.insert(g_audio_buffer.end(), chunk.begin(), chunk.end());
+        if (g_audio_buffer.size() + kReserveChunkSamples > g_audio_buffer.capacity()) {
+            g_audio_buffer.reserve(g_audio_buffer.capacity() + kReserveChunkSamples);
+        }
+    }
+
+    if (!g_wav_active) return;
+    static std::vector<int16_t> pcm16;
+    pcm16.resize(chunk.size());
+    for (size_t i = 0; i < chunk.size(); ++i) {
+        const float sample = std::max(-1.0f, std::min(1.0f, chunk[i]));
+        pcm16[i] = (int16_t)(sample * 32767.0f);
+    }
+    g_wav_file.write((const char*)pcm16.data(), (std::streamsize)(pcm16.size() * sizeof(int16_t)));
+    if (!g_wav_file.good()) {
+        fprintf(stderr, "[dito_whisper] falha ao escrever amostras de audio no WAV incremental\n");
+        g_wav_active = false;
+        return;
+    }
+    g_wav_samples_written += pcm16.size();
+    g_wav_samples_since_flush += pcm16.size();
+    if (g_wav_samples_since_flush >= kWavFlushIntervalSamples) {
+        patch_wav_header_and_flush();
+        g_wav_samples_since_flush = 0;
+    }
+}
+
+static void consumer_main() {
+    while (g_consumer_running.load(std::memory_order_acquire)) {
+        drain_ring();
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    drain_ring();
 }
 
 static bool ensure_context() {
     if (!g_context_initialized) {
-        if (ma_context_init(NULL, 0, NULL, &g_audio_context) != MA_SUCCESS) {
-            return false;
+        // ALSA cru abre o "default" do card 0 (placa-mae, sem nada plugado) e grava ruido de fundo;
+        // o servidor de som e quem sabe qual e o microfone do dono. Regra herdada do Dito em Python
+        // (docs/armadilhas.md 1.7): tentar o servidor primeiro, cair para ALSA so avisando.
+        ma_backend preferidos[] = {ma_backend_pulseaudio, ma_backend_jack};
+        if (ma_context_init(preferidos, 2, NULL, &g_audio_context) != MA_SUCCESS) {
+            fprintf(stderr, "[dito_whisper] ATENCAO: sem servidor de som (PulseAudio/PipeWire);"
+                            " caindo para ALSA, que pode abrir a entrada da placa-mae\n");
+            if (ma_context_init(NULL, 0, NULL, &g_audio_context) != MA_SUCCESS) {
+                return false;
+            }
+            g_context_initialized = true;
+            return true;
         }
         g_context_initialized = true;
     }
@@ -215,7 +354,7 @@ DITO_EXPORT int dito_audio_list_devices(char* out_json, int max_len) {
     return (int)captureCount;
 }
 
-DITO_EXPORT int dito_audio_start_capture(const char* device_name) {
+DITO_EXPORT int dito_audio_start_capture(const char* device_name, const char* wav_path) {
     std::lock_guard<std::mutex> lock(g_audio_mutex);
     if (g_is_capturing) {
         return 0; // Already capturing
@@ -224,9 +363,33 @@ DITO_EXPORT int dito_audio_start_capture(const char* device_name) {
     if (!ensure_context()) return -1;
 
     g_audio_buffer.clear();
-    g_latest_rms = 0.0f;
-    g_latest_peak = 0.0f;
-    g_recorded_seconds = 0.0f;
+    g_audio_buffer.reserve(kReserveChunkSamples);
+    if (g_ring.size() != kRingSamples) g_ring.assign(kRingSamples, 0.0f);
+    g_ring_write.store(0);
+    g_ring_read.store(0);
+    g_latest_rms.store(0.0f);
+    g_latest_peak.store(0.0f);
+    g_frames_captured.store(0);
+
+    g_wav_active = false;
+    g_wav_samples_written = 0;
+    g_wav_samples_since_flush = 0;
+    if (g_wav_file.is_open()) g_wav_file.close();
+    if (wav_path && strlen(wav_path) > 0) {
+        g_wav_file.open(wav_path, std::ios::binary | std::ios::trunc | std::ios::out);
+        if (!g_wav_file.is_open()) {
+            fprintf(stderr, "[dito_whisper] falha ao abrir WAV para gravacao incremental: %s\n", wav_path);
+            return -5;
+        }
+        write_wav_header(g_wav_file, 0);
+        g_wav_file.flush();
+        if (!g_wav_file.good()) {
+            fprintf(stderr, "[dito_whisper] falha ao escrever header WAV inicial: %s\n", wav_path);
+            g_wav_file.close();
+            return -5;
+        }
+        g_wav_active = true;
+    }
 
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_capture);
     deviceConfig.capture.format = ma_format_f32;
@@ -234,6 +397,11 @@ DITO_EXPORT int dito_audio_start_capture(const char* device_name) {
     deviceConfig.sampleRate = 16000;
     deviceConfig.dataCallback = audio_data_callback;
     deviceConfig.pUserData = NULL;
+    // 50 ms por periodo, como o Dito em Python fixava (BLOCKSIZE = 800): o default do miniaudio e
+    // 10 ms x 3, sem folga para o callback. Ver CHANGELOG 2026-08-21.
+    deviceConfig.periodSizeInMilliseconds = 50;
+    deviceConfig.periods = 4;
+    deviceConfig.performanceProfile = ma_performance_profile_conservative;
 
     ma_device_id customDeviceId;
     bool useCustomDevice = false;
@@ -257,33 +425,67 @@ DITO_EXPORT int dito_audio_start_capture(const char* device_name) {
     }
 
     if (ma_device_init(&g_audio_context, &deviceConfig, &g_capture_device) != MA_SUCCESS) {
+        if (g_wav_active) { g_wav_file.close(); g_wav_active = false; }
         return -2;
     }
 
     if (ma_device_start(&g_capture_device) != MA_SUCCESS) {
         ma_device_uninit(&g_capture_device);
+        if (g_wav_active) { g_wav_file.close(); g_wav_active = false; }
         return -3;
     }
+
+    // O Dito em Python provou nesta maquina que ALSA cru recusa 16 kHz (docs/armadilhas.md 1.12):
+    // sem este log nao havia como saber qual caminho o audio tomou numa gravacao ruim.
+    fprintf(stderr,
+            "[dito_whisper] captura aberta: backend=%s device=%s taxa pedida=16000 "
+            "taxa real=%u formato=%d periodo=%u frames\n",
+            ma_get_backend_name(g_audio_context.backend),
+            g_capture_device.capture.name,
+            g_capture_device.capture.internalSampleRate,
+            (int)g_capture_device.capture.internalFormat,
+            g_capture_device.capture.internalPeriodSizeInFrames);
+    if (g_audio_context.backend == ma_backend_alsa) {
+        fprintf(stderr, "[dito_whisper] ATENCAO: abriu por ALSA cru, nao pelo servidor de som\n");
+    }
+
+    g_consumer_running.store(true, std::memory_order_release);
+    g_consumer = std::thread(consumer_main);
 
     g_is_capturing = true;
     return 0;
 }
 
 DITO_EXPORT int dito_audio_get_level(float* out_rms, float* out_peak, float* out_seconds) {
-    std::lock_guard<std::mutex> lock(g_audio_mutex);
-    if (out_rms) *out_rms = g_latest_rms;
-    if (out_peak) *out_peak = g_latest_peak;
-    if (out_seconds) *out_seconds = g_recorded_seconds;
+    if (out_rms) *out_rms = g_latest_rms.load(std::memory_order_relaxed);
+    if (out_peak) *out_peak = g_latest_peak.load(std::memory_order_relaxed);
+    if (out_seconds) {
+        *out_seconds = (float)g_frames_captured.load(std::memory_order_relaxed) / 16000.0f;
+    }
     return g_is_capturing ? 1 : 0;
 }
 
 DITO_EXPORT int dito_audio_stop_capture(float** out_pcm_data, int* out_n_samples) {
-    std::lock_guard<std::mutex> lock(g_audio_mutex);
+    // Parar o device ANTES da consumidora, e a consumidora ANTES de tomar o lock: ela drena o que
+    // sobrou no ring e usa esse mesmo mutex.
     if (g_is_capturing) {
         ma_device_stop(&g_capture_device);
         ma_device_uninit(&g_capture_device);
         g_is_capturing = false;
     }
+    if (g_consumer_running.exchange(false, std::memory_order_acq_rel)) {
+        if (g_consumer.joinable()) g_consumer.join();
+    }
+
+    std::lock_guard<std::mutex> lock(g_audio_mutex);
+
+    if (g_wav_active) {
+        patch_wav_header_and_flush();
+        g_wav_file.close();
+        g_wav_active = false;
+    }
+    g_wav_samples_written = 0;
+    g_wav_samples_since_flush = 0;
 
     int n_samples = (int)g_audio_buffer.size();
     if (out_n_samples) *out_n_samples = n_samples;

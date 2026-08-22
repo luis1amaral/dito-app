@@ -26,13 +26,12 @@ class HudPill extends StatelessWidget {
           border: null,
           wave: c.hudText,
         ),
-      // Prolonged silence screams in red like the Python did; the live wave still tells it
-      // apart from dead, where nothing arrives at all.
+      // Amber, not red: red is reserved for a take that never heard audio at all.
       HudVisual.quiet => (
-          dot: c.hudText,
-          fill: c.hudDanger,
+          dot: c.hudAlert,
+          fill: c.hudSurface,
           border: null,
-          wave: c.hudText,
+          wave: c.hudAlert,
         ),
       // hudDanger, never the theme's danger: that token flips and vanishes in dark mode.
       HudVisual.dead => (
@@ -83,6 +82,7 @@ class HudPill extends StatelessWidget {
             HudToast.pasteToClipboard => s.toastPasteToClipboard,
             HudToast.pasteToFolder => s.toastPasteToFolder,
             HudToast.discarded => s.toastDiscarded,
+            HudToast.noVoiceHeard => s.toastNoVoiceHeard,
             HudToast.copied => s.toastCopied,
             HudToast.pasted => s.toastPasted,
           },
@@ -108,7 +108,7 @@ class HudPill extends StatelessWidget {
     final detail = _detailFor(state, s);
     final action = _actionFor(state, s);
     final colors = _colorsFor(state, c);
-    final onRed = state.visual == HudVisual.dead || state.visual == HudVisual.quiet;
+    final onRed = state.visual == HudVisual.dead;
     final showWave = state.visual != HudVisual.toast;
     final showClock = state.visual == HudVisual.recording ||
         state.visual == HudVisual.quiet ||

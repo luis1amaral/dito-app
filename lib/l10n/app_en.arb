@@ -230,7 +230,7 @@
   "@langEn": {},
   "sectionUpdates": "Updates & About",
   "@sectionUpdates": {},
-  "installedVersion": "Installed version: v1.0.0 (Flutter)",
+  "installedVersion": "Installed version",
   "@installedVersion": {},
   "btnCheckUpdates": "Check now",
   "@btnCheckUpdates": {},
@@ -452,6 +452,18 @@
       }
     }
   },
+  "errKeyTaken": "The {key} key is held by another program: {action} does not respond",
+  "@errKeyTaken": {
+    "placeholders": { "key": {}, "action": {} }
+  },
+  "errKeyBack": "Key {key} released: {action} works again",
+  "@errKeyBack": {
+    "placeholders": { "key": {}, "action": {} }
+  },
+  "toastNoVoiceHeard": "The microphone did not pick up your voice",
+  "@toastNoVoiceHeard": {},
+  "toastNoVoiceHeardWhy": "Only background noise arrived: check the headset and try again",
+  "@toastNoVoiceHeardWhy": {},
   "errEngineNoResponse": "the engine did not respond",
   "@errEngineNoResponse": {},
   "errTranscribeNoResponse": "the transcription did not respond",

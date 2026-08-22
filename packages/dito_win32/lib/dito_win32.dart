@@ -202,12 +202,18 @@ class DitoWin32 {
           'input.sendChord', <String, Object?>{'key': key, 'ctrl': ctrl}) ??
       false;
 
+  /// Liga/desliga a capacidade de receber foco: no X11 isso e um contrato com o gerenciador de
+  /// janelas, nao uma preferencia. Ver docs/armadilhas.md 4.6.
+  static Future<bool> setFocusable(bool focusable) async =>
+      await _methods.invokeMethod<bool>('window.setFocusable', focusable) ?? false;
+
   /// Remembers the current foreground window so it can be restored before pasting.
   static Future<void> takeFocus() => _methods.invokeMethod<void>('focus.take');
 
   /// Completes only after the restore was attempted; await this before pasting.
   static Future<bool> giveBackFocus() async =>
       await _methods.invokeMethod<bool>('focus.giveBack') ?? false;
+
 }
 
 sealed class KeySignal {
@@ -234,6 +240,11 @@ sealed class KeySignal {
           micros: micros,
         ),
       'hook' => HookStatus(map['status'] as String? ?? ''),
+      'grab' => GrabStatus(
+          action: map['name'] as String? ?? '',
+          key: map['key'] as String? ?? '',
+          ok: map['ok'] as bool? ?? false,
+        ),
       _ => const UnknownSignal(),
     };
   }
@@ -267,6 +278,14 @@ class HookStatus extends KeySignal {
   final String status;
 
   bool get installed => status == 'installed';
+}
+
+/// Linux only: says whether the OS actually handed this key over (X11 grab is exclusive).
+class GrabStatus extends KeySignal {
+  const GrabStatus({required this.action, required this.key, required this.ok});
+  final String action;
+  final String key;
+  final bool ok;
 }
 
 class UnknownSignal extends KeySignal {
