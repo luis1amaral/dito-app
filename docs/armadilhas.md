@@ -297,3 +297,34 @@ como `lib/config/paths.dart` faz corretamente). **Interpretar** caminho é outra
 aceitando os dois separadores está certo e não deve ser mexido.
 **Como caçar:** `grep -rn '\\\\' lib/` e conferir, um a um, se está dentro de ramo Windows ou dentro
 de uma regex de parsing.
+
+### 6.3 `Ctrl+V` em terminal Linux não é colar — é caractere de controle (`0x16` / `lnext`)
+**Sintoma:** ao ditar no terminal (ex.: CLI do Antigravity `agy`, `bash`, `zsh`), o texto **não era colado**,
+um `Enter` vazio era enviado em seguida e 1 segundo depois o texto sumia do clipboard.
+**Causa:** no Windows, o subsistema de console e o Windows Terminal aceitam `Ctrl+V` para colar. No Linux,
+emuladores de terminal (`gnome-terminal`, `xterm`, `alacritty`, `kitty`, `konsole`, etc.) interpretam
+`Ctrl+V` como o caractere `0x16` (SYN / *literal-next* do termios). O atalho universal de colar no
+terminal Linux é **`Ctrl+Shift+V`**.
+**Regra:** no Linux (`dito_win32_plugin.cc`), inspecionar a propriedade `WM_CLASS` da janela ativa no X11
+via `XGetClassHint`. Se pertencer a uma classe de terminal, sintetizar **`Ctrl+Shift+V`**; para todas as
+demais janelas normais (WhatsApp, Discord, navegadores, editores GUI), sintetizar **`Ctrl+V`**.
+
+### 6.4 Traduzir a intenção semântica, nunca a chamada de API literal
+**Sintoma:** dias inteiros gastos tentando fazer o porte funcionar no Linux enquanto no Windows funcionava.
+**Causa:** tradução 1:1 de APIs do Windows para Linux sem considerar a semântica de baixo nível dos sistemas:
+| Conceito | No Windows | No Linux (erro 1:1) | Consequência | Correção correta |
+|---|---|---|---|---|
+| **"Não roubar foco"** | `WS_EX_NOACTIVATE` *(fraco)* | `gtk_window_set_accept_focus(FALSE)` *(permanente no X11)* | O Window Manager recusava foco para sempre; o Enter ia para a janela de trás | `window.setFocusable(bool)` dinâmico |
+| **Hook de teclado** | `WH_KEYBOARD_LL` *(global)* | `XGrabKey` *(exclusivo por conexão X)* | 3 janelas do Dito brigando pelo F9; a janela sem listener vencia e o app ficava mudo | Singleton: 1 thread X11 no processo |
+| **Injetar tecla** | `SendInput` *(sistema)* | `g_spawn_sync("xdotool ...")` *(subprocesso)* | Fork+exec síncrono na thread do GTK congelando a UI por 100 ms a cada tecla | `XTestFakeKeyEvent` direto via `libXtst` |
+| **Colagem** | `Ctrl+V` *(universal)* | `Ctrl+V` *(GUI only no Linux)* | Terminal ignorava e descartava a colagem | Inspecionar `WM_CLASS` e enviar `Ctrl+Shift+V` em terminais |
+**Regra:** ao portar ou tocar em código de plataforma, entenda a garantia que o SO exige em vez de buscar a função com nome parecido.
+
+### 6.5 Sub-janela do Flutter precisa de contexto GL e janela mapeada no boot
+**Sintoma:** sub-janela (cartão/HUD) nascia como um retângulo cinza congelado que não respondia a cliques.
+**Causa:** no Linux/NVIDIA, o `FlView` do Flutter só obtém contexto OpenGL válido se a janela X11 estiver
+realmente mapeada (`gtk_widget_show_all`). Sem contexto GL, o Flutter nunca gera o primeiro frame e o
+`initState` do Dart nunca executa.
+**Regra:** criar uma única sub-janela (HUD + cartão juntos), mapeá-la no nascimento com recorte de forma vazio
+(ou opacidade 0) para nascer invisível sem perder o contexto gráfico.
+
