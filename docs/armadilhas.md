@@ -328,3 +328,15 @@ realmente mapeada (`gtk_widget_show_all`). Sem contexto GL, o Flutter nunca gera
 **Regra:** criar uma única sub-janela (HUD + cartão juntos), mapeá-la no nascimento com recorte de forma vazio
 (ou opacidade 0) para nascer invisível sem perder o contexto gráfico.
 
+### 6.6 Decisão de Produto: Ditador ágil vs "Gravador de reuniões"
+**Decisão do dono (2026-08-22):** O conceito de "gravação de reuniões" foi **completamente abandonado**.
+O Dito existe com um único propósito essencial: ser a camada de entrada por voz mais rápida, leve e
+confiável para comandos, prompts de IA e textos do usuário.
+* **`F9`:** Modo *Push-to-Talk* (segurar para falar e colar diretamente ao soltar).
+* **`F10`:** Modo *Toggle* (dar um toque para iniciar e outro para parar), feito exclusivamente para ditar
+  sem precisar segurar tecla (por exemplo, ao ditar andando, em pé ou afastado do teclado). O fluxo encerra
+  no cartão de revisão com colagem via Enter.
+**Regra:** não adicione recursos de diários longos, divisão de oradores ou fluxos pesados de conferência.
+O Dito é um digitador/ditador por voz focado em produtividade.
+
+

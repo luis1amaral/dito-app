@@ -83,7 +83,7 @@ Esse script executa:
 ### Passo 6: Validação Manual em Uso Real
 Instalar o executável gerado (`build\windows\installer\dito-<versao>-setup.exe`) e testar:
 1. **F9 (Push-to-Talk):** Segurar F9 no Bloco de Notas ou VS Code, falar e soltar → texto colado diretamente.
-2. **F10 (Toggle Reunião):** Tocar F10, falar, tocar F10 → cartão de revisão abre na tela. Pressionar Enter → texto colado no primeiro toque.
+2. **F10 (Modo Toggle / Gravação sem Segurar):** Tocar F10, falar, tocar F10 → cartão de revisão abre na tela. Pressionar Enter → texto colado no primeiro toque.
 3. **Windows Terminal / PowerShell:** Testar ditado com foco no terminal do Windows → texto colado normalmente.
 4. **Bandeja:** O ícone do Dito deve permanecer ativo na bandeja do sistema sem abrir janelas desnecessárias.
 

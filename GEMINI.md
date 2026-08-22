@@ -16,9 +16,9 @@ O Flutter é interface, teclas, colagem e janelas.
 
 ## As 4 garantias inegociáveis (herdadas do dito-app)
 
-1. Áudio nunca se perde — vai ao disco desde o 1º bloco, WAV válido a qualquer instante.
-2. Quando não capta, **grita em ~1 s** por forma + cor + som + notificação.
-3. Reunião **não tem limite de tempo** (deliberadamente não existe config para isso).
+1. **O áudio NÃO vai para o disco em produção.** Salva apenas texto JSON; `DITO_SALVAR_WAV=1` apenas para depuração.
+2. Quando não capta, **avisa em ~1 s** por forma + cor no pill.
+3. **A gravação não tem limite de tempo.** O F10 é modo alternador (toggle) para ditar sem segurar a tecla (andando ou afastado do teclado). O conceito de "modo reunião" foi abandonado pelo dono.
 4. Nada aparece no login além do ícone da bandeja.
 
 ## Armadilhas que este porte já pagou

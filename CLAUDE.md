@@ -27,7 +27,9 @@ do plugin `packages/dito_win32` — nome herdado do Windows, mas serve as duas p
 2. Quando não capta, **avisa em ~1 s** — forma + cor no pill são obrigatórias e sempre ligadas;
    som e notificação são canais opcionais (`audio.alerts.sound`/`notify`), desligados por escolha
    do dono em 2026-08-21 por serem ruído: com o pill vermelho funcionando, bastam forma + cor.
-3. Reunião **não tem limite de tempo** (deliberadamente não existe config para isso).
+3. **A gravação não tem limite de tempo.** O F10 é modo alternador (toggle) para ditar sem precisar
+   segurar a tecla (andando, em pé ou afastado do teclado). **O conceito de "modo reunião" foi
+   abandonado pelo dono:** o Dito é estritamente um ditador rápido de comandos e textos para colar.
 4. Nada aparece no login além do ícone da bandeja.
 
 ## Armadilhas que este porte já pagou

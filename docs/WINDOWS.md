@@ -89,7 +89,7 @@ Antes de lançar uma versão de produção para Windows, valide os seguintes pon
 
 ### 4.2 Testes Manuais de Uso Real
 1. **F9 (Push-to-Talk)**: Focar no Bloco de Notas ou VS Code, segurar F9, falar, soltar → o texto deve ser colado diretamente.
-2. **F10 (Modo Reunião / Toggle)**: Pressionar F10, falar, pressionar F10 novamente → o Cartão de Revisão abre com o texto transcrito.
+2. **F10 (Modo Toggle / Gravação sem Segurar)**: Pressionar F10, falar, pressionar F10 novamente → o Cartão de Revisão abre com o texto transcrito.
 3. **Envio pelo Cartão**: Pressionar **Enter** no cartão → o foco deve retornar para a janela anterior e colar o texto no primeiro toque.
 4. **Quebra de Linha**: Pressionar **Shift+Enter** no cartão → insere nova linha sem enviar.
 5. **Windows Terminal**: Focar no Windows Terminal / PowerShell, ditar via F9 → o texto deve ser colado normalmente.

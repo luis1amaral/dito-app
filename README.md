@@ -34,7 +34,7 @@ Baixe o arquivo `dito-<versao>-setup.exe` e instale normalmente.
 ## 🚀 Como Usar
 
 * **`F9` (Segurar para Falar):** Segure o F9, fale o seu texto e solte. O texto é digitado automaticamente onde o cursor estiver (WhatsApp, Word, Discord, VS Code ou Terminal).
-* **`F10` (Modo Reunião):** Dê um toque no F10 para iniciar a gravação e outro toque para encerrar. Um cartão abrirá na tela para você revisar e apertar **Enter** para colar.
+* **`F10` (Modo Alternar / Falar sem Segurar):** Dê um toque no F10 para iniciar a gravação (ideal para ditar em pé ou longe do teclado) e outro toque para encerrar e abrir o cartão de revisão para envio.
 
 ---
 
