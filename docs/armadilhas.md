@@ -261,7 +261,8 @@ resolveu foi guardar os **dois bundles** e alternar sem reconstruir: com a mudan
 **Regra:** antes de atribuir uma falha do portão à sua mudança, rode o portão inteiro no binário
 **anterior**, na mesma sequência. `cp -r build/linux/x64/release/bundle` guarda um bundle inteiro e
 o `BIN` do `regressao.py` aceita ser trocado por fora — não precisa reconstruir para comparar.
-Vale para os dois critérios que hoje oscilam: `abre com conteudo` e `sem pixel fantasma`.
+Vale para os **três** critérios que hoje oscilam: `abre com conteudo`, `sem pixel fantasma` e
+`cartao aparece` — este último deu 1/6 e, na rodada seguinte **com o binário idêntico**, 0/6.
 
 ### 5.5 A fala de teste do portão mora no repo, não na biblioteca
 `tool/regressao.py` e `tool/repro_ditado.py` injetam `tool/fixtures/fala.wav` no microfone virtual.

@@ -4,6 +4,52 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-22 — o primeiro Enter enviava de verdade (e limpeza de codigo morto), 1.6.7
+
+**Sintoma do dono:** no cartao de revisao, o **primeiro Enter pulava uma linha** e so o segundo
+enviava.
+
+**Causa raiz.** O `review_card.dart` tratava o Enter em `Focus(onKeyEvent: _onKey)`, o ancestral do
+`TextField`. Esse caminho **funciona** — o teste `Enter sends exactly what is on screen` ja passava
+antes desta versao, e foi justamente ele que apontou onde NAO estava o defeito. No Linux o Enter
+chega tambem (e antes) como **insercao de texto** pelo canal de plataforma do GTK, e nao como tecla:
+o `TextField` com `maxLines: null` recebe um `\n` e o `_onKey` nunca ve o evento.
+
+**O que mudou.** O `onChanged` passou a comparar a contagem de `\n` com o texto anterior. Quebra de
+linha **nova** e sem Shift = Enter: o cartao devolve o texto ao valor de antes e envia. Com Shift a
+linha continua sendo inserida normalmente. O `_send()` ganhou uma trava de idempotencia — os dois
+caminhos podem carregar o mesmo Enter e o cartao resolve **uma** vez so.
+
+**Como foi verificado.** Um teste novo simula exatamente o caminho da plataforma
+(`tester.enterText(campo, 'texto original\n')`), o que os testes de tecla crua nao alcancavam.
+Ele **falhou primeiro** (`sent` vazio: so pulava linha), e passou depois do conserto. Os 13 testes do
+cartao verdes, incluindo o de Shift+Enter, que continua inserindo linha sem enviar.
+
+**Limpeza de codigo morto** (auditada antes, item por item, com `grep` nas duas plataformas):
+
+- `WindowRole.review` — papel removido na 1.6.0, a constante sobrou.
+- `EngineClient`: parametro `candidates:` e o getter `executablePath` — residuo do sidecar Python.
+- `window.adoptAsPanel` — fachada Dart, handler Linux e ramo Windows, **zero chamadas**. No Windows
+  o ramo era compartilhado com `adoptAsHud`; foi separado preservando o `adoptAsHud` intacto.
+- **52 das 174 chaves de traducao** (`app_{en,pt}.arb`) — sobra de uma tela de Configuracoes e de uma
+  janela principal anteriores. Paridade pt/en mantida, 122 chaves em cada.
+
+**Um defeito achado durante a limpeza, e corrigido:** `lib/ui/main/main_window.dart:115-116` tinha os
+rotulos das abas **cravados em portugues** (`label: 'Histórico'`), fora do i18n — era por isso que
+`tabHistory`/`tabSettings` pareciam mortas. As duas chaves foram religadas em vez de apagadas. O
+`test/l10n_test.dart` nao pegava porque so varre `Text('...')`, e o literal estava no parametro
+`label:` de `NavigationDestination`.
+
+Os `.g.dart` foram conferidos rodando `flutter gen-l10n`: o diff ficou **so com remocoes, zero
+insercoes** — o gerador produz exatamente o que esta no repo. `analyze` limpo, **220 testes** verdes,
+portao **11/11**.
+
+**Terceiro criterio oscilante identificado:** `cartao aparece` deu 1/6 numa rodada e **0/6 na
+seguinte com o binario identico**. Somado a `abre com conteudo` e `sem pixel fantasma`, ver
+armadilha 5.4 antes de culpar qualquer mudanca por eles.
+
+---
+
 ## 2026-08-22 — a janela parou de piscar no boot: o runner ainda usava a regra do Windows, 1.6.6
 
 **Sintoma do dono:** abrir o Dito e a janela **aparecer e fechar sozinha** logo em seguida. Ele quer

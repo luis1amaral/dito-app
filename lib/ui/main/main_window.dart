@@ -111,9 +111,13 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (index) => setState(() => _tab = index),
-        destinations: const <NavigationDestination>[
-          NavigationDestination(icon: Icon(Icons.history_rounded), label: 'Histórico'),
-          NavigationDestination(icon: Icon(Icons.settings_rounded), label: 'Ajustes'),
+        destinations: <NavigationDestination>[
+          NavigationDestination(
+              icon: const Icon(Icons.history_rounded),
+              label: context.strings.tabHistory),
+          NavigationDestination(
+              icon: const Icon(Icons.settings_rounded),
+              label: context.strings.tabSettings),
         ],
       ),
     );

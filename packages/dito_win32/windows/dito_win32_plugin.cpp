@@ -326,7 +326,7 @@ void DitoWin32Plugin::HandleMethod(
     return;
   }
 
-  if (method == "window.adoptAsHud" || method == "window.adoptAsPanel") {
+  if (method == "window.adoptAsHud") {
     const HWND hwnd = RootWindow();
     if (hwnd == nullptr) {
       result->Error("NO_WINDOW", "sem janela nativa");
@@ -335,7 +335,7 @@ void DitoWin32Plugin::HandleMethod(
     LONG_PTR ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
     ex |= WS_EX_TOOLWINDOW;
     ex &= ~WS_EX_APPWINDOW;
-    if (method == "window.adoptAsHud") ex |= WS_EX_NOACTIVATE;
+    ex |= WS_EX_NOACTIVATE;
     SetWindowLongPtr(hwnd, GWL_EXSTYLE, ex);
 
     LONG_PTR st = GetWindowLongPtr(hwnd, GWL_STYLE);

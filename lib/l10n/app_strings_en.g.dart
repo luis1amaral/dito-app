@@ -12,9 +12,6 @@ class AppStringsEn extends AppStrings {
   String get appTitle => 'Dito';
 
   @override
-  String get appSubtitle => 'Offline voice dictation';
-
-  @override
   String get tabHistory => 'History';
 
   @override
@@ -22,57 +19,6 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get statusReady => 'Ready';
-
-  @override
-  String statusReadyHotkey(String hotkey) {
-    return 'Ready ($hotkey to dictate)';
-  }
-
-  @override
-  String get statusRecordingDictation => 'Recording dictation...';
-
-  @override
-  String get statusRecordingMeeting => 'Recording meeting...';
-
-  @override
-  String get statusTranscribing => 'Transcribing...';
-
-  @override
-  String get statusPaused => 'Paused';
-
-  @override
-  String statusNoAudio(String reason) {
-    return 'NO AUDIO - $reason';
-  }
-
-  @override
-  String dictatingDuration(String duration) {
-    return 'Dictating ($duration)';
-  }
-
-  @override
-  String meetingDuration(String duration) {
-    return 'Meeting ($duration)';
-  }
-
-  @override
-  String btnDictate(String hotkey) {
-    return 'Dictate ($hotkey)';
-  }
-
-  @override
-  String get btnStopDictate => 'Stop Dictation';
-
-  @override
-  String btnMeeting(String hotkey) {
-    return 'Meeting ($hotkey)';
-  }
-
-  @override
-  String get btnStopMeeting => 'Stop Meeting';
-
-  @override
-  String get btnListening => 'Listening...';
 
   @override
   String get historyEmptyTitle => 'No recent recordings';
@@ -89,74 +35,10 @@ class AppStringsEn extends AppStrings {
   String get meetingLabel => 'Meeting';
 
   @override
-  String get copyText => 'Copy text';
-
-  @override
-  String get textCopied => 'Text copied to clipboard';
-
-  @override
-  String get deleteSession => 'Delete recording';
-
-  @override
-  String get noTranscriptionText => '(no recognizable speech)';
-
-  @override
-  String formatTodayAt(String time) {
-    return 'Today at $time';
-  }
-
-  @override
-  String formatDateAt(String date, String time) {
-    return '$date at $time';
-  }
-
-  @override
-  String formatSeconds(String sec) {
-    return '${sec}s';
-  }
-
-  @override
-  String formatMinutesSeconds(int min, int sec) {
-    return '$min min ${sec}s';
-  }
-
-  @override
   String get sectionModel => 'Voice Model (Whisper)';
 
   @override
-  String get modelSize => 'Model Size';
-
-  @override
-  String get modelSizeSubtitle =>
-      'Larger models offer higher accuracy but use more RAM/VRAM.';
-
-  @override
   String get transcriptionLanguage => 'Transcription Spoken Language';
-
-  @override
-  String get transcriptionLanguageSubtitle =>
-      'Spoken language to be recognized.';
-
-  @override
-  String get hardwareAcceleration => 'Hardware Acceleration';
-
-  @override
-  String get hardwareAccelerationSubtitle => 'Uses NVIDIA GPU if available.';
-
-  @override
-  String get optModelTiny => 'tiny (~75 MB - ultra fast)';
-
-  @override
-  String get optModelBase => 'base (~145 MB - recommended)';
-
-  @override
-  String get optModelSmall => 'small (~480 MB - high accuracy)';
-
-  @override
-  String get optModelMedium => 'medium (~1.5 GB)';
-
-  @override
-  String get optModelLarge => 'large-v3 (~3 GB)';
 
   @override
   String get optLangPt => 'Portuguese (Brazil)';
@@ -177,26 +59,7 @@ class AppStringsEn extends AppStrings {
   String get optDeviceCpu => 'Processor (CPU)';
 
   @override
-  String get sectionMicrophone => 'Microphone';
-
-  @override
-  String get inputDevice => 'Input Device';
-
-  @override
-  String get inputDeviceSubtitle => 'Select which microphone to record from.';
-
-  @override
-  String get systemDefaultDevice => 'System Default';
-
-  @override
-  String get refreshDevices => 'Refresh list';
-
-  @override
   String get muteAlertTitle => 'Mute / No Audio Warning';
-
-  @override
-  String get muteAlertSubtitle =>
-      'Visually warns when the microphone delivers silence.';
 
   @override
   String get sectionHotkeys => 'Global Hotkeys';
@@ -205,13 +68,7 @@ class AppStringsEn extends AppStrings {
   String get hotkeyDictation => 'Push-to-Talk (Hold)';
 
   @override
-  String get hotkeyDictationSubtitle => 'Hold while speaking.';
-
-  @override
   String get hotkeyMeeting => 'Meeting Mode (Toggle)';
-
-  @override
-  String get hotkeyMeetingSubtitle => 'Press to start, press again to stop.';
 
   @override
   String get sectionOutput => 'Output Behavior';
@@ -220,14 +77,7 @@ class AppStringsEn extends AppStrings {
   String get autoPasteTitle => 'Auto-paste';
 
   @override
-  String get autoPasteSubtitle =>
-      'Pastes text directly where the cursor is focused.';
-
-  @override
   String get pressEnterTitle => 'Press Enter after paste';
-
-  @override
-  String get pressEnterSubtitle => 'Useful for instant message sending.';
 
   @override
   String get reviewBeforePasteTitle => 'Review before paste';
@@ -243,12 +93,6 @@ class AppStringsEn extends AppStrings {
   String get interfaceTheme => 'Theme';
 
   @override
-  String get interfaceThemeSubtitle => 'Choose light, dark, or system mode.';
-
-  @override
-  String get themeAuto => 'System Default';
-
-  @override
   String get themeLight => 'Light';
 
   @override
@@ -256,12 +100,6 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get interfaceLanguage => 'App Language';
-
-  @override
-  String get interfaceLanguageSubtitle => 'Select UI language.';
-
-  @override
-  String get langAuto => 'System Default';
 
   @override
   String get langPt => 'Português (Brasil)';
@@ -277,9 +115,6 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get btnCheckUpdates => 'Check now';
-
-  @override
-  String get checkingUpdates => 'Checking...';
 
   @override
   String get upToDateMessage => 'You are using the latest version.';
@@ -312,13 +147,7 @@ class AppStringsEn extends AppStrings {
   String get btnDownloadNow => 'Download now';
 
   @override
-  String get reviewDialogTitle => 'Review Transcription';
-
-  @override
   String get btnDiscard => 'Discard';
-
-  @override
-  String get btnPasteSend => 'Paste / Send';
 
   @override
   String get trayOpen => 'Open Dito';
@@ -328,9 +157,6 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get trayPause => 'Pause dictation';
-
-  @override
-  String get trayCheckUpdates => 'Check for updates...';
 
   @override
   String get trayQuit => 'Quit Dito';
@@ -391,12 +217,6 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get reviewHintDiscard => 'Tab discards';
-
-  @override
-  String get reviewObsidianOn => 'Obsidian: yes';
-
-  @override
-  String get reviewObsidianOff => 'Obsidian: no';
 
   @override
   String get reviewObsidianLabel => 'Obsidian';

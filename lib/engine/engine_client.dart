@@ -10,7 +10,7 @@ import 'native_engine.dart';
 /// EngineClient providing complete in-process native execution via whisper.cpp & miniaudio.
 /// Implements 100% of the EngineProtocol events and commands without external Python processes.
 class EngineClient {
-  EngineClient({List<String>? candidates, Logbook? log, String Function()? localeCode})
+  EngineClient({Logbook? log, String Function()? localeCode})
       : _log = log ?? Logbook('engine'),
         _engine = NativeEngine(log: log, localeCode: localeCode),
         _localeCode = localeCode;
@@ -31,8 +31,6 @@ class EngineClient {
 
   bool _isAlive = false;
   bool get isAlive => _isAlive;
-
-  String? get executablePath => 'native (in-process whisper.cpp)';
 
   Future<String?> start() async {
     // In-process engine never really left; a supervisor retry has to be able to see it is ready.

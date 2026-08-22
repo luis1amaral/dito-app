@@ -64,8 +64,7 @@ void main() {
 
   setUp(() {
     clock = 0;
-    client = EngineClient(
-        candidates: <String>[], log: Logbook('t', directory: '.dart_tool'));
+    client = EngineClient(log: Logbook('t', directory: '.dart_tool'));
     supervisor = EngineSupervisor(
         client: client, log: Logbook('t2', directory: '.dart_tool'));
     config = ConfigService(path: '.dart_tool/controller_test.toml');

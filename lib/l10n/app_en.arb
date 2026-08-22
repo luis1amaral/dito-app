@@ -2,76 +2,12 @@
   "@@locale": "en",
   "appTitle": "Dito",
   "@appTitle": {},
-  "appSubtitle": "Offline voice dictation",
-  "@appSubtitle": {},
   "tabHistory": "History",
   "@tabHistory": {},
   "tabSettings": "Settings",
   "@tabSettings": {},
   "statusReady": "Ready",
   "@statusReady": {},
-  "statusReadyHotkey": "Ready ({hotkey} to dictate)",
-  "@statusReadyHotkey": {
-    "placeholders": {
-      "hotkey": {
-        "type": "String"
-      }
-    }
-  },
-  "statusRecordingDictation": "Recording dictation...",
-  "@statusRecordingDictation": {},
-  "statusRecordingMeeting": "Recording meeting...",
-  "@statusRecordingMeeting": {},
-  "statusTranscribing": "Transcribing...",
-  "@statusTranscribing": {},
-  "statusPaused": "Paused",
-  "@statusPaused": {},
-  "statusNoAudio": "NO AUDIO - {reason}",
-  "@statusNoAudio": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
-  "dictatingDuration": "Dictating ({duration})",
-  "@dictatingDuration": {
-    "placeholders": {
-      "duration": {
-        "type": "String"
-      }
-    }
-  },
-  "meetingDuration": "Meeting ({duration})",
-  "@meetingDuration": {
-    "placeholders": {
-      "duration": {
-        "type": "String"
-      }
-    }
-  },
-  "btnDictate": "Dictate ({hotkey})",
-  "@btnDictate": {
-    "placeholders": {
-      "hotkey": {
-        "type": "String"
-      }
-    }
-  },
-  "btnStopDictate": "Stop Dictation",
-  "@btnStopDictate": {},
-  "btnMeeting": "Meeting ({hotkey})",
-  "@btnMeeting": {
-    "placeholders": {
-      "hotkey": {
-        "type": "String"
-      }
-    }
-  },
-  "btnStopMeeting": "Stop Meeting",
-  "@btnStopMeeting": {},
-  "btnListening": "Listening...",
-  "@btnListening": {},
   "historyEmptyTitle": "No recent recordings",
   "@historyEmptyTitle": {},
   "historyEmptySubtitle": "Use the buttons above or hold {hotkey} to dictate.",
@@ -86,76 +22,10 @@
   "@dictationLabel": {},
   "meetingLabel": "Meeting",
   "@meetingLabel": {},
-  "copyText": "Copy text",
-  "@copyText": {},
-  "textCopied": "Text copied to clipboard",
-  "@textCopied": {},
-  "deleteSession": "Delete recording",
-  "@deleteSession": {},
-  "noTranscriptionText": "(no recognizable speech)",
-  "@noTranscriptionText": {},
-  "formatTodayAt": "Today at {time}",
-  "@formatTodayAt": {
-    "placeholders": {
-      "time": {
-        "type": "String"
-      }
-    }
-  },
-  "formatDateAt": "{date} at {time}",
-  "@formatDateAt": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      },
-      "time": {
-        "type": "String"
-      }
-    }
-  },
-  "formatSeconds": "{sec}s",
-  "@formatSeconds": {
-    "placeholders": {
-      "sec": {
-        "type": "String"
-      }
-    }
-  },
-  "formatMinutesSeconds": "{min} min {sec}s",
-  "@formatMinutesSeconds": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "sec": {
-        "type": "int"
-      }
-    }
-  },
   "sectionModel": "Voice Model (Whisper)",
   "@sectionModel": {},
-  "modelSize": "Model Size",
-  "@modelSize": {},
-  "modelSizeSubtitle": "Larger models offer higher accuracy but use more RAM/VRAM.",
-  "@modelSizeSubtitle": {},
   "transcriptionLanguage": "Transcription Spoken Language",
   "@transcriptionLanguage": {},
-  "transcriptionLanguageSubtitle": "Spoken language to be recognized.",
-  "@transcriptionLanguageSubtitle": {},
-  "hardwareAcceleration": "Hardware Acceleration",
-  "@hardwareAcceleration": {},
-  "hardwareAccelerationSubtitle": "Uses NVIDIA GPU if available.",
-  "@hardwareAccelerationSubtitle": {},
-  "optModelTiny": "tiny (~75 MB - ultra fast)",
-  "@optModelTiny": {},
-  "optModelBase": "base (~145 MB - recommended)",
-  "@optModelBase": {},
-  "optModelSmall": "small (~480 MB - high accuracy)",
-  "@optModelSmall": {},
-  "optModelMedium": "medium (~1.5 GB)",
-  "@optModelMedium": {},
-  "optModelLarge": "large-v3 (~3 GB)",
-  "@optModelLarge": {},
   "optLangPt": "Portuguese (Brazil)",
   "@optLangPt": {},
   "optLangEn": "English",
@@ -168,40 +38,20 @@
   "@optDeviceCuda": {},
   "optDeviceCpu": "Processor (CPU)",
   "@optDeviceCpu": {},
-  "sectionMicrophone": "Microphone",
-  "@sectionMicrophone": {},
-  "inputDevice": "Input Device",
-  "@inputDevice": {},
-  "inputDeviceSubtitle": "Select which microphone to record from.",
-  "@inputDeviceSubtitle": {},
-  "systemDefaultDevice": "System Default",
-  "@systemDefaultDevice": {},
-  "refreshDevices": "Refresh list",
-  "@refreshDevices": {},
   "muteAlertTitle": "Mute / No Audio Warning",
   "@muteAlertTitle": {},
-  "muteAlertSubtitle": "Visually warns when the microphone delivers silence.",
-  "@muteAlertSubtitle": {},
   "sectionHotkeys": "Global Hotkeys",
   "@sectionHotkeys": {},
   "hotkeyDictation": "Push-to-Talk (Hold)",
   "@hotkeyDictation": {},
-  "hotkeyDictationSubtitle": "Hold while speaking.",
-  "@hotkeyDictationSubtitle": {},
   "hotkeyMeeting": "Meeting Mode (Toggle)",
   "@hotkeyMeeting": {},
-  "hotkeyMeetingSubtitle": "Press to start, press again to stop.",
-  "@hotkeyMeetingSubtitle": {},
   "sectionOutput": "Output Behavior",
   "@sectionOutput": {},
   "autoPasteTitle": "Auto-paste",
   "@autoPasteTitle": {},
-  "autoPasteSubtitle": "Pastes text directly where the cursor is focused.",
-  "@autoPasteSubtitle": {},
   "pressEnterTitle": "Press Enter after paste",
   "@pressEnterTitle": {},
-  "pressEnterSubtitle": "Useful for instant message sending.",
-  "@pressEnterSubtitle": {},
   "reviewBeforePasteTitle": "Review before paste",
   "@reviewBeforePasteTitle": {},
   "reviewBeforePasteSubtitle": "Opens a window to edit transcript before pasting.",
@@ -210,20 +60,12 @@
   "@sectionInterface": {},
   "interfaceTheme": "Theme",
   "@interfaceTheme": {},
-  "interfaceThemeSubtitle": "Choose light, dark, or system mode.",
-  "@interfaceThemeSubtitle": {},
-  "themeAuto": "System Default",
-  "@themeAuto": {},
   "themeLight": "Light",
   "@themeLight": {},
   "themeDark": "Dark",
   "@themeDark": {},
   "interfaceLanguage": "App Language",
   "@interfaceLanguage": {},
-  "interfaceLanguageSubtitle": "Select UI language.",
-  "@interfaceLanguageSubtitle": {},
-  "langAuto": "System Default",
-  "@langAuto": {},
   "langPt": "Português (Brasil)",
   "@langPt": {},
   "langEn": "English",
@@ -234,8 +76,6 @@
   "@installedVersion": {},
   "btnCheckUpdates": "Check now",
   "@btnCheckUpdates": {},
-  "checkingUpdates": "Checking...",
-  "@checkingUpdates": {},
   "upToDateMessage": "You are using the latest version.",
   "@upToDateMessage": {},
   "updateAvailable": "New version available: v",
@@ -256,20 +96,14 @@
   "@btnLater": {},
   "btnDownloadNow": "Download now",
   "@btnDownloadNow": {},
-  "reviewDialogTitle": "Review Transcription",
-  "@reviewDialogTitle": {},
   "btnDiscard": "Discard",
   "@btnDiscard": {},
-  "btnPasteSend": "Paste / Send",
-  "@btnPasteSend": {},
   "trayOpen": "Open Dito",
   "@trayOpen": {},
   "trayCopyLast": "Copy last text",
   "@trayCopyLast": {},
   "trayPause": "Pause dictation",
   "@trayPause": {},
-  "trayCheckUpdates": "Check for updates...",
-  "@trayCheckUpdates": {},
   "trayQuit": "Quit Dito",
   "@trayQuit": {},
   "hudRecording": "Recording",
@@ -310,10 +144,6 @@
   "@reviewHintSend": {},
   "reviewHintDiscard": "Tab discards",
   "@reviewHintDiscard": {},
-  "reviewObsidianOn": "Obsidian: yes",
-  "@reviewObsidianOn": {},
-  "reviewObsidianOff": "Obsidian: no",
-  "@reviewObsidianOff": {},
   "reviewObsidianLabel": "Obsidian",
   "@reviewObsidianLabel": {},
   "hudMinutesDone": "{minutes} min transcribed",

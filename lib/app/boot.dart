@@ -28,7 +28,6 @@ import '../ui/tray/tray_controller.dart';
 class WindowRole {
   static const String main = 'main';
   static const String hud = 'hud';
-  static const String review = 'review';
 }
 
 /// Everything the main window owns. Sub-windows are views and own nothing.

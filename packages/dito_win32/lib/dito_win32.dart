@@ -130,9 +130,6 @@ class DitoWin32 {
   /// Applies WS_EX_NOACTIVATE|TOOLWINDOW to this window; it can never take focus again.
   static Future<int?> adoptAsHud() => _methods.invokeMethod<int>('window.adoptAsHud');
 
-  /// Tool window that still accepts focus, for the review card.
-  static Future<int?> adoptAsPanel() => _methods.invokeMethod<int>('window.adoptAsPanel');
-
   static Future<void> showNoActivate() =>
       _methods.invokeMethod<void>('window.showNoActivate');
 

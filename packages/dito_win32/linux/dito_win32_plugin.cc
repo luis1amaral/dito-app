@@ -1114,20 +1114,6 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
-  if (g_strcmp0(method, "window.adoptAsPanel") == 0) {
-    GtkWindow* win = GetToplevel(self);
-    if (!win) {
-      fl_method_call_respond_error(method_call, "NO_WINDOW", "sem janela nativa", nullptr, nullptr);
-      return;
-    }
-    gtk_window_set_keep_above(win, TRUE);
-    gtk_window_set_decorated(win, FALSE);
-    gtk_window_set_skip_taskbar_hint(win, TRUE);
-    g_autoptr(FlValue) result = fl_value_new_int(reinterpret_cast<intptr_t>(win));
-    fl_method_call_respond_success(method_call, result, nullptr);
-    return;
-  }
-
   if (g_strcmp0(method, "window.showNoActivate") == 0) {
     GtkWindow* win = GetToplevel(self);
     if (!win) {

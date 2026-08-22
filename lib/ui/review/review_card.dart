@@ -35,6 +35,12 @@ class _ReviewCardState extends State<ReviewCard> {
       TextEditingController(text: widget.text);
   final FocusNode _focus = FocusNode();
 
+  /// Text before the current edit, so a newly typed newline can be told apart from a dictated one.
+  late String _previous = widget.text;
+
+  /// One card resolves once: both key and text paths can carry the same Enter.
+  bool _resolved = false;
+
   /// Off on every recording, deliberately: it never remembers being on.
   bool _toVault = false;
 
@@ -53,6 +59,8 @@ class _ReviewCardState extends State<ReviewCard> {
     // A new recording starts a new card, even when Flutter reuses this State object.
     _controller.text = widget.text;
     _controller.selection = TextSelection.collapsed(offset: widget.text.length);
+    _previous = widget.text;
+    _resolved = false;
     _toVault = false;
     // Re-pega o teclado quando o cartao reaparece com um texto novo: sem isto so o primeiro
     // cartao ficava ativo e os seguintes exigiam um clique.
@@ -76,6 +84,8 @@ class _ReviewCardState extends State<ReviewCard> {
   }
 
   void _send() {
+    if (_resolved) return;
+    _resolved = true;
     final text = _controller.text.trim();
     // An emptied box discards instead of sending nothing.
     if (text.isEmpty) {
@@ -83,6 +93,24 @@ class _ReviewCardState extends State<ReviewCard> {
       return;
     }
     widget.onSend(text, toVault: _toVault);
+  }
+
+  /// On Linux the Enter arrives as a text INSERTION, not only as a key; without this the first one
+  /// just broke the line and only the second sent. Ver CHANGELOG 1.6.7.
+  void _onChanged(String value) {
+    final quebrouLinha =
+        '\n'.allMatches(value).length > '\n'.allMatches(_previous).length;
+    if (quebrouLinha && !HardwareKeyboard.instance.isShiftPressed) {
+      _controller.value = TextEditingValue(
+        text: _previous,
+        selection: TextSelection.collapsed(offset: _previous.length),
+      );
+      _send();
+      return;
+    }
+    _previous = value;
+    setState(() {});
+    widget.onContentChanged?.call();
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -171,10 +199,7 @@ class _ReviewCardState extends State<ReviewCard> {
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                         ),
-                        onChanged: (_) {
-                          setState(() {});
-                          widget.onContentChanged?.call();
-                        },
+                        onChanged: _onChanged,
                       ),
                     ),
                   ),

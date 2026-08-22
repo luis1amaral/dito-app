@@ -104,12 +104,6 @@ abstract class AppStrings {
   /// **'Dito'**
   String get appTitle;
 
-  /// No description provided for @appSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Offline voice dictation'**
-  String get appSubtitle;
-
   /// No description provided for @tabHistory.
   ///
   /// In en, this message translates to:
@@ -127,84 +121,6 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Ready'**
   String get statusReady;
-
-  /// No description provided for @statusReadyHotkey.
-  ///
-  /// In en, this message translates to:
-  /// **'Ready ({hotkey} to dictate)'**
-  String statusReadyHotkey(String hotkey);
-
-  /// No description provided for @statusRecordingDictation.
-  ///
-  /// In en, this message translates to:
-  /// **'Recording dictation...'**
-  String get statusRecordingDictation;
-
-  /// No description provided for @statusRecordingMeeting.
-  ///
-  /// In en, this message translates to:
-  /// **'Recording meeting...'**
-  String get statusRecordingMeeting;
-
-  /// No description provided for @statusTranscribing.
-  ///
-  /// In en, this message translates to:
-  /// **'Transcribing...'**
-  String get statusTranscribing;
-
-  /// No description provided for @statusPaused.
-  ///
-  /// In en, this message translates to:
-  /// **'Paused'**
-  String get statusPaused;
-
-  /// No description provided for @statusNoAudio.
-  ///
-  /// In en, this message translates to:
-  /// **'NO AUDIO - {reason}'**
-  String statusNoAudio(String reason);
-
-  /// No description provided for @dictatingDuration.
-  ///
-  /// In en, this message translates to:
-  /// **'Dictating ({duration})'**
-  String dictatingDuration(String duration);
-
-  /// No description provided for @meetingDuration.
-  ///
-  /// In en, this message translates to:
-  /// **'Meeting ({duration})'**
-  String meetingDuration(String duration);
-
-  /// No description provided for @btnDictate.
-  ///
-  /// In en, this message translates to:
-  /// **'Dictate ({hotkey})'**
-  String btnDictate(String hotkey);
-
-  /// No description provided for @btnStopDictate.
-  ///
-  /// In en, this message translates to:
-  /// **'Stop Dictation'**
-  String get btnStopDictate;
-
-  /// No description provided for @btnMeeting.
-  ///
-  /// In en, this message translates to:
-  /// **'Meeting ({hotkey})'**
-  String btnMeeting(String hotkey);
-
-  /// No description provided for @btnStopMeeting.
-  ///
-  /// In en, this message translates to:
-  /// **'Stop Meeting'**
-  String get btnStopMeeting;
-
-  /// No description provided for @btnListening.
-  ///
-  /// In en, this message translates to:
-  /// **'Listening...'**
-  String get btnListening;
 
   /// No description provided for @historyEmptyTitle.
   ///
@@ -230,125 +146,17 @@ abstract class AppStrings {
   /// **'Meeting'**
   String get meetingLabel;
 
-  /// No description provided for @copyText.
-  ///
-  /// In en, this message translates to:
-  /// **'Copy text'**
-  String get copyText;
-
-  /// No description provided for @textCopied.
-  ///
-  /// In en, this message translates to:
-  /// **'Text copied to clipboard'**
-  String get textCopied;
-
-  /// No description provided for @deleteSession.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete recording'**
-  String get deleteSession;
-
-  /// No description provided for @noTranscriptionText.
-  ///
-  /// In en, this message translates to:
-  /// **'(no recognizable speech)'**
-  String get noTranscriptionText;
-
-  /// No description provided for @formatTodayAt.
-  ///
-  /// In en, this message translates to:
-  /// **'Today at {time}'**
-  String formatTodayAt(String time);
-
-  /// No description provided for @formatDateAt.
-  ///
-  /// In en, this message translates to:
-  /// **'{date} at {time}'**
-  String formatDateAt(String date, String time);
-
-  /// No description provided for @formatSeconds.
-  ///
-  /// In en, this message translates to:
-  /// **'{sec}s'**
-  String formatSeconds(String sec);
-
-  /// No description provided for @formatMinutesSeconds.
-  ///
-  /// In en, this message translates to:
-  /// **'{min} min {sec}s'**
-  String formatMinutesSeconds(int min, int sec);
-
   /// No description provided for @sectionModel.
   ///
   /// In en, this message translates to:
   /// **'Voice Model (Whisper)'**
   String get sectionModel;
 
-  /// No description provided for @modelSize.
-  ///
-  /// In en, this message translates to:
-  /// **'Model Size'**
-  String get modelSize;
-
-  /// No description provided for @modelSizeSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Larger models offer higher accuracy but use more RAM/VRAM.'**
-  String get modelSizeSubtitle;
-
   /// No description provided for @transcriptionLanguage.
   ///
   /// In en, this message translates to:
   /// **'Transcription Spoken Language'**
   String get transcriptionLanguage;
-
-  /// No description provided for @transcriptionLanguageSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Spoken language to be recognized.'**
-  String get transcriptionLanguageSubtitle;
-
-  /// No description provided for @hardwareAcceleration.
-  ///
-  /// In en, this message translates to:
-  /// **'Hardware Acceleration'**
-  String get hardwareAcceleration;
-
-  /// No description provided for @hardwareAccelerationSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Uses NVIDIA GPU if available.'**
-  String get hardwareAccelerationSubtitle;
-
-  /// No description provided for @optModelTiny.
-  ///
-  /// In en, this message translates to:
-  /// **'tiny (~75 MB - ultra fast)'**
-  String get optModelTiny;
-
-  /// No description provided for @optModelBase.
-  ///
-  /// In en, this message translates to:
-  /// **'base (~145 MB - recommended)'**
-  String get optModelBase;
-
-  /// No description provided for @optModelSmall.
-  ///
-  /// In en, this message translates to:
-  /// **'small (~480 MB - high accuracy)'**
-  String get optModelSmall;
-
-  /// No description provided for @optModelMedium.
-  ///
-  /// In en, this message translates to:
-  /// **'medium (~1.5 GB)'**
-  String get optModelMedium;
-
-  /// No description provided for @optModelLarge.
-  ///
-  /// In en, this message translates to:
-  /// **'large-v3 (~3 GB)'**
-  String get optModelLarge;
 
   /// No description provided for @optLangPt.
   ///
@@ -386,47 +194,11 @@ abstract class AppStrings {
   /// **'Processor (CPU)'**
   String get optDeviceCpu;
 
-  /// No description provided for @sectionMicrophone.
-  ///
-  /// In en, this message translates to:
-  /// **'Microphone'**
-  String get sectionMicrophone;
-
-  /// No description provided for @inputDevice.
-  ///
-  /// In en, this message translates to:
-  /// **'Input Device'**
-  String get inputDevice;
-
-  /// No description provided for @inputDeviceSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Select which microphone to record from.'**
-  String get inputDeviceSubtitle;
-
-  /// No description provided for @systemDefaultDevice.
-  ///
-  /// In en, this message translates to:
-  /// **'System Default'**
-  String get systemDefaultDevice;
-
-  /// No description provided for @refreshDevices.
-  ///
-  /// In en, this message translates to:
-  /// **'Refresh list'**
-  String get refreshDevices;
-
   /// No description provided for @muteAlertTitle.
   ///
   /// In en, this message translates to:
   /// **'Mute / No Audio Warning'**
   String get muteAlertTitle;
-
-  /// No description provided for @muteAlertSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Visually warns when the microphone delivers silence.'**
-  String get muteAlertSubtitle;
 
   /// No description provided for @sectionHotkeys.
   ///
@@ -440,23 +212,11 @@ abstract class AppStrings {
   /// **'Push-to-Talk (Hold)'**
   String get hotkeyDictation;
 
-  /// No description provided for @hotkeyDictationSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Hold while speaking.'**
-  String get hotkeyDictationSubtitle;
-
   /// No description provided for @hotkeyMeeting.
   ///
   /// In en, this message translates to:
   /// **'Meeting Mode (Toggle)'**
   String get hotkeyMeeting;
-
-  /// No description provided for @hotkeyMeetingSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Press to start, press again to stop.'**
-  String get hotkeyMeetingSubtitle;
 
   /// No description provided for @sectionOutput.
   ///
@@ -470,23 +230,11 @@ abstract class AppStrings {
   /// **'Auto-paste'**
   String get autoPasteTitle;
 
-  /// No description provided for @autoPasteSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Pastes text directly where the cursor is focused.'**
-  String get autoPasteSubtitle;
-
   /// No description provided for @pressEnterTitle.
   ///
   /// In en, this message translates to:
   /// **'Press Enter after paste'**
   String get pressEnterTitle;
-
-  /// No description provided for @pressEnterSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Useful for instant message sending.'**
-  String get pressEnterSubtitle;
 
   /// No description provided for @reviewBeforePasteTitle.
   ///
@@ -512,18 +260,6 @@ abstract class AppStrings {
   /// **'Theme'**
   String get interfaceTheme;
 
-  /// No description provided for @interfaceThemeSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose light, dark, or system mode.'**
-  String get interfaceThemeSubtitle;
-
-  /// No description provided for @themeAuto.
-  ///
-  /// In en, this message translates to:
-  /// **'System Default'**
-  String get themeAuto;
-
   /// No description provided for @themeLight.
   ///
   /// In en, this message translates to:
@@ -541,18 +277,6 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'App Language'**
   String get interfaceLanguage;
-
-  /// No description provided for @interfaceLanguageSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Select UI language.'**
-  String get interfaceLanguageSubtitle;
-
-  /// No description provided for @langAuto.
-  ///
-  /// In en, this message translates to:
-  /// **'System Default'**
-  String get langAuto;
 
   /// No description provided for @langPt.
   ///
@@ -583,12 +307,6 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Check now'**
   String get btnCheckUpdates;
-
-  /// No description provided for @checkingUpdates.
-  ///
-  /// In en, this message translates to:
-  /// **'Checking...'**
-  String get checkingUpdates;
 
   /// No description provided for @upToDateMessage.
   ///
@@ -650,23 +368,11 @@ abstract class AppStrings {
   /// **'Download now'**
   String get btnDownloadNow;
 
-  /// No description provided for @reviewDialogTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Review Transcription'**
-  String get reviewDialogTitle;
-
   /// No description provided for @btnDiscard.
   ///
   /// In en, this message translates to:
   /// **'Discard'**
   String get btnDiscard;
-
-  /// No description provided for @btnPasteSend.
-  ///
-  /// In en, this message translates to:
-  /// **'Paste / Send'**
-  String get btnPasteSend;
 
   /// No description provided for @trayOpen.
   ///
@@ -685,12 +391,6 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Pause dictation'**
   String get trayPause;
-
-  /// No description provided for @trayCheckUpdates.
-  ///
-  /// In en, this message translates to:
-  /// **'Check for updates...'**
-  String get trayCheckUpdates;
 
   /// No description provided for @trayQuit.
   ///
@@ -811,18 +511,6 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Tab discards'**
   String get reviewHintDiscard;
-
-  /// No description provided for @reviewObsidianOn.
-  ///
-  /// In en, this message translates to:
-  /// **'Obsidian: yes'**
-  String get reviewObsidianOn;
-
-  /// No description provided for @reviewObsidianOff.
-  ///
-  /// In en, this message translates to:
-  /// **'Obsidian: no'**
-  String get reviewObsidianOff;
 
   /// No description provided for @reviewObsidianLabel.
   ///
