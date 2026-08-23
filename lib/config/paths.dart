@@ -50,8 +50,7 @@ class DitoPaths {
 
   static String get configFile => '$configDir${_sep}config.toml';
 
-  /// Documents via SHGetFolderPath, because OneDrive moves the folder elsewhere.
-  /// Kept only so config_service can detect the pre-migration default library path.
+  /// SHGetFolderPath (OneDrive moves this folder); kept for config_service's pre-migration path check.
   static String get documents {
     if (Platform.isWindows) {
       final buffer = wsalloc(MAX_PATH);

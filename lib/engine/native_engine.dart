@@ -13,8 +13,7 @@ import 'model_manager.dart';
 import 'silence_alarm.dart';
 import 'whisper_worker.dart';
 
-/// In-process native engine powered by whisper.cpp and native audio capture.
-/// Completely eliminates the Python backend.
+/// In-process native engine powered by whisper.cpp and native audio capture; no Python backend.
 class NativeEngine {
   NativeEngine({Logbook? log, this.localeCode})
       : _log = log ?? Logbook('native_engine'),
@@ -97,8 +96,7 @@ class NativeEngine {
           folder: folder,
         );
       case StopCommand():
-        // Tracked so shutdown() can wait for it: EngineClient dispatches commands
-        // unawaited, so a quit right after stop could otherwise race the transcription.
+        // Tracked so shutdown() can wait for it: an unawaited quit right after stop could race the transcription.
         final stopping = _handleStop();
         _stopsInFlight.add(stopping);
         try {
@@ -142,9 +140,7 @@ class NativeEngine {
 
     _log('carregando modelo $model...');
     final path = await _models.ensureModel(model);
-    // Never await the GPU pack here: a ~130MB download must not delay the user hitting record.
-    // The postinst script already fetches it during `apt install`; this is only the fallback
-    // for a GPU plugged in after install, and it happens quietly in the background.
+    // Never await the GPU pack here (~130MB): postinst fetches it on install, this is only the background fallback for a GPU added later.
     final gpuDir = GpuPackManager.isDownloaded() ? GpuPackManager.gpuDir : null;
     if (gpuDir == null) unawaited(_gpuPack.ensureGpuPack());
     // Load and transcribe always run on this same worker isolate: CUDA's context is thread-bound.
@@ -251,7 +247,7 @@ class NativeEngine {
     _levelTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (!_isRecording) return;
       final lvl = DitoWhisper.getLevel();
-      // O nivel medido e a unica prova de que o microfone entregou voz; ver CHANGELOG 2026-08-21.
+      // The measured level is the only proof the mic delivered voice; see CHANGELOG 2026-08-21.
       if (lvl.peak > _peakSeen) _peakSeen = lvl.peak;
       _rmsSum += lvl.rms;
       _rmsTicks++;
@@ -266,14 +262,14 @@ class NativeEngine {
     });
   }
 
-  /// Quanto amplificar para o Whisper ouvir: 1 quando o sinal ja esta bom ou quando so ha ruido.
+  /// How much to amplify for Whisper to hear it: 1 when the signal is already fine or is only noise.
   static double gainFor(List<double> samples, {double target = 0.35, double maxGain = 20}) {
     var peak = 0.0;
     for (final s in samples) {
       final a = s.abs();
       if (a > peak) peak = a;
     }
-    // Piso de ruido nao vira voz por multiplicacao: amplificar isso so gera alucinacao no Whisper.
+    // A noise floor does not become speech by multiplying it: amplifying it only causes Whisper hallucinations.
     if (peak <= SilenceAlarm.audibleRms || peak >= target) return 1;
     final ganho = target / peak;
     return ganho > maxGain ? maxGain : ganho;
@@ -296,8 +292,7 @@ class NativeEngine {
     _levelTimer?.cancel();
     _levelTimer = null;
 
-    // Snapshot before the first await: a new recording may start while this one transcribes,
-    // and it overwrites every _current* field with its own session.
+    // Snapshot before the first await: a new recording starting mid-transcription overwrites every _current* field.
     final sessionId = _currentSessionId;
     final mode = _currentMode;
     final folder = _currentFolder;
@@ -328,8 +323,7 @@ class NativeEngine {
 
     String text = '';
     if (samples.isNotEmpty && _modelLoaded && _worker != null) {
-      // O headset entrega fala ate 30x mais fraca em alguns momentos (medido: rms 0.0003 contra
-      // 0.0091 na mesma voz). O WAV em disco fica intacto; so o que vai ao Whisper e normalizado.
+      // Headset gain varies wildly between takes; see docs/armadilhas.md "Ganho de headset variavel" for the measured numbers.
       final ganho = gainFor(samples);
       if (ganho > 1) {
         _log('sinal fraco: aplicando ganho de ${ganho.toStringAsFixed(1)}x para transcrever');

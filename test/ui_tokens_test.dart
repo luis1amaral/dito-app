@@ -2,8 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Enforces the CLAUDE.md rule: lib/ui/** may not hardcode color, spacing, radius or duration
-/// literals - only lib/ui/tokens.dart and lib/ui/palette.dart may define those values.
+/// Enforces the CLAUDE.md rule: only lib/ui/tokens.dart and lib/ui/palette.dart may define raw color/spacing/radius/duration literals.
 void main() {
   // These two files ARE the source of truth for the values the scan below forbids everywhere else.
   const sourceOfTruth = {'lib/ui/tokens.dart', 'lib/ui/palette.dart'};
@@ -11,9 +10,7 @@ void main() {
   // Colors.transparent is "no color", not a design value; it needs no token.
   const allowedColorConstants = {'Colors.transparent'};
 
-  // Known offenses left in files owned by other agents mid-refactor (2026-08-21 parallel cleanup).
-  // Keyed by file + rule + matched text, not line number, so a concurrent edit that shifts lines
-  // does not desync this list. Left unconsumed once the owning agent fixes it - harmless.
+  // Known offenses left mid-refactor (2026-08-21); keyed by file+rule+text, not line number, so shifting lines never desync this list.
   final knownExceptions = <String>{
     'lib/ui/main/settings_page.dart|Duration literal|Duration(seconds: 3)',
   };

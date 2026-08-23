@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Colour tokens ported 1-to-1 from src/dito/ui/theme.py.
+/// Colour tokens; only ui/tokens.dart and this file may define raw colour values.
 
 class AppColors {
   final Brightness brightness;
@@ -86,9 +86,7 @@ class AppColors {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Light palette
-// ---------------------------------------------------------------------------
+// ---- Light palette ----
 
 const lightColors = AppColors(
   brightness: Brightness.light,
@@ -128,9 +126,7 @@ const lightColors = AppColors(
   hudOnDangerMuted: Color(0xBFFFFFFF),
 );
 
-// ---------------------------------------------------------------------------
-// Dark palette
-// ---------------------------------------------------------------------------
+// ---- Dark palette ----
 
 const darkColors = AppColors(
   brightness: Brightness.dark,

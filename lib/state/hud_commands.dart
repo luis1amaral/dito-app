@@ -1,12 +1,9 @@
-/// Vocabulary the main window speaks to the HUD; each message carries only its own signal.
-///
-/// Never "here is the whole state": at 20 Hz that would be the mistake that kills the idea.
+/// Vocabulary the main window speaks to the HUD; each message carries only its own signal, never the whole state (at 20 Hz that would defeat the point).
 library;
 
 enum HudKind { recording, quiet, dead, working, toast, dismiss, level }
 
-/// What a toast MEANS. The wording lives in the ARB catalogue and is resolved by the window
-/// that draws it, so nothing on screen is nailed to one language.
+/// What a toast MEANS; the wording lives in the ARB catalogue, resolved by the window that draws it.
 enum HudToast {
   engineStarting,
   engineUnreachable,

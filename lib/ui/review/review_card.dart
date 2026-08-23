@@ -22,8 +22,7 @@ class ReviewCard extends StatefulWidget {
   final void Function(String text, {required bool toVault}) onSend;
   final void Function() onDiscard;
 
-  /// Fires whenever the text changes size so the window can re-clip and the card can grow upward
-  /// instead of being cut by a stale region.
+  /// Fires whenever the text changes size so the window can re-clip and the card can grow upward.
   final VoidCallback? onContentChanged;
 
   @override
@@ -62,14 +61,11 @@ class _ReviewCardState extends State<ReviewCard> {
     _previous = widget.text;
     _resolved = false;
     _toVault = false;
-    // Re-pega o teclado quando o cartao reaparece com um texto novo: sem isto so o primeiro
-    // cartao ficava ativo e os seguintes exigiam um clique.
+    // Re-grabs the keyboard when the card reappears with new text; without this only the first card stayed active and later ones needed a click.
     _grabFocusSoon();
   }
 
-  /// Pede o foco no proximo frame. Junto com autofocus: true no TextField e a ativacao da janela
-  /// nativa (hud_window: focusWindow/ForceForeground), o teclado cai no editor SEM clique.
-  /// Sem timers de proposito: um Future.delayed pendente derrubaria os testes de widget.
+  /// Requests focus next frame; with autofocus: true and DitoWin32.focusWindow() (dito_root_app.dart) the keyboard lands in the editor with no click.
   void _grabFocusSoon() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focus.requestFocus();
@@ -95,8 +91,7 @@ class _ReviewCardState extends State<ReviewCard> {
     widget.onSend(text, toVault: _toVault);
   }
 
-  /// On Linux the Enter arrives as a text INSERTION, not only as a key; without this the first one
-  /// just broke the line and only the second sent. Ver CHANGELOG 1.6.7.
+  /// On Linux the Enter arrives as a text INSERTION, not only as a key; without this the first one just broke the line (CHANGELOG 1.6.7).
   void _onChanged(String value) {
     final quebrouLinha =
         '\n'.allMatches(value).length > '\n'.allMatches(_previous).length;
@@ -149,13 +144,10 @@ class _ReviewCardState extends State<ReviewCard> {
       height: 1.5,
     );
 
-    // O cartao esta ancorado no rodape (Align.bottomCenter em hud_window) e cresce COM o texto
-    // (maxLines: null, SEM scroll): ele SOBE para mostrar tudo, o rodape nunca sai da tela. UMA cor
-    // so: o editor vive direto sobre a superficie do cartao, sem uma "caixa preta" em volta. Fundo
-    // escuro + texto branco, reusando os componentes e tokens do app (FloatingSurface, AppColors).
+    // Anchored to the bottom edge and grows WITH the text (maxLines: null, no scroll): it rises to show it all, so the edge never leaves the screen.
     return SizedBox(
       width: AppSize.reviewWidth + AppShadow.margin * 2,
-      // Com varios cartoes empilhados, clicar tem de escolher qual recebe Enter/Tab.
+      // With several cards stacked, a click has to pick which one receives Enter/Tab.
       child: Listener(
         onPointerDown: (_) => _focus.requestFocus(),
         child: FloatingSurface(

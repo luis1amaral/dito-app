@@ -171,9 +171,7 @@ struct _DitoWin32Plugin {
 
 G_DEFINE_TYPE(DitoWin32Plugin, dito_win32_plugin, g_object_get_type())
 
-// One keyboard hook per PROCESS, never per window: this plugin is registered once per window
-// (main+HUD+Review) and a separate XOpenDisplay per window means separate X clients fighting each
-// other for the exclusive XGrabKey of F9/F10. See CHANGELOG 2026-08-21.
+// One keyboard hook per PROCESS, never per window: a separate XOpenDisplay per window means separate X clients fighting for the exclusive XGrabKey (docs/armadilhas.md 2.1).
 static PluginState* SharedKeyState() {
   static PluginState* shared = new PluginState();
   return shared;
@@ -617,7 +615,7 @@ static void on_menu_item_activate(GtkMenuItem* item, gpointer user_data) {
   }
 }
 
-// Tecla sintetica ISOLADA (so down ou so up), que o autoteste precisa e o Ctrl+V nao cobre.
+// A single ISOLATED synthetic key (down only or up only), which the self-test needs and Ctrl+V does not cover.
 static int InjectKeyForTest(const std::string& nome, bool down) {
   void* lib = dlopen("libXtst.so.6", RTLD_LAZY);
   if (!lib) return 0;
@@ -1104,9 +1102,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       Display* display = GDK_DISPLAY_XDISPLAY(gdk_display);
       Window self_xid = GDK_WINDOW_XID(gtk_widget_get_window(GTK_WIDGET(win)));
       Window current = ReadNetActiveWindow(display);
-      // Nunca lembrar de nos mesmos, MAS tambem nunca esquecer quem estava antes: zerar aqui
-      // (2o cartao abrindo com a sobreposicao ja ativa) deixava o foco preso nela e as teclas do
-      // sistema sumiam. Ver docs/armadilhas.md 4.5.
+      // Never remember ourselves, but never forget who came before either (docs/armadilhas.md 4.5).
       if (current != self_xid && current != 0) {
         self->state->saved_focus_target = current;
         self->state->last_paste_target = current;
@@ -1158,9 +1154,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
   }
 
   if (g_strcmp0(method, "notify.alarmSound") == 0) {
-    // paplay ignores the desktop "event sounds" toggle; canberra-gtk-play silently
-    // no-ops when that toggle is off, so this alarm would never make a sound on
-    // Windows either since PlaySound() there also does not check a UI-sound setting.
+    // paplay ignores the desktop "event sounds" toggle, unlike canberra-gtk-play which silently no-ops when it's off.
     const gchar* argv[] = {"paplay", "/usr/share/sounds/freedesktop/stereo/dialog-warning.oga",
                             nullptr};
     g_autoptr(GError) error = nullptr;
@@ -1196,9 +1190,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
-  // accept_focus=FALSE grava WM_HINTS.input=False, e o Mutter trata isso como "esta janela NUNCA
-  // pode receber foco" — nem XSetInputFocus contorna. No Windows o equivalente (WS_EX_NOACTIVATE) e
-  // fraco e da para furar depois; aqui nao. Ver docs/armadilhas.md 4.6.
+  // accept_focus=FALSE writes WM_HINTS.input=False, permanent under Mutter unlike Windows' weaker WS_EX_NOACTIVATE (docs/armadilhas.md 4.6).
   if (g_strcmp0(method, "window.setFocusable") == 0) {
     GtkWindow* win = GetToplevel(self);
     bool focusable = true;
@@ -1314,8 +1306,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       if (width > 0 && height > 0) {
         cairo_region_t* region;
         if (radius > 0) {
-          // Cairo nao tem regiao de canto redondo: montamos faixa a faixa, uma linha por pixel do
-          // arco, para o recorte acompanhar a curva em vez de cortar quadrado.
+          // Cairo has no rounded-corner region: built strip by strip, one line per pixel of the arc, so the clip follows the curve instead of cutting square.
           cairo_rectangle_int_t body = {(int)left, (int)(top + radius),
                                         (int)width, (int)(height - 2 * radius)};
           region = cairo_region_create_rectangle(&body);
@@ -1335,18 +1326,16 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
           cairo_rectangle_int_t rect = {(int)left, (int)top, (int)width, (int)height};
           region = cairo_region_create_rectangle(&rect);
         }
-        // Sem visual RGBA a janela e opaca: o recorte de forma e o que faz sobrar so a pilula.
+        // Without an RGBA visual the window is opaque: the shape clip is what leaves only the pill.
         gtk_widget_shape_combine_region(GTK_WIDGET(win), region);
         gtk_widget_input_shape_combine_region(GTK_WIDGET(win), region);
         cairo_region_destroy(region);
         SetWindowOpacity(win, true);
       } else {
-        // Regiao vazia = janela invisivel sem desmapear. Mostrar/esconder de verdade falhava de
-        // forma intermitente neste WM: a janela ficava sem mapear. Ver docs/armadilhas.md 4.3.
+        // Empty region = invisible window without unmapping; real show/hide failed intermittently on this WM (docs/armadilhas.md 4.3).
         cairo_region_t* empty = cairo_region_create();
         gtk_widget_input_shape_combine_region(GTK_WIDGET(win), empty);
-        // Forma vazia e o que o Muffin erra: ele nao repinta a area liberada e o toast fica de
-        // fantasma na tela. Com compositor, esconder e opacidade 0. Ver docs/armadilhas.md 4.8.
+        // An empty shape is what Muffin gets wrong: it does not repaint the freed area, leaving a ghost toast (docs/armadilhas.md 4.8).
         if (gdk_screen_is_composited(gtk_widget_get_screen(GTK_WIDGET(win)))) {
           SetWindowOpacity(win, false);
         } else {

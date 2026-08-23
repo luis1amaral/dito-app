@@ -3,9 +3,6 @@ import 'dart:async';
 import 'key_source.dart';
 
 /// The key must be physically up for this long, continuously, before a hold ends.
-///
-/// There is no time debounce: any window wide enough to swallow auto-repeat also swallows a
-/// legitimate double tap. The keymap has no such dilemma, it knows whether the finger left.
 const Duration kGrace = Duration(milliseconds: 300);
 
 /// A push-to-talk of ten minutes is a defect; the unlimited mode is the toggle.
@@ -24,7 +21,7 @@ class HotkeyBinding {
   final HotkeyMode mode;
 }
 
-/// Port of src/dito/platform/hotkeys_core.py, driven by physical state, never by release events.
+/// Driven by physical state, never by release events: RegisterHotKey/WM_HOTKEY only deliver key-down.
 class HotkeyMachine {
   HotkeyMachine({
     required this.source,
@@ -138,8 +135,7 @@ class HotkeyMachine {
   void _onTick(KeyTickSignal signal) {
     if (_shuttingDown) return;
 
-    // A toggle is free to fire again once the keymap says the key came up - or after the ceiling,
-    // because a release that never arrives would otherwise mute the key until the app restarts.
+    // A toggle fires again once the keymap reports release, or after the ceiling if a release never arrives.
     _awaitingRelease.removeWhere((action, since) =>
         !signal.down.contains(action) ||
         signal.micros - since >= toggleReleaseCeiling.inMicroseconds);

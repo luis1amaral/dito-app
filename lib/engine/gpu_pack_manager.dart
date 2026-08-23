@@ -4,8 +4,7 @@ import 'dart:io';
 import '../config/paths.dart';
 import '../core/logbook.dart';
 
-/// Downloads the optional CUDA backend module on demand, mirroring ModelManager's pattern:
-/// only for a machine that actually has a compatible NVIDIA GPU, a no-op everywhere else.
+/// Downloads the optional CUDA backend module on demand: a no-op unless the machine has a compatible NVIDIA GPU.
 class GpuPackManager {
   GpuPackManager({Logbook? log}) : _log = log ?? Logbook('gpu');
 
@@ -28,8 +27,7 @@ class GpuPackManager {
 
   static bool isDownloaded() => File(_moduleFile).existsSync();
 
-  /// Returns the directory to hand to the native side, or null if there's nothing to use
-  /// (no compatible GPU, or the download hasn't happened/failed): the caller just skips it then.
+  /// Returns the directory to hand to the native side, or null if there's nothing to use.
   Future<String?> ensureGpuPack() async {
     if (!hasCompatibleGpu()) return null;
     if (isDownloaded()) return gpuDir;

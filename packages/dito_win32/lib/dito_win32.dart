@@ -135,9 +135,7 @@ class DitoWin32 {
 
   static Future<void> hideWindow() => _methods.invokeMethod<void>('window.hide');
 
-  /// Places the window bottom-centre of the work area holding the foreground window.
-  ///
-  /// Sizes are LOGICAL; the ratio is applied here, once, because Dart is the side that knows it.
+  /// Places the window bottom-centre of the work area holding the foreground window; sizes are LOGICAL, scaled here once.
   static Future<Rect?> setBottomCenter({
     required double width,
     required double height,
@@ -162,10 +160,7 @@ class DitoWin32 {
     );
   }
 
-  /// Limits the window to the rectangle its content actually occupies, in LOGICAL pixels.
-  ///
-  /// Without it the transparent part of the canvas still eats clicks meant for the app behind.
-  /// An empty rect clears the region.
+  /// Limits the window to the rectangle its content occupies (LOGICAL pixels), or the transparent canvas still eats clicks meant for the app behind; an empty rect clears the region.
   static Future<bool> setHitRect({
     required Rect rect,
     required double devicePixelRatio,
@@ -187,8 +182,7 @@ class DitoWin32 {
       await _methods.invokeMethod<bool>('clipboard.set', <String, Object?>{'text': text}) ??
       false;
 
-  /// Returns whether the keystrokes were INJECTED -- not whether the target pasted them.
-  /// `text` lets the native side type instead of pasting where Ctrl+V does not work (conhost).
+  /// Returns whether the keystrokes were INJECTED -- not whether the target pasted them; `text` lets the native side type instead where Ctrl+V does not work.
   static Future<bool> sendCtrlV({String? text}) async =>
       await _methods.invokeMethod<bool>(
           'input.sendCtrlV', <String, Object?>{'text': text ?? ''}) ??
@@ -207,8 +201,7 @@ class DitoWin32 {
           'input.sendChord', <String, Object?>{'key': key, 'ctrl': ctrl}) ??
       false;
 
-  /// Liga/desliga a capacidade de receber foco: no X11 isso e um contrato com o gerenciador de
-  /// janelas, nao uma preferencia. Ver docs/armadilhas.md 4.6.
+  /// Toggles the ability to receive focus: on X11 this is a contract with the window manager, not a preference (docs/armadilhas.md 4.6).
   static Future<bool> setFocusable(bool focusable) async =>
       await _methods.invokeMethod<bool>('window.setFocusable', focusable) ?? false;
 

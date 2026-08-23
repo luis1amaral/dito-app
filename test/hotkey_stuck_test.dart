@@ -4,9 +4,7 @@ import 'package:dito_app/keys/hotkey_machine.dart';
 import 'package:dito_app/keys/key_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The two ways the machine itself could go deaf until the app restarted: a release the keymap
-/// never reported (F10 swallowed forever) and a start that threw (F9 stuck active).
-/// See CHANGELOG 2026-08-21.
+/// The two ways the machine itself could go deaf until restart: a release the keymap never reported, and a start that threw (CHANGELOG 2026-08-21).
 void main() {
   late FakeKeySource source;
   late List<String> events;
@@ -40,7 +38,7 @@ void main() {
 
   test('um release que o teclado nunca reporta nao pode calar o F10 para sempre', () async {
     final machine = build();
-    // A tecla e apertada e o keymap continua jurando que ela esta pressionada.
+    // The key is pressed and the keymap keeps swearing it is still down.
     source.press('meeting');
     await settle();
     expect(events, <String>['start:meeting']);
@@ -48,7 +46,7 @@ void main() {
     source.elapse(kToggleReleaseCeiling + const Duration(milliseconds: 100));
     await settle();
 
-    // Sem o teto, este segundo aperto some sem log e sem acao — o sintoma relatado.
+    // Without the ceiling, this second press vanishes with no log and no action — the reported symptom.
     source.press('meeting');
     await settle();
     expect(events, <String>['start:meeting', 'stop:meeting'],
@@ -90,7 +88,7 @@ void main() {
     final errors = <Object>[];
     late HotkeyMachine machine;
 
-    // O erro sobe para a zona (vira log de crash no app); aqui ele so nao pode matar o teste.
+    // The error bubbles up to the zone (becomes a crash log in the app); here it just must not kill the test.
     await runZonedGuarded(() async {
       machine = build(onStart: (action) {
         attempts++;

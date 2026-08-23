@@ -114,9 +114,7 @@ class HudPill extends StatelessWidget {
         state.visual == HudVisual.quiet ||
         state.visual == HudVisual.dead;
 
-    // Opacity and a horizontal shake only. Translating vertically inside a window sized to
-    // the content clips the pill's base, and growing the window to fit the travel leaves a
-    // dead strip: the entry reads just as well as a fade.
+    // Opacity and a horizontal shake only: translating vertically clips the pill's base inside a window sized to the content.
     return ValueListenableBuilder<int>(
       valueListenable: state.frame,
       builder: (context, frame, child) => AnimatedOpacity(
@@ -225,8 +223,7 @@ class HudPill extends StatelessWidget {
 /// Handle for the test that proves the bar has real size, not just a widget in the tree.
 const Key workingBarKey = Key('hud-working-bar');
 
-/// A sliding bar for the transcribing state: there is no audio left to draw, but the work
-/// is still happening and a frozen pill reads as a hang.
+/// A sliding bar for the transcribing state: there is no audio left to draw, but a frozen pill reads as a hang.
 class _WorkingBar extends StatefulWidget {
   const _WorkingBar({required this.color});
 
@@ -258,8 +255,7 @@ class _WorkingBarState extends State<_WorkingBar>
             borderRadius: BorderRadius.circular(AppRadius.pill),
             child: AnimatedBuilder(
               animation: _controller,
-              // Childless CustomPaint needs its size stated, or it lays out at zero and
-              // the bar renders as nothing - which reads as a hung transcription.
+              // Childless CustomPaint needs its size stated, or it lays out at zero and renders as nothing.
               builder: (context, _) => CustomPaint(
                 key: workingBarKey,
                 size: const Size(Waveform.width, AppSize.workingBarHeight),

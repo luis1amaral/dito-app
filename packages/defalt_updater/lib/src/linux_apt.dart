@@ -1,4 +1,4 @@
-// No Linux quem atualiza e o apt, nao o app — ver doc/PLATAFORMAS.md.
+// On Linux apt updates the app, not the app itself — see doc/PLATAFORMAS.md.
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,27 +12,19 @@ class LinuxApt {
 
   String get helperPath => '/usr/lib/${config.debPackage}/update-helper';
 
-  /// true quando esta instalacao veio do repositorio APT.
-  ///
-  /// Quem roda o bundle solto do .tar.gz nao tem o helper, e oferecer "atualizar"
-  /// nesse caso levaria a um erro garantido — melhor nem mostrar o botao.
+  /// True when this install came from the APT repository; a loose .tar.gz bundle has no helper, so offering "update" there would guarantee an error.
   bool get installedViaApt => File(helperPath).existsSync();
 
-  /// Versao que o repositorio APT publica — a fonte da verdade do que o apt instalaria.
-  ///
-  /// Perguntar ao worker aqui daria a resposta errada: a release existe assim que e
-  /// publicada, mas o .deb so passa a existir para o apt depois que o repositorio e
-  /// reconstruido e subido.
+  /// Version the APT repository publishes — the source of truth for what apt would install (asking the release worker would answer too early: the .deb only exists for apt after the repo rebuilds).
   Future<String?> latestVersion(http.Client client) async {
     final res = await client.get(Uri.parse(config.aptPackagesUrl)).timeout(config.checkTimeout);
     if (res.statusCode != 200) return null;
     return versionOf(utf8.decode(res.bodyBytes), config.debPackage);
   }
 
-  /// Extrai `Version:` do bloco cujo `Package:` bate, no formato do arquivo Packages.
+  /// Extracts `Version:` from the block whose `Package:` matches, in the Packages file format.
   static String? versionOf(String packages, String pkg) {
-    // `\r?` nos dois lados: o apt-ftparchive gera LF, mas um Packages que passou por
-    // ferramenta de Windows chega com CRLF e o separador de bloco deixaria de casar.
+    // `\r?` on both sides: apt-ftparchive emits LF, but a Packages file touched by Windows tooling arrives as CRLF.
     for (final bloco in packages.split(RegExp(r'\r?\n[ \t]*\r?\n'))) {
       String? nome;
       String? versao;
@@ -45,8 +37,7 @@ class LinuxApt {
     return null;
   }
 
-  /// Roda o apt como root pelo polkit. O dialogo de senha e do sistema: o app nunca ve
-  /// a senha, e a acao autorizada e so este helper. Lanca [UpdateException] em falha.
+  /// Runs apt as root via polkit; the password dialog is the system's, the app never sees it. Throws [UpdateException] on failure.
   Future<void> upgrade() async {
     if (!installedViaApt) {
       throw const UpdateException('esta instalacao nao veio do repositorio APT');
@@ -54,7 +45,7 @@ class LinuxApt {
     try {
       final r = await Process.run('pkexec', [helperPath]);
       if (r.exitCode == 0) return;
-      // 126 = polkit negou ou a pessoa fechou o dialogo; 127 = helper sumiu.
+      // 126 = polkit denied or the user closed the dialog; 127 = helper missing.
       if (r.exitCode == 126) throw const UpdateException('autenticacao cancelada');
       if (r.exitCode == 127) throw const UpdateException('helper de atualizacao nao encontrado');
       final err = '${r.stderr}'.trim();

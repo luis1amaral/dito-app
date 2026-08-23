@@ -63,6 +63,14 @@ gate no primeiro instante, com o sinal ainda subindo.
 **Regra:** trocar de estado só depois de N ticks consecutivos concordando, e medir aquecimento em
 tempo real (1,2 s), nunca em contagem de amostras.
 
+### 1.7 Ganho de headset variável: medido, não estimado
+**Sintoma:** transcrição vazia com o dono falando normalmente e o WAV de depuração soando baixo.
+**Causa medida:** o mesmo headset, na mesma voz, entregou RMS de 0,0003 num momento e 0,0091 noutro —
+quase 30x de variação entre falas. O piso audível do Whisper fica acima do primeiro valor.
+**Regra:** `NativeEngine.gainFor` normaliza a amostra **só na cópia que vai ao Whisper**; o WAV em
+disco (quando `DITO_SALVAR_WAV=1`) fica intacto, porque o ganho é estimativa e não pode contaminar o
+que seria a prova bruta.
+
 ---
 
 ## 2. Teclas globais (Linux/X11)
@@ -226,6 +234,13 @@ do WM, não na janela que recebe evento.
 **Regra:** além de empurrar transições, a sub-janela **pergunta o estado atual** ao dono no boot
 (mesmo padrão já usado para tema e idioma), e chamadas nativas de mostrar/esconder são serializadas,
 com a flag de visibilidade seguindo o resultado real.
+
+### 4.11 `window_manager.ensureInitialized()` tem de rodar ANTES de `runApp`
+**Sintoma:** crash no boot referenciando `GetView()` nulo dentro do `window_manager`.
+**Causa:** o plugin lê `registrar->GetView()` sem checar nulo, e chamado depois de `runApp` essa
+view ainda não está lá.
+**Regra:** `await windowManager.ensureInitialized()` é a primeira linha depois do binding, sempre
+antes de `runApp` (ver `lib/main.dart`).
 
 ---
 
@@ -415,3 +430,31 @@ apagar — o Dart compila igual sem a chamada, e o defeito só aparece na mão d
 captura no **início da gravação** (`DitoController.onHotkeyStart`), não quando o cartão aparece:
 nessa hora o foreground já é o próprio Dito, e o guard `current != mine` do `focus.take` descarta a
 captura. Travado por `test/focus_target_test.dart`, que fica vermelho se a chamada sumir de novo.
+
+### 4.12 `setSkipTaskbar` mata o app se `waitUntilReadyToShow` não tiver rodado antes
+**Sintoma do dono:** *"eu abri o Dito mas ele não abriu"*. Nenhuma janela, nenhum ícone na bandeja,
+**nenhuma linha no log** — nem a primeira. No Visualizador de Eventos:
+`dito_app.exe` / módulo `window_manager_plugin.dll` / `0xc0000005` / offset `0xa005`.
+**Causa, no código da biblioteca** (`window_manager` 0.5.2, `windows/window_manager.cpp`):
+
+```cpp
+ITaskbarList3* taskbar_ = nullptr;                       // linha 164
+
+void WindowManager::WaitUntilReadyToShow() {             // linha 227
+  ::CoCreateInstance(CLSID_TaskbarList, ..., IID_PPV_ARGS(&taskbar_));
+}
+
+void WindowManager::SetSkipTaskbar(...) {                // linha 949
+  ...
+  taskbar_->HrInit();                                    // sem checar nulo
+```
+
+`taskbar_` é criado em **um lugar só**: `WaitUntilReadyToShow()`. O `main.dart` anterior à migração
+single-engine chamava `windowManager.waitUntilReadyToShow(...)`; o `WindowOrchestrator` que o
+substituiu **não chamava**, e o primeiro `setSkipTaskbar(true)` do boot desreferenciava nulo.
+**Regra:** no Windows, `waitUntilReadyToShow` não é açúcar de conveniência — é o construtor do
+`ITaskbarList3`. Toda configuração inicial de janela vai **dentro** do callback dele.
+**Por que a suíte não pegou:** não pegava mesmo. 220 testes e 16 goldens passavam com o app morrendo
+em `0xC0000005` antes da primeira linha de log — `flutter test` nunca sobe o executável. Foi por isso
+que nasceu `tool/fumaca.ps1`, hoje portão obrigatório dentro de `packaging/windows/construir.ps1`:
+ele sobe o app compilado nos dois modos (bandeja e janela) e exige `boot completo` no log.

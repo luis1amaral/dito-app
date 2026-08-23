@@ -50,8 +50,7 @@ class HudState extends ChangeNotifier {
   double _shakeOffset = 0;
   Timer? _toastTimer;
 
-  /// The pill fades rather than slides: translating inside a window sized to the content
-  /// clips its base. The fade itself is the framework's, not a hand-rolled spring.
+  /// The pill fades rather than slides, because translating inside a window sized to the content clips its base.
   bool get isOnScreen => visual != HudVisual.hidden && !_leaving;
   double get shake => _shakeOffset;
   bool get isVisible => visual != HudVisual.hidden;
@@ -101,8 +100,7 @@ class HudState extends ChangeNotifier {
         });
       case HudKind.level:
         wave.push(message.rms);
-        // Level only exists while the engine captures: a hidden pill here is out of sync, and
-        // nothing else would ever bring it back (CHANGELOG 2026-08-21).
+        // Level only exists while the engine captures: a hidden pill here is out of sync and nothing else brings it back (CHANGELOG 2026-08-21).
         if (!isOnScreen) {
           _enter(HudVisual.recording);
           detail = null;

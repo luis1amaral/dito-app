@@ -3,9 +3,7 @@ import '../engine/engine_protocol.dart';
 
 enum AppPhase { idle, recording, meeting, transcribing, paused }
 
-/// The RARE state, roughly once a second. The audio level never lives here.
-///
-/// Immutable and compared by value, so a burst of events that changes nothing rebuilds nothing.
+/// The RARE state, roughly once a second (the audio level never lives here); immutable and compared by value.
 class AppSnapshot {
   const AppSnapshot({
     this.phase = AppPhase.idle,

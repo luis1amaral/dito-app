@@ -1,9 +1,7 @@
 /// JSON-lines protocol with the Python engine: commands on stdin, events on stdout.
 library;
 
-// ---------------------------------------------------------------------------
-// Commands (Flutter -> engine)
-// ---------------------------------------------------------------------------
+// ---- Commands (Flutter -> engine) ----
 
 sealed class EngineCommand {
   const EngineCommand();
@@ -80,9 +78,7 @@ class QuitCommand extends EngineCommand {
   Map<String, dynamic> toJson() => {'cmd': 'quit'};
 }
 
-// ---------------------------------------------------------------------------
-// Events (engine -> Flutter)
-// ---------------------------------------------------------------------------
+// ---- Events (engine -> Flutter) ----
 
 sealed class EngineEvent {
   const EngineEvent();

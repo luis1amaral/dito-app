@@ -6,8 +6,7 @@ import 'hud/hud_state.dart';
 import 'review/review_card.dart';
 import 'tokens.dart';
 
-/// The pill plus, when active, the review card above it. Everything by constructor,
-/// so it mounts in a test without a DitoApp.
+/// The pill plus, when active, the review card above it; everything by constructor, so it mounts in a test without a DitoApp.
 class OverlayStack extends StatelessWidget {
   const OverlayStack({
     super.key,

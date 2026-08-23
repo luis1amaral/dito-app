@@ -11,9 +11,7 @@ import 'package:dito_app/state/dito_controller.dart';
 import 'package:dito_app/state/hud_commands.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Guards the three ways F9/F10 used to die until the app was closed and opened again:
-/// a recording nobody could stop, a late transcript idling a newer session, and the pill
-/// staying hidden while the engine was still capturing. See CHANGELOG 2026-08-21.
+/// Guards the three ways F9/F10 used to die until restart: an unstoppable recording, a late transcript idling a newer session, and a pill stuck hidden (CHANGELOG 2026-08-21).
 
 class _RecordingClient extends EngineClient {
   _RecordingClient({super.log});
@@ -117,14 +115,14 @@ void main() {
   group('gravacao fantasma', () {
     test('a tecla solta durante um start lento manda parar quando ele chega', () async {
       expect(controller.onHotkeyStart('dictation'), isTrue);
-      // Motor frio: nao responde a tempo e o timeout desiste.
+      // Cold engine: does not respond in time and the timeout gives up.
       await settle(startTimeout.inMilliseconds + 20);
       expect(controller.state.phase, AppPhase.idle);
       expect(client.sentStop, isTrue,
           reason: 'desistir so do nosso lado deixa o motor gravando sem dono');
 
       client.clear();
-      // A tecla ja foi solta antes de o motor confirmar.
+      // The key was already released before the engine confirmed.
       controller.onHotkeyStop('dictation');
       started('s1');
       await settle();
@@ -209,7 +207,7 @@ void main() {
     });
 
     test('nem transcrevendo: e o caso real do log, duas transcricoes sobrepostas', () async {
-      // 19:40:09 para a sessao A (134s de audio), 19:40:11 para a B (0,3s): as duas transcrevem.
+      // 19:40:09 for session A (134s of audio), 19:40:11 for B (0.3s): both transcribe.
       started('A');
       await settle();
       controller.onHotkeyStop('dictation');
@@ -221,7 +219,7 @@ void main() {
       expect(controller.state.phase, AppPhase.transcribing);
       hudLog.clear();
 
-      // A e mais lenta e termina depois de B ja estar transcrevendo.
+      // A is slower and finishes after B is already transcribing.
       finished('A', text: 'texto da A');
       await settle();
 

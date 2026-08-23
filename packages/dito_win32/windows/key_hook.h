@@ -25,15 +25,10 @@ struct KeyTick {
   int64_t micros;
 };
 
-// Low-level keyboard hook on a thread of its own, with its own message loop.
-//
-// It must never run on the main thread: that thread serves the message loop of every Flutter
-// engine, and a hook there gets throttled by LowLevelHooksTimeout and silently uninstalled.
+// Low-level keyboard hook on a thread of its own; running on the main thread would get it throttled by LowLevelHooksTimeout and silently uninstalled.
 class KeyHook {
  public:
-  // One hook per PROCESS, not per window. Every Flutter window instantiates the plugin
-  // again, and a per-instance hook meant the last window created won the static pointer
-  // while the bindings lived on the first one: installed, pumping, and blind.
+  // One hook per PROCESS, not per plugin instance, or a second instantiation wins the static pointer while the bindings stay on the first (installed, pumping, and blind).
   static KeyHook& Shared();
 
   KeyHook();
@@ -62,8 +57,7 @@ class KeyHook {
   // Test-only: drives SendInput so the suite can prove hook plus suppression together.
   UINT InjectForTest(UINT vk, bool down);
 
-  // A list, not a single callback: every window instantiates the plugin, and a lone
-  // callback means the last window created silently steals the events from the first.
+  // A list, not a single callback: a lone callback would let a second registration silently steal the events from the first.
   struct Listener {
     std::function<void(const KeyEdge&)> on_edge;
     std::function<void(const KeyTick&)> on_tick;

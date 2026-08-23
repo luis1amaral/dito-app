@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../../motion/waveform_model.dart';
 import '../tokens.dart';
 
-/// The 13 bars, or one flat line when the microphone is dead.
-///
-/// Repaints straight off a Listenable so a 20 Hz signal never causes a rebuild.
+/// The 13 bars, or one flat line when the microphone is dead; repaints straight off a Listenable so a 20 Hz signal never causes a rebuild.
 class Waveform extends StatelessWidget {
   const Waveform({
     super.key,

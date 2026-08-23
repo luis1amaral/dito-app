@@ -1,8 +1,6 @@
 import 'dart:async';
 
-/// What the machine needs from the keyboard: an edge and the physical truth.
-///
-/// This is the seam that lets the whole state machine be tested without a keyboard.
+/// What the machine needs from the keyboard: an edge and the physical truth; the seam for testing without one.
 abstract class KeySource {
   /// Key went down, auto-repeat included.
   Stream<KeyDownSignal> get downs;

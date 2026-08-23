@@ -2,10 +2,7 @@ import 'package:toml/toml.dart';
 
 import 'config_model.dart';
 
-/// TOML <-> model, preserving every key the model does not know about.
-///
-/// The Python side keeps unknown keys in `_extras` so saving never drops what it cannot parse;
-/// the previous port rewrote the file from its own fields and silently destroyed the rest.
+/// TOML <-> model; unknown keys land in `_extras` so a save never drops what it cannot parse.
 class ConfigCodec {
   const ConfigCodec();
 

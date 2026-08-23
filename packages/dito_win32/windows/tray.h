@@ -18,10 +18,7 @@ struct TrayMenuItem {
   bool checkbox = false;
 };
 
-// Owns the tray icon outright: icon, tooltip, menu and balloon in one place.
-//
-// Two owners for one icon is why the balloon used to fail silently — Shell_NotifyIcon
-// modifies by (hwnd, uID), and a second library's icon is not ours to modify.
+// Owns the tray icon outright (icon, tooltip, menu, balloon): two owners for one icon is why the balloon used to fail silently, since Shell_NotifyIcon modifies by (hwnd, uID).
 class Tray {
  public:
   static Tray& Shared();

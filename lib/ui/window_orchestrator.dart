@@ -8,6 +8,14 @@ import 'package:window_manager/window_manager.dart';
 import '../core/logbook.dart';
 import 'tokens.dart';
 
+const WindowOptions _bootOptions = WindowOptions(
+  size: Size(880, 760),
+  minimumSize: Size(720, 620),
+  center: true,
+  title: 'Dito',
+  titleBarStyle: TitleBarStyle.normal,
+);
+
 enum AppWindowMode {
   hidden,
   overlay,
@@ -29,16 +37,18 @@ class WindowOrchestrator extends ChangeNotifier {
     if (_isInitialized) return;
     _isInitialized = true;
 
-    await windowManager.ensureInitialized();
-    await windowManager.setPreventClose(true);
-
-    if (startHidden) {
-      _mode = AppWindowMode.hidden;
-      await windowManager.setSkipTaskbar(true);
-      await windowManager.hide();
-    } else {
-      await showMainWindow();
-    }
+    // waitUntilReadyToShow is the ONLY place window_manager CoCreates its ITaskbarList3, and
+    // setSkipTaskbar dereferences it unguarded; skipping it segfaults on boot. Armadilha 4.12.
+    await windowManager.waitUntilReadyToShow(_bootOptions, () async {
+      await windowManager.setPreventClose(true);
+      if (startHidden) {
+        _mode = AppWindowMode.hidden;
+        await windowManager.setSkipTaskbar(true);
+        await windowManager.hide();
+      } else {
+        await showMainWindow();
+      }
+    });
   }
 
   Future<void> showOverlay({required double dpr}) async {

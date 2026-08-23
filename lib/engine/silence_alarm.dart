@@ -1,7 +1,6 @@
 import 'engine_protocol.dart';
 
-/// Decides ok/quiet/dead from the raw level, apart from the engine so the rule can be tested
-/// without audio hardware. Red (dead) is reserved for a take that never heard audio at all.
+/// Decides ok/quiet/dead from the raw level, kept apart from the engine so it can be tested without audio hardware.
 class SilenceAlarm {
   SilenceAlarm({this.deadMs = 700, this.quietMs = 2500, this.tickMs = 50});
 
@@ -14,13 +13,10 @@ class SilenceAlarm {
   static const double audibleRms = 0.008;
   static const double deadRms = 0.001;
 
-  /// A device waking up ramps its amplitude up; counting that as silence lit the red pill while
-  /// the user was already speaking. Measured in TIME, not in samples: one large first block from
-  /// the driver used to clear the old sample-based gate on the first tick.
+  /// Measured in TIME, not samples: a device ramping up its amplitude used to trip the red pill while the user was already speaking.
   static const int warmUpMs = 1200;
 
-  /// The state only flips after this many ticks agreeing, so an RMS dancing around deadRms cannot
-  /// produce the dead/quiet flapping seen in the logs (5 changes in under a second).
+  /// Requires N agreeing ticks so an RMS dancing around deadRms cannot flap the state.
   static const int stableTicks = 3;
 
   int _silenceMs = 0;

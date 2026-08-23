@@ -1,5 +1,4 @@
-// Auto-update fora das lojas: I/O puro, sem estado e sem tela — quem decide o que
-// mostrar e o app. O desenho e o porque de cada plataforma: doc/PLATAFORMAS.md.
+// Auto-update outside the app stores: pure I/O, no state, no screen — see doc/PLATAFORMAS.md for the design and the why of each platform.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -16,11 +15,10 @@ import 'models.dart';
 import 'version.dart';
 import 'windows_installer.dart';
 
-/// Onde o pacote grava o download. Injetavel pra o teste nao mexer no disco real.
+/// Where the package writes the download; injectable so tests never touch the real disk.
 typedef WorkDirResolver = Future<Directory> Function();
 
-/// Como o Android entrega a URL ao navegador. Injetavel porque `url_launcher`
-/// precisa do binding de plataforma, que nao existe em teste puro.
+/// How Android hands the URL to the browser; injectable because `url_launcher` needs the platform binding, absent in pure tests.
 typedef UrlOpener = Future<bool> Function(Uri url);
 
 class DefaltUpdater {
@@ -51,8 +49,7 @@ class DefaltUpdater {
   static Future<bool> _defaultOpenUrl(Uri url) =>
       launchUrl(url, mode: LaunchMode.externalApplication);
 
-  /// Como a atualizacao chega nesta plataforma. A UI usa isto pra escolher o rotulo do
-  /// botao — "Baixar" no Windows nao e a mesma acao que "Baixar no navegador" no Android.
+  /// How the update reaches this platform; the UI uses this to pick the button label ("Download" on Windows isn't "Download in browser" on Android).
   UpdateDelivery get delivery {
     if (!config.selfUpdatesHere) return UpdateDelivery.none;
     if (Platform.isWindows) return UpdateDelivery.inAppDownload;
@@ -65,9 +62,7 @@ class DefaltUpdater {
 
   Future<String> currentVersion() => _readVersion();
 
-  /// Consulta a origem certa da plataforma. Devolve null quando ja esta atualizado — e
-  /// tambem em QUALQUER falha (rede, servidor fora, json torto): update quebrado nunca
-  /// pode virar erro na cara de quem so quer usar o app.
+  /// Queries the platform's own source; returns null when already up to date, and on ANY failure too — a broken update check must never surface as an error to someone who just wants to use the app.
   Future<UpdateInfo?> check() async {
     if (!supported) return null;
     try {
@@ -91,8 +86,7 @@ class DefaltUpdater {
     return UpdateInfo.fromManifest(body, UpdaterConfig.platformKey, current);
   }
 
-  /// Linux: a versao vem do repositorio APT, nao do worker — sao fontes diferentes de
-  /// proposito, o apt so enxerga a versao depois que o repositorio e reconstruido.
+  /// Linux: the version comes from the APT repository, not the worker — deliberately different sources, since apt only sees the version after the repo rebuilds.
   Future<UpdateInfo?> _checkApt(String current) async {
     final latest = await _apt.latestVersion(_http);
     if (latest == null) return null;
@@ -104,8 +98,7 @@ class DefaltUpdater {
   Future<Directory> _dir() => _workDirOf();
 
   static Future<Directory> _defaultWorkDir() async {
-    // No Android e o diretorio privado do app em armazenamento externo — nao exige
-    // NENHUMA permissao de storage.
+    // On Android this is the app's private directory in external storage — needs NO storage permission.
     final base = Platform.isAndroid
         ? (await getExternalStorageDirectory() ?? await getApplicationSupportDirectory())
         : await getApplicationSupportDirectory();
@@ -120,15 +113,14 @@ class DefaltUpdater {
   Future<File> _destFor(String version) async =>
       File('${(await _dir()).path}${Platform.pathSeparator}${fileNameFor(version)}');
 
-  /// Arquivo desta versao ja baixado E integro, se existir (sobrevive a reabrir o app).
+  /// This version's file if already downloaded AND intact (survives reopening the app).
   Future<File?> downloaded(UpdateInfo info) async {
     final f = await _destFor(info.version);
     if (!f.existsSync()) return null;
     return await _integrityProblem(f, info) == null ? f : null;
   }
 
-  /// Baixa o asset reportando progresso 0..1. Escreve num `.part` e so renomeia depois de
-  /// conferir a integridade — download interrompido nunca vira arquivo "pronto".
+  /// Downloads the asset reporting progress 0..1; writes to a `.part` and only renames after checking integrity, so an interrupted download never becomes a "ready" file.
   Future<File> download(
     UpdateInfo info, {
     void Function(double)? onProgress,
@@ -178,8 +170,7 @@ class DefaltUpdater {
     return dest;
   }
 
-  /// Devolve a descricao do problema, ou null quando o arquivo confere.
-  /// sha256 quando o manifesto traz um; senao o tamanho, que ao menos pega truncamento.
+  /// Returns the problem's description, or null when the file checks out (sha256 if the manifest has one, else size, which at least catches truncation).
   Future<String?> _integrityProblem(File f, UpdateInfo info) async {
     final len = await f.length();
     if (info.size > 0 && len != info.size) {
@@ -192,19 +183,15 @@ class DefaltUpdater {
     return null;
   }
 
-  /// Hash em streaming: um APK de ~100 MB nao cabe confortavelmente na memoria do celular.
+  /// Hashes in streaming: a ~100 MB APK does not comfortably fit in phone memory.
   static Future<String> sha256OfFile(File f) async {
     final digest = await f.openRead().transform(sha256).first;
     return digest.toString();
   }
 
-  // ── aplicacao ──────────────────────────────────────────────────────────────
+  // ── apply ──────────────────────────────────────────────────────────────
 
-  /// Aplica a atualizacao pelo caminho da plataforma. Lanca [UpdateException] em falha.
-  ///
-  /// Windows: NAO RETORNA — o processo encerra pro updater trocar os arquivos.
-  /// Android: abre o navegador e retorna; quem instala e o instalador do sistema.
-  /// Linux: roda o apt via polkit e retorna; o binario novo so vale na proxima abertura.
+  /// Applies the update via the platform's path; throws [UpdateException] on failure. Windows: NEVER RETURNS. Android: opens the browser and returns. Linux: runs apt via polkit and returns.
   Future<void> apply({File? file}) async {
     switch (delivery) {
       case UpdateDelivery.inAppDownload:
@@ -219,21 +206,14 @@ class DefaltUpdater {
     }
   }
 
-  /// Android: entrega o download ao NAVEGADOR em vez de baixar aqui dentro.
-  ///
-  /// O Android autoriza instalacao por ORIGEM, e o Chrome quase sempre ja tem essa
-  /// permissao — instalando por ele a pessoa nao topa com o aviso de "fonte desconhecida".
-  /// De quebra, o app deixa de precisar de REQUEST_INSTALL_PACKAGES e de escrita em disco.
+  /// Android: hands the download to the BROWSER instead of downloading in-app; Chrome usually already holds install-by-origin permission, sidestepping the "unknown source" warning and REQUEST_INSTALL_PACKAGES.
   Future<void> openInBrowser() async {
     if (!await _openUrl(config.downloadUri)) {
       throw const UpdateException('nao foi possivel abrir o navegador');
     }
   }
 
-  /// Apaga downloads de outras versoes — ~100 MB por release esquecida e muito.
-  ///
-  /// PRESERVA o `.part` da versao mantida: rodar isto junto da checagem enquanto o
-  /// download escreve no parcial quebraria o download com erro de filesystem.
+  /// Deletes downloads of other versions (~100 MB per forgotten release adds up); PRESERVES the kept version's `.part`, or running this during a download would break it with a filesystem error.
   Future<void> cleanup({String? keepVersion}) async {
     try {
       final dir = await _dir();

@@ -7,8 +7,7 @@ import '../l10n/app_strings.dart';
 import 'engine_protocol.dart';
 import 'native_engine.dart';
 
-/// EngineClient providing complete in-process native execution via whisper.cpp & miniaudio.
-/// Implements 100% of the EngineProtocol events and commands without external Python processes.
+/// Runs whisper.cpp/miniaudio fully in-process, covering every EngineProtocol event and command.
 class EngineClient {
   EngineClient({Logbook? log, String Function()? localeCode})
       : _log = log ?? Logbook('engine'),

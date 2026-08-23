@@ -6,9 +6,7 @@ import '../../keys/key_names.dart';
 import '../palette.dart';
 import '../tokens.dart';
 
-/// Click, then press the key you want. No dropdown.
-///
-/// Capturing PAUSES the global hook, or the suppressed key never reaches this field.
+/// Click, then press the key you want (no dropdown); capturing PAUSES the global hook so the key reaches this field.
 class KeyCaptureField extends StatefulWidget {
   const KeyCaptureField({
     super.key,

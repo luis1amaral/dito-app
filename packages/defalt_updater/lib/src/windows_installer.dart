@@ -1,9 +1,4 @@
-// Troca a instalacao do Windows por cima, sem clique nenhum alem do "Reiniciar e atualizar".
-//
-// Um processo nao consegue sobrescrever o proprio .exe enquanto roda, entao a troca e
-// delegada a um script: o app lanca o updater DESTACADO, morre, e o script espera o PID
-// sumir pra copiar. O zip da release tem os arquivos na RAIZ, entao extrair e copiar por
-// cima e o suficiente. Detalhes e historico: doc/PLATAFORMAS.md.
+// Replaces the Windows install in place, no click beyond "Restart and update": a running process cannot overwrite its own .exe, so a detached script waits for our PID to die before copying (doc/PLATAFORMAS.md).
 import 'dart:convert';
 import 'dart:io';
 
@@ -16,12 +11,12 @@ class WindowsInstaller {
   const WindowsInstaller(this.config);
   final UpdaterConfig config;
 
-  /// Pasta onde o app esta instalado (ao lado do .exe em execucao).
+  /// Folder where the app is installed (next to the running .exe).
   static Directory get installDir => File(Platform.resolvedExecutable).parent;
 
   File get logFile => File('${Directory.systemTemp.path}\\${config.appId}-updater.log');
 
-  /// A pasta aceita escrita sem elevacao? (`C:\Program Files` nao aceita.)
+  /// Does the folder accept writes without elevation? (`C:\Program Files` does not.)
   bool _canWrite(Directory dir) {
     try {
       final probe = File('${dir.path}\\.${config.appId}_update_probe');
@@ -33,11 +28,7 @@ class WindowsInstaller {
     }
   }
 
-  /// Extrai o zip por cima da instalacao e relanca o app. NAO RETORNA em sucesso.
-  ///
-  /// So encerra o app depois que o updater PROVAR que subiu (ele grava a primeira linha
-  /// do log antes de qualquer outra coisa). Sem essa prova, lanca [UpdateException] e o
-  /// app CONTINUA ABERTO: fechar sozinho e nao atualizar nada e o pior resultado possivel.
+  /// Extracts the zip over the install and relaunches the app; NEVER RETURNS on success. Only closes once the updater PROVES it started (first log line), or throws [UpdateException] and stays OPEN — closing without updating is the worst outcome.
   Future<Never> applyAndRestart(File zip) async {
     await launchUpdater(
       zip,
@@ -48,10 +39,7 @@ class WindowsInstaller {
     exit(0);
   }
 
-  /// Sobe o updater destacado e so volta depois que ele provar que arrancou.
-  ///
-  /// Separado de [applyAndRestart] porque o teste exercita esta parte de verdade — com
-  /// `exit(0)` junto ele mataria o proprio processo de teste.
+  /// Launches the detached updater and only returns once it proves it started; split from [applyAndRestart] because the test exercises this part for real, and `exit(0)` there would kill the test process itself.
   @visibleForTesting
   Future<void> launchUpdater(
     File zip, {
@@ -62,7 +50,7 @@ class WindowsInstaller {
   }) async {
     final needsElevation = !_canWrite(dest);
     final script = await writeScript(into: scriptDir);
-    if (logFile.existsSync()) await logFile.delete(); // zera pra detectar o arranque
+    if (logFile.existsSync()) await logFile.delete(); // cleared to detect the startup
 
     final psArgs = <String>[
       '-NoProfile',
@@ -81,7 +69,7 @@ class WindowsInstaller {
     ];
 
     if (needsElevation) {
-      // instalado em pasta protegida: pede UAC uma vez (o proprio script faz a copia)
+      // Installed in a protected folder: ask for UAC once (the script itself does the copy).
       final quoted = psArgs.map((a) => "'${a.replaceAll("'", "''")}'").join(',');
       await Process.start(
         'cmd',
@@ -92,8 +80,7 @@ class WindowsInstaller {
         mode: ProcessStartMode.detached,
       );
     } else {
-      // Via `cmd /c start` de proposito: Process.start detached cria o processo SEM
-      // console, e o powershell.exe morre na hora nesse estado. O `start` cria o console.
+      // Via `cmd /c start` on purpose: Process.start detached creates the process with NO console, and powershell.exe dies instantly like that; `start` gives it one.
       await Process.start(
         'cmd',
         ['/c', 'start', '', '/min', 'powershell', ...psArgs],
@@ -108,8 +95,7 @@ class WindowsInstaller {
     }
   }
 
-  /// Espera o updater escrever a primeira linha do log. Ele so espera o app morrer
-  /// DEPOIS disso, entao nao ha impasse entre os dois.
+  /// Waits for the updater to write the log's first line; it only waits for the app to die AFTER that, so the two never deadlock.
   Future<bool> _waitForUpdaterStart() async {
     for (var i = 0; i < 60; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -118,7 +104,7 @@ class WindowsInstaller {
     return false;
   }
 
-  /// Grava o .ps1 e devolve o arquivo. Publico porque o teste roda o script de verdade.
+  /// Writes the .ps1 and returns the file; public because the test runs the script for real.
   Future<File> writeScript({Directory? into}) async {
     final dir = into ?? await getTemporaryDirectory();
     final f = File('${dir.path}\\${config.appId}-updater.ps1');
@@ -130,10 +116,7 @@ class WindowsInstaller {
       .replaceAll('@@LOG@@', '${config.appId}-updater.log')
       .replaceAll('@@NAME@@', config.name.replaceAll("'", "''"));
 
-  // Mostra uma janelinha de progresso enquanto troca os arquivos (o app esta fechado
-  // nessa hora, entao sem ela a pessoa fica olhando pra nada e acha que quebrou).
-  // Falha em qualquer etapa => relanca a versao ANTIGA: ficar sem app aberto seria pior
-  // do que ficar sem a atualizacao.
+  // Shows a small progress window while swapping files (the app is closed then, so without it the person stares at nothing and assumes it broke); any step failing relaunches the OLD version instead.
   static const _template = r'''
 param(
   [int]$AppPid,

@@ -9,10 +9,7 @@ import '../../engine/engine_health.dart';
 import '../../engine/engine_protocol.dart';
 import '../../state/app_snapshot.dart';
 
-/// Tray icon and menu, owned end to end by the native plugin.
-///
-/// One owner for icon, tooltip, menu and balloon: two libraries sharing one icon is why
-/// the balloon used to fail silently.
+/// Tray icon and menu, owned end to end by the native plugin: two libraries sharing one icon is why the balloon used to fail silently.
 class TrayController {
   TrayController({Logbook? log}) : _log = log ?? Logbook('tray');
 

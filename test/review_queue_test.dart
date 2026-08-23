@@ -9,9 +9,7 @@ import 'package:dito_app/output/paste_service.dart';
 import 'package:dito_app/state/dito_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Falar 1, falar 2, falar 3 sem confirmar nenhuma tem de deixar TRES cartoes esperando, e cada
-/// confirmacao resolve so o seu. Antes, cada gravacao nova sobrescrevia a revisao pendente e o
-/// texto anterior sumia sem aviso.
+/// Dictating 1, 2, 3 without confirming any must leave THREE cards waiting, each confirmation resolving only its own.
 
 class _Client extends EngineClient {
   _Client({super.log});

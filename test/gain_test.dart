@@ -4,9 +4,7 @@ import 'package:dito_app/engine/native_engine.dart';
 import 'package:dito_app/engine/silence_alarm.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// O headset entrega a mesma voz ate 30x mais fraca em alguns momentos (medido: rms 0.0003 contra
-/// 0.0091). O Whisper nao ouve fala nesse nivel, entao o audio e normalizado antes de transcrever —
-/// sem transformar ruido de fundo em voz inventada. Ver CHANGELOG 2026-08-21.
+/// Headset gain varies wildly between takes; see docs/armadilhas.md 1.7 for the measured numbers.
 void main() {
   List<double> tom({required double amplitude, int amostras = 16000}) => <double>[
         for (var i = 0; i < amostras; i++)
@@ -21,7 +19,7 @@ void main() {
   });
 
   test('o pior caso medido no headset ainda cabe no teto', () {
-    // 23:18 do dia 21/08: pico 0.010 com a mesma voz que normalmente da 0.068.
+    // 23:18 on 08/21: peak 0.010 with the same voice that normally gives 0.068.
     final ganho = NativeEngine.gainFor(tom(amplitude: 0.010));
     expect(0.010 * ganho, greaterThan(SilenceAlarm.audibleRms * 10),
         reason: 'sem isto o Whisper continua sem ouvir a fala do dono');
@@ -33,7 +31,7 @@ void main() {
   });
 
   test('ruido de fundo NAO vira voz por multiplicacao', () {
-    // Abaixo do limiar de voz do proprio app: amplificar isso so gera alucinacao no Whisper.
+    // Below the app's own voice threshold: amplifying this only causes Whisper hallucinations.
     expect(NativeEngine.gainFor(tom(amplitude: SilenceAlarm.audibleRms / 2)), 1);
     expect(NativeEngine.gainFor(tom(amplitude: 0.0)), 1);
   });

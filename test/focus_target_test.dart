@@ -10,10 +10,7 @@ import 'package:dito_app/state/dito_controller.dart';
 import 'package:dito_app/state/hud_commands.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Guards the regression the single-engine migration shipped: hud_window.dart was deleted and
-/// took the only DitoWin32.takeFocus call with it, so the native side never learned which window
-/// the text belonged to. Focus was never restored and the conhost paste fix went silently dead.
-/// See CHANGELOG 2026-08-23 and docs/medicoes/colagem-windows.md.
+/// Guards the regression from CHANGELOG 2026-08-23 where deleting hud_window.dart silently killed focus restore; see docs/armadilhas.md 6.11.
 
 class _RecordingClient extends EngineClient {
   _RecordingClient({super.log, required this.trace});

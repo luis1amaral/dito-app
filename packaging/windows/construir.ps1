@@ -59,6 +59,10 @@ Write-Host "bundle nativo completo: $tamanho MB"
 if ($SoBundle) { exit 0 }
 
 # --- instalador -------------------------------------------------------------
+Etapa 'Teste de fumaca: o app precisa SUBIR'
+& "$PSScriptRoot\..\..	oolumaca.ps1" -Bundle $Bundle
+if ($LASTEXITCODE -ne 0) { throw 'teste de fumaca reprovou: o app nao sobe, nao empacota' }
+
 Etapa 'Gerando o instalador Inno Setup'
 $candidatos = @(
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",

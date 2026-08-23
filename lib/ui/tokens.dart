@@ -1,4 +1,4 @@
-/// Scales ported from src/dito/ui/theme.py; nothing in lib/ui may hardcode these values.
+/// Spacing/radius/size/duration scale; nothing in lib/ui may hardcode these values.
 library;
 
 class AppSpacing {
@@ -32,7 +32,7 @@ class AppType {
 }
 
 class AppSize {
-  /// Degrau entre cartoes empilhados: embaixo, meio, cima, e o proximo volta para baixo.
+  /// Step between stacked cards: bottom, middle, top, then the next one wraps back to bottom.
   static const double reviewStackStep = 132;
 
   /// Floor, not width: in Portuguese "Corrigir" is wider than "Fix" and used to get clipped.
@@ -67,17 +67,11 @@ class AppSize {
   /// Margin from the work area edge, for both the HUD and the review card.
   static const double screenMargin = AppSpacing.xxxl;
 
-  /// Overlay windows are a FIXED canvas the content is centred in. Sizing a window to its
-  /// own content means measuring inside the thing you are resizing, and that loop clipped
-  /// the pill and collapsed the card.
-  /// UMA sub-janela para a pilula E os cartoes: duas sub-janelas disputavam o contexto GL e a
-  /// segunda nascia sem renderizar. Ver docs/armadilhas.md 4.4.
+  /// A FIXED canvas the content is centred in: one sub-window for both pill and cards, per docs/armadilhas.md 4.4.
   static const double hudCanvasWidth = 900;
   static const double hudCanvasHeight = 900;
   static const double reviewCanvasWidth = 700;
-  // Canvas ALTO de proposito: o cartao (ancorado no rodape) cresce PRA CIMA com o texto, sem
-  // scroll. O clip-to-card mostra so o cartao, entao o espaco transparente extra e invisivel; ele
-  // so garante que um texto de muitas linhas caiba inteiro em vez de cortar no topo da janela.
+  // Deliberately TALL: the card (anchored to the bottom) grows UPWARD with the text, and the extra transparent space stays invisible behind the clip-to-card.
   static const double reviewCanvasHeight = 900;
 }
 

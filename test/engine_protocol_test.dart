@@ -147,9 +147,7 @@ void main() {
   });
 
   group('acentos (UTF-8)', () {
-    // O motor agora emite UTF-8 (entry_engine reconfigura os streams). Antes o stdout saia em
-    // cp1252 e o Flutter, que le UTF-8, transformava os acentos em «replacement char». Estes
-    // testes fixam o contrato: bytes UTF-8 do motor decodificam sem corromper o texto.
+    // Fixes the contract that engine UTF-8 bytes decode without corrupting the text.
     final replacement = String.fromCharCode(0xFFFD);
 
     test('texto transcrito com acentos sobrevive ao round-trip UTF-8', () {

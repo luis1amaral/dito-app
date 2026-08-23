@@ -1,5 +1,4 @@
-/// Compara "1.11.2" com "1.9.10" numericamente. >0 quando [a] e mais nova.
-/// Feito na mao de proposito: comparar string a string diria que 1.9 > 1.11.
+/// Compares "1.11.2" with "1.9.10" numerically (string comparison would say 1.9 > 1.11); >0 means [a] is newer.
 int compareVersions(String a, String b) {
   List<int> parts(String v) => v
       .split(RegExp(r'[+\-]'))

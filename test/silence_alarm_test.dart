@@ -2,9 +2,7 @@ import 'package:dito_app/engine/engine_protocol.dart';
 import 'package:dito_app/engine/silence_alarm.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Red used to fire after 700ms of silence, so pausing to breathe looked like a dead mic --
-/// and the cleaner the microphone, the faster the false alarm. Red now means one thing only:
-/// this take never heard audio at all.
+/// Red used to fire after 700ms of silence, so pausing to breathe looked like a dead mic; now it means only that this take never heard audio at all.
 void main() {
   late SilenceAlarm alarm;
 
@@ -21,7 +19,7 @@ void main() {
   }
 
   test('a mic that never captures anything goes red', () {
-    // Depois do aquecimento (warmUpMs), que existe porque o device sobe a amplitude aos poucos.
+    // After warm-up (warmUpMs), which exists because the device ramps up its amplitude gradually.
     expect(feed(0.0, 3000), contains(AudioState.dead));
   });
 
@@ -40,7 +38,7 @@ void main() {
 
   test('speaking again clears the warning', () {
     feed(0.05, 200);
-    // Silencio suficiente para passar do aquecimento E do quietMs, senao nem chega a avisar.
+    // Enough silence to pass both warm-up AND quietMs, or it never even reaches the warning.
     feed(0.0, 6000);
     expect(feed(0.05, 200), contains(AudioState.ok));
   });
@@ -70,7 +68,7 @@ void main() {
   });
 
   test('nivel oscilando em torno do piso nao gera pisca-pisca dead/quiet', () {
-    // Caso real do log: 5 trocas de estado em menos de 1s com o RMS dancando sobre deadRms.
+    // Real case from the log: 5 state changes in under 1s with the RMS dancing around deadRms.
     feed(0.0, 4000);
     final changes = <AudioState>[];
     for (var i = 0; i < 40; i++) {

@@ -8,8 +8,7 @@ import 'package:dito_app/ui/widgets/waveform.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Geometry of the pill: the shadow margin on all four sides is what keeps the base from
-/// being clipped, which the user saw as "a line underneath".
+/// Geometry of the pill: the shadow margin on all four sides is what keeps the base from being clipped.
 void main() {
   late HudState state;
 
@@ -30,8 +29,7 @@ void main() {
         locale: locale,
         home: Scaffold(
           backgroundColor: Colors.transparent,
-          // The pill is stateless and repaints off the frame counter, which is frozen here;
-          // the real window rebuilds it from the state listener, so the test does the same.
+          // The pill repaints off the frame counter (frozen here); the test rebuilds it from the state listener like the real window does.
           body: Center(
             child: ListenableBuilder(
               listenable: state,

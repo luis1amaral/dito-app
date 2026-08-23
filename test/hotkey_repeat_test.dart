@@ -1,10 +1,7 @@
 import 'package:dito_app/state/app_snapshot.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The hotkey must keep working recording after recording. What broke in the field: stopping
-/// left the app in `transcribing`, and every press until it finished was refused, so F9/F10
-/// looked dead after the first use. Transcription runs on its own isolate now, so the phase
-/// it leaves behind must not gate the next recording.
+/// The hotkey must keep working recording after recording: stopping used to leave the app in `transcribing`, refusing every press until it finished.
 void main() {
   group('canStart', () {
     test('a press right after stopping is accepted while the transcript is still running', () {

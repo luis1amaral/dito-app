@@ -1,4 +1,4 @@
-/// Auto-update fora das lojas para os apps Flutter do Defalt. Sem UI.
+/// Auto-update outside the app stores for Defalt's Flutter apps; no UI.
 library;
 
 export 'src/linux_apt.dart' show LinuxApt;

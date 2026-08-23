@@ -26,9 +26,7 @@ class _WorkerError {
   final String message;
 }
 
-/// Owns whisper.cpp's model handle and every blocking FFI call (load, CUDA inference) on
-/// its own isolate/thread, so the UI isolate never freezes during transcription. CUDA
-/// context is thread-bound: load and transcribe must always run on this same isolate.
+/// Owns whisper.cpp's model handle and every blocking FFI call on its own isolate; CUDA's context is thread-bound, so load and transcribe always run here.
 class WhisperWorker {
   WhisperWorker._(this._commands, this._isolate);
 

@@ -16,8 +16,7 @@ class WaveformModel {
   /// Flat means dead: a straight line reads as "nothing is coming in" without needing colour.
   bool flat = false;
 
-  /// Compressed scale, because speech RMS sits between 0.02 and 0.10 and linear would leave
-  /// the bars invisible exactly when everything works.
+  /// Compressed scale: speech RMS sits between 0.02 and 0.10, where linear would leave the bars invisible.
   static double levelFor(double rms) =>
       math.min(1.0, math.sqrt(math.max(0.0, rms) * AppMotion.waveGain));
 

@@ -108,8 +108,7 @@ bool ForceForeground(HWND target) {
   return ok;
 }
 
-// Windows twin of IsTerminalWindow in the Linux plugin: says how the target accepts text.
-// Measured, not assumed -- see docs/medicoes/colagem-windows.md.
+// Windows twin of IsTerminalWindow in the Linux plugin: says how the target accepts text (measured, see docs/medicoes/colagem-windows.md).
 const char* ClassifyTarget(HWND target) {
   if (target == nullptr || IsWindow(target) == 0) return "gui";
   wchar_t cls[256] = {};
@@ -122,8 +121,7 @@ const char* ClassifyTarget(HWND target) {
   return "gui";
 }
 
-// Types the text as UTF-16 units: works where the target has no usable paste shortcut, and keeps
-// pt-BR accents exact because the scan code IS the character.
+// Types the text as UTF-16 units: works where paste has no usable shortcut, and keeps pt-BR accents exact because the scan code IS the character.
 bool SendUnicodeText(const std::wstring& text) {
   if (text.empty()) return false;
   std::vector<INPUT> inputs;
@@ -331,8 +329,7 @@ void DitoWin32Plugin::HandleMethod(
     out[EncodableValue("_err")] =
         EncodableValue(static_cast<int64_t>(hook_->install_error()));
 
-    // Which window is in front, and whether we are elevated: a low-integrity process gets
-    // no hook events at all while an elevated window holds the foreground.
+    // Which window is in front, and whether we are elevated: a low-integrity process gets no hook events while an elevated window holds the foreground.
     wchar_t cls[128] = {0};
     GetClassName(GetForegroundWindow(), cls, 128);
     out[EncodableValue("_fg")] = EncodableValue(Narrow(std::wstring(cls)));
@@ -381,8 +378,7 @@ void DitoWin32Plugin::HandleMethod(
     st |= WS_POPUP;
     SetWindowLongPtr(hwnd, GWL_STYLE, st);
 
-    // No DWM alpha trick here: Flutter's release swapchain composes opaque, so blur-behind
-    // rendered these windows fully invisible. Shape comes from SetWindowRgn instead.
+    // No DWM alpha trick here: Flutter's release swapchain composes opaque, so blur-behind rendered these windows fully invisible; shape comes from SetWindowRgn instead.
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     result->Success(EncodableValue(static_cast<int64_t>(reinterpret_cast<intptr_t>(hwnd))));
@@ -393,8 +389,7 @@ void DitoWin32Plugin::HandleMethod(
     const HWND hwnd = RootWindow();
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    // 1px size jiggle: the Flutter swapchain only presents after a real resize while
-    // visible; a window sized when hidden otherwise stays black forever.
+    // 1px size jiggle: the Flutter swapchain only presents after a real resize while visible, or a window sized when hidden stays black forever.
     RECT rect{};
     if (GetWindowRect(hwnd, &rect)) {
       const int width = rect.right - rect.left;
@@ -477,8 +472,7 @@ void DitoWin32Plugin::HandleMethod(
   }
 
   if (method == "window.setFocusable") {
-    // WS_EX_NOACTIVATE is weak on Windows, but the card still needs it OFF to be activated
-    // reliably; the Dart side calls this on both platforms. See docs/armadilhas.md 4.6.
+    // WS_EX_NOACTIVATE is weak on Windows, but the card still needs it OFF to be activated reliably (docs/armadilhas.md 4.6).
     const HWND hwnd = RootWindow();
     if (hwnd == nullptr) {
       result->Success(EncodableValue(false));
@@ -513,8 +507,7 @@ void DitoWin32Plugin::HandleMethod(
     return;
   }
 
-  // Test-only target: a real EDIT control owned by this process, so proving the paste path
-  // never sends a keystroke at a window belonging to the user.
+  // Test-only target: a real EDIT control owned by this process, so the paste path is never proven by sending a keystroke at the user's own window.
   if (method == "test.createEditTarget") {
     if (test_edit_ != nullptr) DestroyWindow(test_edit_);
     test_edit_ = CreateWindowEx(
@@ -715,8 +708,7 @@ void DitoWin32Plugin::HandleMethod(
       result->Error("NO_WINDOW", "sem janela nativa");
       return;
     }
-    // The canvas is fixed and mostly transparent; without a region the empty part still
-    // swallows every click aimed at whatever is behind it.
+    // The canvas is fixed and mostly transparent; without a region the empty part swallows every click aimed at whatever is behind it.
     const int left = static_cast<int>(GetDouble(*args, "left", 0));
     const int top = static_cast<int>(GetDouble(*args, "top", 0));
     const int width = static_cast<int>(GetDouble(*args, "width", 0));

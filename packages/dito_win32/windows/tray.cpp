@@ -148,8 +148,7 @@ bool Tray::ShowBalloon(const std::wstring& title, const std::wstring& body) {
   data.uID = kIconId;
   data.uFlags = NIF_INFO;
 
-  // NIIF_USER shows OUR icon instead of the system warning triangle, and NIIF_NOSOUND
-  // keeps it silent: Dito has its own sound, with its own switch.
+  // NIIF_USER shows OUR icon instead of the system warning triangle; NIIF_NOSOUND keeps it silent, since Dito has its own sound and switch.
   data.dwInfoFlags = NIIF_USER | NIIF_NOSOUND | NIIF_LARGE_ICON;
   data.hBalloonIcon = icon_;
 

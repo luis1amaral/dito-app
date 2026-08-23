@@ -42,8 +42,7 @@ void main() {
   }
 
   group('keys', () {
-    // No Linux o Enter chega como INSERCAO DE TEXTO pelo canal da plataforma, nao so como tecla:
-    // o primeiro pulava linha e so o segundo enviava. Ver CHANGELOG 1.6.7.
+    // On Linux the Enter arrives as a text INSERTION, not only as a key (CHANGELOG 1.6.7).
     testWidgets('Enter que chega como texto envia, e nao pula linha', (tester) async {
       await show(tester, 'texto original');
       await tester.enterText(find.byType(TextField), 'texto original\n');

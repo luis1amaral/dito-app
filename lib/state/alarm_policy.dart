@@ -1,10 +1,7 @@
 import '../config/config_model.dart';
 import '../engine/engine_protocol.dart';
 
-/// Decides how loudly to complain about a dead microphone, and how often.
-///
-/// Repeating on every tick turns the alarm into noise people learn to ignore, which is the
-/// same as having no alarm.
+/// Decides how loudly to complain about a dead microphone, and how often: repeating every tick turns the alarm into ignorable noise.
 class AlarmPolicy {
   AlarmPolicy({required this.now});
 

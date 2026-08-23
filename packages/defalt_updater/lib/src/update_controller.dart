@@ -1,10 +1,4 @@
-// Estado do auto-update (checagem, download, instalacao). ChangeNotifier de proposito:
-// serve ao provider dos apps e ao riverpod (ChangeNotifierProvider) sem adaptador.
-//
-// Regras que existem por um motivo:
-//  • a checagem NUNCA bloqueia a UI e NUNCA mostra erro sozinha;
-//  • throttle de 6h: abrir o app 10x no dia custa 1 request;
-//  • NADA e baixado sem o usuario mandar — sao ~100 MB. `auto` e opt-in e so no Windows.
+// Auto-update state (check/download/install) as a ChangeNotifier so it plugs into both provider and riverpod with no adapter: checks never block the UI or alert on their own, are throttled to 6h, and nothing downloads (~100 MB) without the user's go — `auto` mode is Windows-only opt-in.
 import 'dart:async';
 import 'dart:io';
 
@@ -14,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'updater.dart';
 
-/// Quanto o app pode fazer sozinho. O PADRAO e `notify`: avisa e espera o clique.
+/// How much the app can do on its own; the DEFAULT is `notify`: alert and wait for the click.
 enum UpdateMode { notify, auto, off }
 
 enum UpdateStage { idle, checking, available, downloading, ready, installing, error }
@@ -22,8 +16,7 @@ enum UpdateStage { idle, checking, available, downloading, ready, installing, er
 class UpdateController extends ChangeNotifier {
   UpdateController({required DefaltUpdater updater, this.checkInterval = const Duration(hours: 6)})
       : _u = updater {
-    // le prefs + versao instalada em background: a tela de perfil mostra a versao mesmo
-    // com o modo "off", em que checkQuiet() nunca roda
+    // Reads prefs + installed version in the background: the profile screen shows the version even in "off" mode, where checkQuiet() never runs.
     unawaited(_load());
   }
 
@@ -51,7 +44,7 @@ class UpdateController extends ChangeNotifier {
   bool get supported => _u.supported;
   UpdateDelivery get delivery => _u.delivery;
 
-  /// So o Windows baixa dentro do app — la existe progresso e estado "pronto pra instalar".
+  /// Only Windows downloads in-app — only there does a progress/"ready to install" state exist.
   bool get downloadsInApp => _u.delivery == UpdateDelivery.inAppDownload;
 
   bool get isBusy =>
@@ -85,8 +78,7 @@ class UpdateController extends ChangeNotifier {
     await (await SharedPreferences.getInstance()).setString(_kMode, m.name);
   }
 
-  /// Checagem de boot: silenciosa, com throttle, respeita "pular versao".
-  /// Dispare SEM await (o retorno so existe pra testes).
+  /// Boot check: silent, throttled, respects "skip version"; fire it WITHOUT await (the return value only exists for tests).
   Future<void> checkQuiet() async {
     if (!supported) return;
     await _load();
@@ -114,8 +106,7 @@ class UpdateController extends ChangeNotifier {
     }
   }
 
-  /// Checagem pedida na mao: ignora throttle e "pular versao".
-  /// Devolve null quando ja esta na versao mais nova — a UI avisa.
+  /// Manually requested check: ignores throttle and "skip version"; returns null when already on the newest version (the UI alerts).
   Future<UpdateInfo?> checkManual() async {
     if (!supported) return null;
     await _load();
@@ -141,8 +132,7 @@ class UpdateController extends ChangeNotifier {
     return found;
   }
 
-  /// Acao do botao principal. No Windows baixa; no Android e no Linux ja aplica, porque
-  /// nessas duas nao existe passo de download dentro do app.
+  /// Main button action: downloads on Windows; applies directly on Android/Linux, which have no in-app download step.
   Future<void> startDownload() async {
     final target = info;
     if (target == null || isBusy) return;
@@ -154,8 +144,7 @@ class UpdateController extends ChangeNotifier {
       notifyListeners();
       try {
         await _u.apply();
-        // Android: quem instala e o navegador, entao aqui a faixa ja cumpriu o papel.
-        // Linux: o apt terminou, mas o binario novo so vale na proxima abertura.
+        // Android: the browser installs it, so the banner already did its job here. Linux: apt is done, but the new binary only counts on next launch.
         stage = delivery == UpdateDelivery.packageManager ? UpdateStage.ready : UpdateStage.idle;
         if (stage == UpdateStage.idle) bannerDismissed = true;
       } on UpdateException catch (e) {
@@ -185,7 +174,7 @@ class UpdateController extends ChangeNotifier {
       );
       stage = UpdateStage.ready;
     } on UpdateCancelled {
-      stage = UpdateStage.available; // cancelado pelo usuario nao e erro
+      stage = UpdateStage.available; // cancelled by the user is not an error
     } catch (e) {
       error = e is UpdateException ? e.message : '$e';
       stage = UpdateStage.error;
@@ -196,12 +185,11 @@ class UpdateController extends ChangeNotifier {
 
   void cancelDownload() => _cancel?.cancel();
 
-  /// Windows: fecha o app e o updater troca os arquivos — nao retorna.
+  /// Windows: closes the app and the updater swaps the files — never returns.
   Future<void> install() async {
     final f = _file;
     if (f == null || stage == UpdateStage.installing) return;
-    // O app so fecha depois que o updater provar que subiu; ate la a pessoa precisa ver
-    // que algo esta acontecendo, senao o clique parece nao ter feito nada.
+    // The app only closes once the updater proves it started; until then the click must look like it did something.
     stage = UpdateStage.installing;
     bannerDismissed = false;
     error = null;

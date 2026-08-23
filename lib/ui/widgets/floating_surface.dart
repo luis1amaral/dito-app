@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../tokens.dart';
 
-/// Rounded card with a hand-painted shadow.
-///
-/// Painted by hand because a drop-shadow effect does not show on a frameless translucent
-/// window; the alpha falls off quadratically, since linear reads as visible banding.
+/// Rounded card with a hand-painted shadow (a drop-shadow effect does not show on a frameless translucent window); alpha falls off quadratically to avoid banding.
 class FloatingSurface extends StatelessWidget {
   const FloatingSurface({
     super.key,

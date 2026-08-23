@@ -35,8 +35,7 @@ class DitoWin32Plugin : public flutter::Plugin {
   dito::KeyHook* hook_ = nullptr;
   int listener_token_ = 0;
 
-  // Process-wide, not per-instance: the runner registers the plugin in EVERY sub-window, so
-  // focus.take runs on the HUD engine while the paste path asks the main one.
+  // Process-wide, not per-instance, per the multi-window bug in docs/armadilhas.md 6.8.
   static HWND previous_foreground_;
 
   // Survives giveBack, unlike previous_foreground_: the paste needs to know WHERE it will land.

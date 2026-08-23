@@ -1,33 +1,33 @@
 import 'dart:io';
 
-/// Como a atualizacao chega ao usuario nesta plataforma.
+/// How the update reaches the user on this platform.
 enum UpdateDelivery {
-  /// Windows: o app baixa o zip e troca a propria instalacao.
+  /// Windows: the app downloads the zip and replaces its own install.
   inAppDownload,
 
-  /// Android: quem baixa e instala e o navegador — ver [DefaltUpdater.apply].
+  /// Android: the browser downloads and installs it; see [DefaltUpdater.apply].
   browserHandoff,
 
-  /// Linux: quem troca os arquivos e o apt, chamado como root pelo polkit.
+  /// Linux: apt replaces the files, invoked as root via polkit.
   packageManager,
 
-  /// Plataforma sem caminho de atualizacao (web, macOS, Linux fora do APT).
+  /// Platform with no update path (web, macOS, Linux outside APT).
   none,
 }
 
-/// Que garantia de integridade o manifesto permite exigir do arquivo baixado.
+/// What integrity guarantee the manifest lets the package require from the downloaded file.
 enum IntegrityCheck {
-  /// O manifesto trouxe `sha256`: conteudo conferido byte a byte.
+  /// The manifest carried `sha256`: content checked byte for byte.
   sha256,
 
-  /// So o tamanho: pega truncamento, nao pega troca de conteudo.
+  /// Size only: catches truncation, not content swaps.
   size,
 
-  /// Manifesto sem `size` nem `sha256` — nada a conferir.
+  /// Manifest with neither `size` nor `sha256` — nothing to check.
   none,
 }
 
-/// Release mais nova, ja filtrada pela plataforma atual.
+/// Newest release, already filtered to the current platform.
 class UpdateInfo {
   const UpdateInfo({
     required this.version,
@@ -41,10 +41,10 @@ class UpdateInfo {
   final String current;
   final String notes;
 
-  /// Bytes do asset desta plataforma. 0 = o manifesto nao informou.
+  /// Bytes of this platform's asset; 0 means the manifest did not report it.
   final int size;
 
-  /// Hash do asset desta plataforma, minusculo. null = o manifesto nao informou.
+  /// Hash of this platform's asset, lowercase; null means the manifest did not report it.
   final String? sha256;
 
   IntegrityCheck get integrity => sha256 != null && sha256!.isNotEmpty
@@ -53,8 +53,7 @@ class UpdateInfo {
 
   String get sizeLabel => size <= 0 ? '' : '${(size / 1048576).toStringAsFixed(0)} MB';
 
-  /// Le o objeto da plataforma dentro do manifesto (`{version, notes, windows:{...}}`).
-  /// Devolve null quando o manifesto nao tem versao ou nao tem asset para [platform].
+  /// Reads the platform object inside the manifest; returns null with no version or no asset for [platform].
   static UpdateInfo? fromManifest(
     Map<String, dynamic> json,
     String platform,
@@ -77,7 +76,7 @@ class UpdateInfo {
   String toString() => 'UpdateInfo($current -> $version, ${size}B, ${integrity.name})';
 }
 
-/// Falha de update com mensagem em pt-BR, pronta pra UI mostrar.
+/// Update failure with a pt-BR message, ready for the UI to show.
 class UpdateException implements Exception {
   const UpdateException(this.message);
   final String message;
@@ -85,24 +84,24 @@ class UpdateException implements Exception {
   String toString() => message;
 }
 
-/// O arquivo baixado nao bateu com o manifesto — instalar isso e pior do que nao atualizar.
+/// The downloaded file did not match the manifest; installing it is worse than not updating.
 class IntegrityException extends UpdateException {
   const IntegrityException(super.message);
 }
 
-/// O usuario dispensou o update no meio do download.
+/// The user dismissed the update mid-download.
 class UpdateCancelled extends UpdateException {
   const UpdateCancelled() : super('download cancelado');
 }
 
-/// Cancelamento cooperativo do download.
+/// Cooperative cancellation for the download.
 class CancelToken {
   bool _cancelled = false;
   bool get isCancelled => _cancelled;
   void cancel() => _cancelled = true;
 }
 
-/// Tudo que muda de um app para outro. Sem isso o pacote nao sabe com quem falar.
+/// Everything that changes from one app to another; without it the package cannot know who to talk to.
 class UpdaterConfig {
   const UpdaterConfig({
     required this.appId,
@@ -116,33 +115,31 @@ class UpdaterConfig {
     this.downloadTimeout = const Duration(seconds: 30),
   });
 
-  /// Sem Android de proposito: app que publica na Play Store nao pode se auto-instalar —
-  /// a loja atualiza, e um APK lateral colide com o que ela instalou. Quem esta fora da
-  /// loja opta por Android explicitamente.
+  /// No Android on purpose: a Play Store app cannot self-install, or a sideloaded APK collides with the store's own install.
   static const defaultPlatforms = {'windows', 'linux'};
 
-  /// Repositorio APT dos apps do Defalt — a mesma origem para os tres.
+  /// APT repository for the Defalt apps — the same origin for all three.
   static const defaultAptPackagesUrl =
       'https://apt.defaltm.com/dists/stable/main/binary-amd64/Packages';
 
-  /// Slug do app: nomeia o arquivo baixado, o log do updater e, por padrao, o pacote APT.
+  /// App slug: names the downloaded file, the updater log and, by default, the APT package.
   final String appId;
 
-  /// GET que devolve `{version, notes, windows:{size,sha256}, android:{...}, linux:{...}}`.
+  /// GET returning `{version, notes, windows:{size,sha256}, android:{...}, linux:{...}}`.
   final String manifestUrl;
 
-  /// GET que responde o binario (ou 302 pra ele). O pacote acrescenta `?platform=`.
+  /// GET that serves the binary (or a 302 to it); the package appends `?platform=`.
   final String downloadUrl;
 
-  /// Nome exibido na janela do updater do Windows. Sem isso, usa [appId].
+  /// Name shown in the Windows updater window; falls back to [appId].
   final String? displayName;
 
-  /// Pacote no repositorio APT. Sem isso, usa [appId].
+  /// Package name in the APT repository; falls back to [appId].
   final String? aptPackage;
 
   final String aptPackagesUrl;
 
-  /// Plataformas em que ESTE app se atualiza sozinho — ver [defaultPlatforms].
+  /// Platforms where THIS app updates itself — see [defaultPlatforms].
   final Set<String> platforms;
 
   final Duration checkTimeout;
@@ -153,7 +150,7 @@ class UpdaterConfig {
   String get name => displayName ?? appId;
   String get debPackage => aptPackage ?? appId;
 
-  /// Chave da plataforma atual dentro do manifesto e no `?platform=` do download.
+  /// Current platform's key inside the manifest and in the download's `?platform=`.
   static String get platformKey => Platform.isWindows
       ? 'windows'
       : Platform.isLinux

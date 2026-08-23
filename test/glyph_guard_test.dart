@@ -3,10 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Guards against the glyph boxes the owner kept seeing on screen.
-///
-/// Accented letters are fine - a system font has them. What drew as a square was the
-/// typographic set: em dash, ellipsis, return arrow, middle dot, box drawing.
+/// Guards against the glyph boxes the owner kept seeing: accented letters are fine, but the typographic set (em dash, ellipsis, return arrow, middle dot) is not.
 void main() {
   test('no source string uses a glyph a system font may lack', () {
     final offenses = <String>[];

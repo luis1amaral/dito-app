@@ -4,6 +4,44 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-23 — 1.7.1: a 1.7.0 nao abria, e agora existe portao que impede isso de sair de novo
+
+**Sintoma do dono:** *"eu abri o Dito mas ele nao abriu"*. Sem janela, sem bandeja, **sem uma linha
+sequer no log**. A 1.7.0 saiu com `flutter analyze` limpo, 220 testes e 16 goldens verdes — e o
+executavel morria antes de imprimir a primeira linha.
+
+**Causa raiz, no codigo do `window_manager` 0.5.2** (`windows/window_manager.cpp`): o campo
+`ITaskbarList3* taskbar_` nasce `nullptr` e e criado em **um unico lugar**, dentro de
+`WaitUntilReadyToShow()` (linha 227). O `SetSkipTaskbar()` (linha 949) chama `taskbar_->HrInit()`
+**sem checar nulo**. O `main.dart` anterior a migracao single-engine chamava
+`windowManager.waitUntilReadyToShow(...)`; o `WindowOrchestrator` que o substituiu nao chamava.
+Resultado: o primeiro `setSkipTaskbar(true)` do boot desreferenciava nulo —
+`0xc0000005` em `window_manager_plugin.dll`, offset `0xa005`, confirmado no Visualizador de Eventos.
+
+Ou seja: **o single-engine nunca tinha bootado no Windows nenhuma vez.** Os ultimos boots com
+sucesso no `app.log` ainda registravam `janelas: principal=... sobreposicao=...`, que e log da
+arquitetura multi-janela antiga.
+
+**O conserto:** toda a configuracao inicial da janela passou para dentro do callback de
+`waitUntilReadyToShow`, como era antes. E `ensureInitialized()` ficou em `main()`, antes do
+`runApp` — ele tambem desreferencia `registrar->GetView()` sem guarda. Armadilhas 4.11 e 4.12.
+
+**O portao que faltava:** `tool/fumaca.ps1`, agora obrigatorio dentro de
+`packaging/windows/construir.ps1`. Ele sobe o **executavel compilado** nos dois modos (bandeja e
+janela) e exige `boot completo` no log; se o app morrer, o empacotamento nao acontece. Nenhum
+`flutter test` pega essa classe de defeito, porque nenhum deles sobe o binario.
+
+**Como foi verificado:**
+- `tool/fumaca.ps1` com o conserto: **PASSA** nos dois modos (68 MB na bandeja, 84 MB com janela).
+- `tool/fumaca.ps1` com o bug reintroduzido de proposito: **FALHA, exit 1** — o portao pega.
+- `flutter analyze`: **No issues found**. Suite e goldens: verdes.
+- Instalador escaneado pelo Defender: `found no threats`.
+
+**Nota sobre a 1.7.0:** foi despublicada (virou rascunho) assim que o defeito apareceu, para o
+auto-update nao empurrar um app que nao abre.
+
+---
+
 ## 2026-08-23 — 1.7.0: o texto volta a cair na janela certa, e a faxina depois do single-engine
 
 **Sintoma do dono:** *"às vezes não manda no terminal certo porque ele não estava selecionado"*.

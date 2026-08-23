@@ -10,8 +10,7 @@ abstract class AlertService {
   void playAlarm();
 }
 
-/// DitoWin32 already abstracts the platform: Win32 balloon/PlaySound on Windows,
-/// notify-send/canberra-gtk-play on Linux, one implementation suffices on the Dart side.
+/// DitoWin32 already abstracts the platform (Win32 balloon/PlaySound vs notify-send/canberra-gtk-play), so one impl suffices.
 AlertService createAlertService({Logbook? log}) => NativeAlertService(log: log);
 
 class NativeAlertService implements AlertService {

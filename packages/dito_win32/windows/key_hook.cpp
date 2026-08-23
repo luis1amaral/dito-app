@@ -5,7 +5,7 @@
 namespace dito {
 
 namespace {
-// One poll interval, matching POLL_S in src/dito/platform/hotkeys_core.py.
+// One poll interval, kept in sync with the Dart-side keymap tick (lib/keys/hotkey_machine.dart).
 constexpr UINT kTickMs = 50;
 constexpr UINT_PTR kTimerId = 1;
 // Tick past the release long enough for Dart's 300 ms grace to see the key up.
@@ -56,8 +56,7 @@ void KeyHook::Stop() {
 void KeyHook::ThreadMain() {
   thread_id_ = GetCurrentThreadId();
 
-  // The proc lives in this DLL, so the module must be THIS DLL: passing the exe's handle
-  // installs a hook that is never called.
+  // The proc lives in this DLL, so the module must be THIS DLL, or the hook is installed but never called.
   HMODULE module = nullptr;
   GetModuleHandleExW(
       GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
@@ -138,8 +137,7 @@ LRESULT KeyHook::HandleKey(int code, WPARAM wparam, LPARAM lparam) {
 
   if (paused_) return CallNextHookEx(nullptr, code, wparam, lparam);
 
-  // Only queue and return. Calling into Flutter from here can exceed LowLevelHooksTimeout,
-  // and Windows then uninstalls the hook silently: installed, pumping, and blind.
+  // Only queue and return: calling into Flutter here can exceed LowLevelHooksTimeout, and Windows then silently uninstalls the hook.
   {
     std::lock_guard<std::mutex> lock(queue_mutex_);
     queue_.push_back(KeyEdge{match.action, match.key, down, NowMicros()});
@@ -155,9 +153,7 @@ bool KeyHook::Bind(const std::string& action, const std::string& key, bool suppr
   if (vk == 0) return false;
   std::lock_guard<std::mutex> lock(mutex_);
   bindings_.push_back(Binding{action, key, vk, suppress});
-  // Always up. GetAsyncKeyState reports F10 as held when nothing is touching it, and seeding
-  // from it booted the app believing a meeting was already running: F9 got refused and F10
-  // never produced a rising edge. The hook's own edges are the only authority.
+  // Always up: seeding from GetAsyncKeyState (which reports F10 as held with nothing touching it) booted the app believing a session was already running.
   seen_[vk] = false;
   return true;
 }
@@ -168,8 +164,7 @@ void KeyHook::UnbindAll() {
   seen_.clear();
 }
 
-// Pause keeps the hook alive and only stops acting: tearing it down with a key held
-// loses the release and leaves the action stuck forever.
+// Pause keeps the hook alive and only stops acting: tearing it down with a key held loses the release and sticks the action forever.
 void KeyHook::Pause() { paused_ = true; }
 
 void KeyHook::Resume() { paused_ = false; }

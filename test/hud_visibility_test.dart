@@ -4,9 +4,7 @@ import 'package:dito_app/ui/tokens.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The pill is the only thing on screen saying "we are recording". It used to vanish for the
-/// rest of the session when a new recording started inside the exit fade of the previous one,
-/// and nothing ever brought it back. See CHANGELOG 2026-08-21.
+/// The pill used to vanish for the rest of the session when a new recording started inside the exit fade of the previous one (CHANGELOG 2026-08-21).
 void main() {
   late int clock;
 
@@ -21,12 +19,12 @@ void main() {
       expect(state.isOnScreen, isTrue);
 
       state.apply(HudMessage.dismiss);
-      // Dentro dos 180 ms do fade, o F10 seguinte sobe outra gravacao.
+      // Within the 180 ms fade, the next F10 starts another recording.
       async.elapse(const Duration(milliseconds: 40));
       state.apply(HudMessage.recording(meeting: true));
       expect(state.isOnScreen, isTrue);
 
-      // O timer de saida da sessao anterior venceria aqui.
+      // The previous session's exit timer would fire here.
       async.elapse(AppMotion.fade + const Duration(milliseconds: 40));
       expect(state.isOnScreen, isTrue,
           reason: 'era assim que a pilula sumia e so voltava reiniciando o app');
@@ -43,7 +41,7 @@ void main() {
       async.elapse(AppMotion.fade + const Duration(milliseconds: 40));
       expect(state.isOnScreen, isFalse);
 
-      // Level so existe enquanto o motor captura: se ele chega, ha gravacao no ar.
+      // Level only exists while the engine captures: if it arrives, a recording is live.
       state.apply(HudMessage.level(0.4));
 
       expect(state.isOnScreen, isTrue,

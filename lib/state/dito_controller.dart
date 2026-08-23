@@ -83,8 +83,7 @@ class DitoController {
   Timer? _transcribeTimeout;
   Timer? _aliveTimeout;
 
-  /// Sessions waiting for review, oldest first: falar 1, falar 2, falar 3 empilham em vez de se
-  /// atropelarem. Ver CHANGELOG 2026-08-21.
+  /// Sessions waiting for review, oldest first: dictating 1, 2, 3 stack instead of trampling each other (CHANGELOG 2026-08-21).
   final List<FinishedEvent> pendingReviews = <FinishedEvent>[];
 
   FinishedEvent? get pendingReview =>
@@ -129,9 +128,7 @@ class DitoController {
     if (!state.canStart) {
       _log('start ignorado: fase ${state.phase.name}'
           ' (revisao pendente=${pendingReview != null})');
-      // Auto-cura de qualquer fase ocupada, gravacao inclusive: o handler de StatusEvent so volta
-      // para idle quando o MOTOR diz que nao ha sessao, entao gravacao de verdade nunca e morta.
-      // Ver CHANGELOG 2026-08-21 (gravacao fantasma).
+      // Self-heals any busy phase: StatusEvent only drops to idle when the ENGINE says there is no session (CHANGELOG 2026-08-21, phantom recording).
       _resyncFromEngine();
       // A refusal the user cannot see reads exactly like a dead shortcut.
       hud(HudMessage.toast(HudToast.stillBusy, ms: 1600));
@@ -168,8 +165,7 @@ class DitoController {
       return false;
     }
     _log('start aceito: ${meeting ? "meeting" : "dictation"}');
-    // Instant feedback on keypress: StartedEvent only arrives once the model finishes
-    // loading, which can take seconds on a cold model - the pill must not stay empty until then.
+    // Instant feedback on keypress: StartedEvent can take seconds on a cold model, so the pill must not stay empty until then.
     hud(HudMessage.working(HudWork.starting));
     _armTimeout();
     return true;
@@ -182,9 +178,7 @@ class DitoController {
   }
 
   void onHotkeyStop(String action) {
-    // Released before the engine started: without this the arriving recording has nobody to stop it.
-    // The flag does NOT depend on the timeout still running - that is what left the phantom
-    // recording behind (CHANGELOG 2026-08-21).
+    // Released before the engine started: the flag does NOT depend on the timeout still running, or the recording that arrives has nobody to stop it (CHANGELOG 2026-08-21).
     if (!state.isRecording) {
       _stopPending = true;
       return;
@@ -202,14 +196,10 @@ class DitoController {
     hud(HudMessage.toast(HudToast.recordingEnded, ms: 4000));
   }
 
-  /// Asks the engine for the truth and unsticks a phase that never came home. We TRUST the engine:
-  /// the StatusEvent handler only drops to idle when the engine reports it is not recording, so a
-  /// genuine recording in progress is never killed. If the engine is unreachable, send() returns
-  /// false and the phase is a lie anyway - then it is safe to go straight back to idle.
+  /// Asks the engine for the truth and unsticks a phase that never came home; we only drop to idle on the engine's own word, or (send() failing) when the phase is a lie anyway.
   void _resyncFromEngine() {
     final asked = client.send(const StatusCommand());
-    // A live recording is never dropped on a failed send: the WAV keeps growing on disk and the
-    // level watchdog already covers an engine that really went away.
+    // A live recording is never dropped on a failed send: the level watchdog already covers an engine that really went away.
     if (!asked && !state.isRecording) {
       supervisor.wasRecording = false;
       _set(state.copyWith(phase: AppPhase.idle));
@@ -217,16 +207,14 @@ class DitoController {
     }
   }
 
-  /// A start that never answers must not leave the app stuck: the engine reports a bad
-  /// preflight with an alarm and no failure, so this is the only way back to idle.
+  /// A start that never answers must not leave the app stuck: a bad preflight can raise an alarm with no failure event, so this timeout is the only way back to idle.
   void _armTimeout() {
     _commandTimeout?.cancel();
     _commandTimeout = Timer(startTimeout, () {
       if (state.isRecording) return;
       supervisor.markDegraded('o motor nao respondeu ao start');
       supervisor.wasRecording = false;
-      // Giving up on our side is not enough: the engine may still be starting that capture, and a
-      // recording nobody can stop is what forced closing the app (CHANGELOG 2026-08-21).
+      // Giving up on our side is not enough: send a stop too, or a recording nobody can stop forces closing the app (CHANGELOG 2026-08-21).
       _startAbandoned = true;
       client.send(const StopCommand());
       _set(state.copyWith(phase: AppPhase.idle));
@@ -337,7 +325,7 @@ class DitoController {
   }
 
   void _onAlarm(AudioState audio, String? reason, String? fixHint) {
-    // Sem isto o "sem audio" nao deixava rastro: o dono via o triangulo e o log nao sabia de nada.
+    // Without this "no audio" left no trace: the dono saw the triangle and the log knew nothing.
     _log('alarme: ${audio.name} (motivo=${reason ?? "-"}, fase=${state.phase.name})');
     switch (audio) {
       case AudioState.dead:
@@ -369,8 +357,7 @@ class DitoController {
   }
 
   void _onFinished(FinishedEvent event) {
-    // A late transcript from an OLDER session must not touch the phase, the watchdogs or the
-    // review card of the session that is on air - capturing or transcribing (CHANGELOG 2026-08-21).
+    // A late transcript from an OLDER session must not touch the phase, watchdogs or review card of the session on air (CHANGELOG 2026-08-21).
     final mine = _activeSessionId == null || event.sessionId == _activeSessionId;
     final live = !mine && state.isBusy;
     if (!live) {
@@ -394,16 +381,14 @@ class DitoController {
     }
 
     if (event.text.trim().isEmpty) {
-      // Nada transcrito com o microfone entregando so ruido nao e mis-tap: e falha de captacao,
-      // e sumir calado deixava o dono sem saber por que (CHANGELOG 2026-08-21).
+      // Nothing transcribed with the mic delivering only noise is a capture failure, not a mis-tap; silent dismissal left the dono guessing (CHANGELOG 2026-08-21).
       if (!live && !event.everHeardAudio && event.seconds > 1) {
         _log('gravacao sem voz: ${event.seconds.toStringAsFixed(1)}s sem nada audivel');
         hud(HudMessage.toast(HudToast.noVoiceHeard,
             detail: _s.toastNoVoiceHeardWhy, ms: 6000));
         return;
       }
-      // A mis-tap leaves nothing behind and says nothing: the watchdog's grace makes a
-      // recording this short always look silent, so alarming here is a guaranteed lie.
+      // A mis-tap leaves nothing behind and says nothing: the watchdog's grace makes a recording this short always look silent.
       dismissIfMine();
       return;
     }

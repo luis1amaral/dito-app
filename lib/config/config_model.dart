@@ -1,6 +1,6 @@
 import 'paths.dart';
 
-/// Config model mirroring src/dito/config.py; defaults MUST match it field by field.
+/// Config model whose defaults MUST stay compatible with config.toml files from the pre-port Python app.
 class AppConfig {
   const AppConfig({
     this.schema = 1,

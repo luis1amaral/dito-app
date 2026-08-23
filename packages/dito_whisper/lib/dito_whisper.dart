@@ -229,9 +229,7 @@ class DitoWhisper {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Native Audio API
-  // ---------------------------------------------------------------------------
+  // ---- Native Audio API ----
 
   static List<AudioDevice> listDevices() {
     _ensureLoaded();
@@ -260,8 +258,7 @@ class DitoWhisper {
     }
   }
 
-  /// Starts capture; [wavPath], when set, makes the native side write the WAV to disk
-  /// incrementally from the first audio block, so the file is valid even if the app crashes.
+  /// Starts capture; [wavPath], when set, writes the WAV incrementally so it stays valid even if the app crashes.
   static int startCapture({String? deviceName, String? wavPath}) {
     _ensureLoaded();
     if (_startCaptureFn == null) return 0;

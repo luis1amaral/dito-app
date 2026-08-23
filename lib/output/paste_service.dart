@@ -3,10 +3,10 @@ import 'dart:async';
 import '../core/logbook.dart';
 import '../core/result.dart';
 
-/// The clipboard and keyboard, behind an interface so the sequence can be tested without either.
 /// How the target window accepts text; decided natively, measured in docs/medicoes/colagem-windows.md.
 enum PasteTarget { gui, console, terminal }
 
+/// The clipboard and keyboard, behind an interface so the sequence can be tested without either.
 abstract class PasteBackend {
   Future<String?> readClipboard();
   Future<bool> writeClipboard(String text);
@@ -22,16 +22,13 @@ abstract class PasteBackend {
   Future<PasteTarget> describeTarget() async => PasteTarget.gui;
 }
 
-/// A CLI without bracketed paste turns every newline into a separate submit, so a dictated
-/// paragraph must reach it as one line. Measured: conhost and mintty do not bracket, WT does.
+/// A CLI without bracketed paste (conhost, mintty) turns every newline into a separate submit, so a dictated paragraph must reach it as one line.
 String joinLines(String text) =>
     text.replaceAll(RegExp(r'[\r\n]+'), ' ')
         .replaceAll(RegExp(r' {2,}'), ' ')
         .trim();
 
-/// Pastes the way src/dito/output/paste.py does, timings included.
-///
-/// Types nothing: synthetic keystrokes get pt-BR accents wrong, so the text goes via clipboard.
+/// Pastes without typing: synthetic keystrokes get pt-BR accents wrong, so the text goes via clipboard.
 class PasteService {
   PasteService({
     required this.backend,

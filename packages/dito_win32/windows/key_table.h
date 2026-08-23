@@ -7,7 +7,7 @@
 
 namespace dito {
 
-// Only keys that type no character, mirroring src/dito/keys.py BINDABLE.
+// Only keys that type no character; mirrors bindableKeys in lib/keys/key_names.dart.
 UINT VkFromName(const std::string& name);
 
 std::string NameFromVk(UINT vk);

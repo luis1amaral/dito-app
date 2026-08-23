@@ -10,8 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-/// Baseline pixels for the settings page, light and dark. DitoApp is built but never
-/// started(): every field it touches at build time is safe to construct without a platform.
+/// Baseline pixels for the settings page, light and dark; DitoApp is built but never started().
 void main() {
   const keysChannel = EventChannel('dito/keys');
   const prefsChannel = MethodChannel('plugins.flutter.io/shared_preferences');
@@ -24,8 +23,7 @@ void main() {
       buildNumber: '1',
       buildSignature: '',
     );
-    // DitoApp() wires the real key hook eagerly; without a mock, listen() reports a
-    // MissingPluginException through FlutterError, not through the stream's onError.
+    // DitoApp() wires the real key hook eagerly; without a mock, listen() throws via FlutterError, not the stream's onError.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockStreamHandler(
       keysChannel,
       MockStreamHandler.inline(onListen: (args, events) {}),
