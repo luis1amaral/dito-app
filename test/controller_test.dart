@@ -13,7 +13,7 @@ import 'package:dito_app/state/dito_controller.dart';
 import 'package:dito_app/state/hud_commands.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class FakePasteBackend implements PasteBackend {
+class FakePasteBackend extends PasteBackend {
   final List<String> pasted = <String>[];
   final List<String> copied = <String>[];
 
@@ -27,7 +27,7 @@ class FakePasteBackend implements PasteBackend {
   }
 
   @override
-  Future<bool> pressCtrlV() async {
+  Future<bool> pressCtrlV({String? text}) async {
     pasted.add(copied.last);
     return true;
   }

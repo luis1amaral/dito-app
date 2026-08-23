@@ -317,7 +317,7 @@ demais janelas normais (WhatsApp, Discord, navegadores, editores GUI), sintetiza
 | **"Não roubar foco"** | `WS_EX_NOACTIVATE` *(fraco)* | `gtk_window_set_accept_focus(FALSE)` *(permanente no X11)* | O Window Manager recusava foco para sempre; o Enter ia para a janela de trás | `window.setFocusable(bool)` dinâmico |
 | **Hook de teclado** | `WH_KEYBOARD_LL` *(global)* | `XGrabKey` *(exclusivo por conexão X)* | 3 janelas do Dito brigando pelo F9; a janela sem listener vencia e o app ficava mudo | Singleton: 1 thread X11 no processo |
 | **Injetar tecla** | `SendInput` *(sistema)* | `g_spawn_sync("xdotool ...")` *(subprocesso)* | Fork+exec síncrono na thread do GTK congelando a UI por 100 ms a cada tecla | `XTestFakeKeyEvent` direto via `libXtst` |
-| **Colagem** | `Ctrl+V` *(universal)* | `Ctrl+V` *(GUI only no Linux)* | Terminal ignorava e descartava a colagem | Inspecionar `WM_CLASS` e enviar `Ctrl+Shift+V` em terminais |
+| **Colagem** | `Ctrl+V` *(**não** é universal — ver 6.7)* | `Ctrl+V` *(GUI only no Linux)* | Terminal ignorava e descartava a colagem | Inspecionar `WM_CLASS` e enviar `Ctrl+Shift+V` em terminais |
 **Regra:** ao portar ou tocar em código de plataforma, entenda a garantia que o SO exige em vez de buscar a função com nome parecido.
 
 ### 6.5 Sub-janela do Flutter precisa de contexto GL e janela mapeada no boot
@@ -340,3 +340,59 @@ confiável para comandos, prompts de IA e textos do usuário.
 O Dito é um digitador/ditador por voz focado em produtividade.
 
 
+
+### 6.7 `Ctrl+V` também não cola no conhost em modo cru — o gêmeo Windows da 6.3
+**Sintoma:** ao ditar com o cursor no **Claude Code / Gemini CLI** rodando em `cmd.exe`, o texto não
+era colado e **só um Enter vazio** chegava ao prompt. Idêntico ao relato da 6.3, na outra plataforma.
+**Por que ninguém tinha visto:** a 6.4 afirmava que no Windows `Ctrl+V` é *universal*, e o
+`docs/WINDOWS.md` repetia. **A afirmação nunca foi medida em console.** O `tool/spike_paste.dart`
+prova a colagem contra um controle **EDIT do Win32** que o próprio app cria — nunca contra um
+terminal. Hipótese herdada tratada como dado (ver 5.2).
+**Causa, medida.** O Claude Code põe o console em `0x0208` — `ENABLE_PROCESSED_INPUT` **desligado**,
+`ENABLE_QUICK_EDIT_MODE` **desligado**, `ENABLE_VIRTUAL_TERMINAL_INPUT` ligado — contra `0x01E7` de
+um `cmd` comum. Sem `PROCESSED_INPUT` o conhost **para de interceptar** o `Ctrl+V` e entrega o
+caractere de controle `0x16` (SYN) direto ao aplicativo, exatamente como o termios faz no Linux.
+**Regra:** classificar a janela alvo por `GetClassName` e, **só** para `ConsoleWindowClass`, digitar
+o texto com `SendInput` + `KEYEVENTF_UNICODE` em vez de mandar `Ctrl+V`. Medido: é o único método
+que entrega frase curta, texto de 3 linhas e texto de 2100 caracteres, com os acentos pt-BR intactos
+e o Enter na ordem certa.
+**Não mexer no resto:** Windows Terminal (`CASCADIA_HOSTING_WINDOW_CLASS`), Git Bash (`mintty`) e
+janelas GUI **já colam** com `Ctrl+V` — medido. O `WM_COMMAND 0xFFF1` (`ID_CONSOLE_PASTE`) funciona
+no conhost, mas falhou no texto de 3 linhas e o retorno dele não prova colagem, só enfileiramento.
+**Bracketed paste é a razão de juntar as linhas:** o Windows Terminal embrulha a colagem em
+`ESC[200~`/`ESC[201~` e um texto de 3 linhas chega como **uma** colagem; o conhost e o mintty **não
+embrulham**, e as 3 linhas viram **3 envios** no CLI. Por isso o `PasteService` junta as quebras num
+espaço quando o alvo é console/terminal — e só então.
+**Tabela completa e como repetir:** `docs/medicoes/colagem-windows.md`, ferramenta
+`tool/sonda_colagem.ps1`.
+
+### 6.8 No Windows o alvo lembrado da colagem era por engine, e o `giveBack` o apagava
+**Sintoma:** nenhum visível — `restoreFocus()` sempre devolvia `false` no Windows e virava só uma
+linha de log ("falha ao restaurar foco (prosseguindo mesmo assim)").
+**Causa:** `windows/runner/main.cpp:61` registra os plugins em **cada sub-janela**, então existe uma
+instância de plugin **por engine**. O `focus.take` só é chamado pela engine do HUD
+(`hud_window.dart`), enquanto o `restoreFocus()` do `PasteService` roda na engine principal, cujo
+`previous_foreground_` nunca foi escrito. Além disso o `focus.giveBack` zerava o campo, então não
+sobrava nada para dizer **onde** a colagem ia cair.
+**Regra:** o alvo lembrado é estado **de processo** (`static`), e existem **dois** campos, como no
+Linux: `previous_foreground_`, que o `giveBack` consome, e `last_paste_target_`, que **sobrevive** e
+é quem responde "que tipo de janela vai receber o texto". Classificar por `GetForegroundWindow()` não
+serve: no caminho do cartão o foreground é o **próprio Dito**.
+
+### 6.9 `flutter test` no Windows pode estar medindo o app INSTALADO
+**Sintoma:** `Failed to lookup symbol 'dito_whisper_backend_name'` num teste, com o símbolo
+presente no DLL recém-compilado.
+**Causa:** `%LOCALAPPDATA%\Programs\Dito` está no `PATH`, e `dito_whisper.dart` abre a biblioteca
+pelo **nome nu** (`DynamicLibrary.open('dito_whisper_plugin.dll')`). O `LoadLibrary` acha primeiro o
+DLL do app **instalado** — que pode ser de uma versão antiga. `where.exe dito_whisper_plugin.dll`
+mostra qual vence. É o gêmeo Windows do "binário velho sombreando o pacote apt".
+**Regra:** ao investigar teste nativo vermelho no Windows, rodar `where.exe` antes de acusar o
+código, e comparar com o build na frente do `PATH`.
+
+### 6.10 `deleteSync` em pasta com log aberto falha no Windows, não no Linux
+**Sintoma:** `PathAccessException: Deletion failed ... errno = 32` no `native_transcription_test`.
+**Causa:** `NativeEngine.dispose()` não fechava o `Logbook`, que segura um `IOSink` aberto. No Linux
+apagar arquivo aberto funciona; no Windows o arquivo está travado. Um teste escrito no Linux que
+**não podia** passar no Windows.
+**Regra:** quem abre `IOSink` fecha no `dispose`. E teste que cria pasta temporária no Windows só
+apaga depois de todo dono de handle ter fechado.

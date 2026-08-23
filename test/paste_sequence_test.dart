@@ -6,13 +6,14 @@ import 'package:dito_app/output/paste_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Records what happened and in which order, so the sequence itself can be asserted.
-class SpyBackend implements PasteBackend {
+class SpyBackend extends PasteBackend {
   SpyBackend({
     this.clipboard,
     this.writeSucceeds = true,
     this.ctrlVSucceeds = true,
     this.restoreFocusSucceeds = true,
     this.pressEnterSucceeds = true,
+    this.target = PasteTarget.gui,
   });
 
   String? clipboard;
@@ -20,6 +21,11 @@ class SpyBackend implements PasteBackend {
   bool ctrlVSucceeds;
   bool restoreFocusSucceeds;
   bool pressEnterSucceeds;
+  PasteTarget target;
+
+  /// O que realmente foi para a area de transferencia e para o teclado.
+  String? escrito;
+  String? digitado;
 
   final List<String> log = <String>[];
   final Stopwatch clock = Stopwatch()..start();
@@ -39,14 +45,16 @@ class SpyBackend implements PasteBackend {
   @override
   Future<bool> writeClipboard(String text) async {
     _mark('write:$text');
+    escrito = text;
     if (!writeSucceeds) return false;
     clipboard = text;
     return true;
   }
 
   @override
-  Future<bool> pressCtrlV() async {
+  Future<bool> pressCtrlV({String? text}) async {
     _mark('ctrl+v');
+    digitado = text;
     return ctrlVSucceeds;
   }
 
@@ -61,6 +69,15 @@ class SpyBackend implements PasteBackend {
     _mark('focus');
     return restoreFocusSucceeds;
   }
+
+  @override
+  Future<PasteTarget> describeTarget() async => target;
+}
+
+/// describeTarget que explode: a colagem tem de seguir mesmo assim.
+class _AlvoQuebrado extends SpyBackend {
+  @override
+  Future<PasteTarget> describeTarget() async => throw StateError('sem alvo');
 }
 
 void main() {
@@ -181,6 +198,47 @@ void main() {
       expect(result.copied, isTrue);
       expect(result.error, isNotNull);
       expect(result.fallback, isNull);
+    });
+  });
+
+  group('alvo de terminal recebe UMA linha', () {
+    const tresLinhas = 'primeira\nsegunda\nterceira';
+
+    test('em console as quebras viram um espaco: sem bracketed paste, cada uma seria um envio',
+        () async {
+      final spy = SpyBackend(target: PasteTarget.console);
+      await serviceFor(spy).paste(tresLinhas);
+      expect(spy.escrito, 'primeira segunda terceira');
+      expect(spy.digitado, 'primeira segunda terceira');
+    });
+
+    test('em terminal vale a mesma regra', () async {
+      final spy = SpyBackend(target: PasteTarget.terminal);
+      await serviceFor(spy).paste(tresLinhas);
+      expect(spy.escrito, 'primeira segunda terceira');
+    });
+
+    test('em janela normal o texto vai inteiro, com as quebras', () async {
+      final spy = SpyBackend(target: PasteTarget.gui);
+      await serviceFor(spy).paste(tresLinhas);
+      expect(spy.escrito, tresLinhas);
+    });
+
+    test('linhas em branco seguidas colapsam num espaco so, e as pontas sao aparadas', () {
+      expect(joinLines('  um\n\n\n  dois  \r\n'), 'um dois');
+    });
+
+    test('o clipboard de volta guarda o texto ORIGINAL, com as quebras', () async {
+      final spy = SpyBackend(clipboard: 'antigo', target: PasteTarget.console);
+      await serviceFor(spy).paste(tresLinhas);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(spy.clipboard, 'antigo');
+    });
+
+    test('um alvo que nao sabe se classificar nao derruba a colagem', () async {
+      final spy = _AlvoQuebrado();
+      final r = await serviceFor(spy).paste('ola');
+      expect(r.pasted, isTrue);
     });
   });
 

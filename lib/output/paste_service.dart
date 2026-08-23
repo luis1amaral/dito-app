@@ -4,15 +4,30 @@ import '../core/logbook.dart';
 import '../core/result.dart';
 
 /// The clipboard and keyboard, behind an interface so the sequence can be tested without either.
+/// How the target window accepts text; decided natively, measured in docs/medicoes/colagem-windows.md.
+enum PasteTarget { gui, console, terminal }
+
 abstract class PasteBackend {
   Future<String?> readClipboard();
   Future<bool> writeClipboard(String text);
-  Future<bool> pressCtrlV();
+
+  /// `text` is only used where the native side has to type instead of pasting.
+  Future<bool> pressCtrlV({String? text});
   Future<bool> pressEnter();
 
   /// Restores the window that had focus; completes only after the attempt.
   Future<bool> restoreFocus();
+
+  /// Defaults to gui so the test doubles do not all have to answer this.
+  Future<PasteTarget> describeTarget() async => PasteTarget.gui;
 }
+
+/// A CLI without bracketed paste turns every newline into a separate submit, so a dictated
+/// paragraph must reach it as one line. Measured: conhost and mintty do not bracket, WT does.
+String joinLines(String text) =>
+    text.replaceAll(RegExp(r'[\r\n]+'), ' ')
+        .replaceAll(RegExp(r' {2,}'), ' ')
+        .trim();
 
 /// Pastes the way src/dito/output/paste.py does, timings included.
 ///
@@ -49,6 +64,15 @@ class PasteService {
       return const PasteResult(pasted: false, copied: false, error: 'texto vazio');
     }
 
+    // The target decides BEFORE the clipboard is written, and the leftover keeps the original.
+    var target = PasteTarget.gui;
+    try {
+      target = await backend.describeTarget();
+    } catch (e) {
+      _log.call('paste: falha ao classificar o alvo: $e');
+    }
+    final toSend = target == PasteTarget.gui ? text : joinLines(text);
+
     String? previous;
     if (restoreClipboard) {
       try {
@@ -61,7 +85,7 @@ class PasteService {
 
     bool copied;
     try {
-      copied = await backend.writeClipboard(text);
+      copied = await backend.writeClipboard(toSend);
     } catch (e) {
       _log.call('paste: falha ao escrever clipboard: $e');
       copied = false;
@@ -81,7 +105,7 @@ class PasteService {
       }
 
       await Future<void>.delayed(settle);
-      final pasted = await backend.pressCtrlV();
+      final pasted = await backend.pressCtrlV(text: toSend);
       if (!pasted) {
         _scheduleRestore(previous);
         return PasteResult(pasted: false, copied: true, error: 'Ctrl+V recusado');

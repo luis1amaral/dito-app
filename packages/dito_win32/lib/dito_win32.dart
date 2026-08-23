@@ -187,8 +187,16 @@ class DitoWin32 {
       await _methods.invokeMethod<bool>('clipboard.set', <String, Object?>{'text': text}) ??
       false;
 
-  static Future<bool> sendCtrlV() async =>
-      await _methods.invokeMethod<bool>('input.sendCtrlV') ?? false;
+  /// Returns whether the keystrokes were INJECTED -- not whether the target pasted them.
+  /// `text` lets the native side type instead of pasting where Ctrl+V does not work (conhost).
+  static Future<bool> sendCtrlV({String? text}) async =>
+      await _methods.invokeMethod<bool>(
+          'input.sendCtrlV', <String, Object?>{'text': text ?? ''}) ??
+      false;
+
+  /// How the remembered paste target accepts text: `gui`, `console` or `terminal`.
+  static Future<String> targetKind() async =>
+      await _methods.invokeMethod<String>('input.targetKind') ?? 'gui';
 
   static Future<bool> sendEnter() async =>
       await _methods.invokeMethod<bool>('input.sendEnter') ?? false;

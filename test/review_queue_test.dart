@@ -19,13 +19,13 @@ class _Client extends EngineClient {
   bool send(EngineCommand command) => true;
 }
 
-class _NullPaste implements PasteBackend {
+class _NullPaste extends PasteBackend {
   @override
   Future<String?> readClipboard() async => null;
   @override
   Future<bool> writeClipboard(String text) async => true;
   @override
-  Future<bool> pressCtrlV() async => true;
+  Future<bool> pressCtrlV({String? text}) async => true;
   @override
   Future<bool> pressEnter() async => true;
   @override

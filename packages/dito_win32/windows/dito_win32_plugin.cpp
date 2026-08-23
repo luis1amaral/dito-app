@@ -10,11 +10,15 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "key_table.h"
 #include "tray.h"
 
 namespace dito_win32 {
+
+HWND DitoWin32Plugin::previous_foreground_ = nullptr;
+HWND DitoWin32Plugin::last_paste_target_ = nullptr;
 
 namespace {
 
@@ -104,7 +108,41 @@ bool ForceForeground(HWND target) {
   return ok;
 }
 
-void SendKeyStroke(WORD vk, bool ctrl) {
+// Windows twin of IsTerminalWindow in the Linux plugin: says how the target accepts text.
+// Measured, not assumed -- see docs/medicoes/colagem-windows.md.
+const char* ClassifyTarget(HWND target) {
+  if (target == nullptr || IsWindow(target) == 0) return "gui";
+  wchar_t cls[256] = {};
+  if (GetClassNameW(target, cls, 256) == 0) return "gui";
+  const std::wstring name(cls);
+  // Only conhost is broken: with PROCESSED_INPUT off it hands Ctrl+V to the app as 0x16.
+  if (name == L"ConsoleWindowClass") return "console";
+  // These already paste with Ctrl+V today, so they stay on the path that works.
+  if (name == L"CASCADIA_HOSTING_WINDOW_CLASS" || name == L"mintty") return "terminal";
+  return "gui";
+}
+
+// Types the text as UTF-16 units: works where the target has no usable paste shortcut, and keeps
+// pt-BR accents exact because the scan code IS the character.
+bool SendUnicodeText(const std::wstring& text) {
+  if (text.empty()) return false;
+  std::vector<INPUT> inputs;
+  inputs.reserve(text.size() * 2);
+  for (const wchar_t ch : text) {
+    INPUT down{};
+    down.type = INPUT_KEYBOARD;
+    down.ki.wScan = ch;
+    down.ki.dwFlags = KEYEVENTF_UNICODE;
+    INPUT up = down;
+    up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+    inputs.push_back(down);
+    inputs.push_back(up);
+  }
+  const UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+  return sent == inputs.size();
+}
+
+bool SendKeyStroke(WORD vk, bool ctrl) {
   INPUT inputs[4]{};
   int count = 0;
   if (ctrl) {
@@ -121,7 +159,7 @@ void SendKeyStroke(WORD vk, bool ctrl) {
     inputs[count].ki.wVk = VK_CONTROL;
     inputs[count++].ki.dwFlags = KEYEVENTF_KEYUP;
   }
-  SendInput(count, inputs, sizeof(INPUT));
+  return SendInput(count, inputs, sizeof(INPUT)) == static_cast<UINT>(count);
 }
 
 }  // namespace
@@ -414,14 +452,47 @@ void DitoWin32Plugin::HandleMethod(
     return;
   }
 
+  if (method == "input.targetKind") {
+    result->Success(EncodableValue(std::string(ClassifyTarget(last_paste_target_))));
+    return;
+  }
+
   if (method == "input.sendCtrlV") {
-    SendKeyStroke('V', true);
-    result->Success(EncodableValue(true));
+    // The remembered target, never GetForegroundWindow(): on the card path Dito IS the foreground.
+    const std::string kind = ClassifyTarget(last_paste_target_);
+    if (kind == "console") {
+      // conhost with PROCESSED_INPUT off never pastes on Ctrl+V; typing is what lands.
+      const std::wstring text = Widen(GetString(*args, "text"));
+      result->Success(EncodableValue(text.empty() ? SendKeyStroke('V', true)
+                                                  : SendUnicodeText(text)));
+      return;
+    }
+    result->Success(EncodableValue(SendKeyStroke('V', true)));
     return;
   }
 
   if (method == "input.sendEnter") {
-    SendKeyStroke(VK_RETURN, false);
+    result->Success(EncodableValue(SendKeyStroke(VK_RETURN, false)));
+    return;
+  }
+
+  if (method == "window.setFocusable") {
+    // WS_EX_NOACTIVATE is weak on Windows, but the card still needs it OFF to be activated
+    // reliably; the Dart side calls this on both platforms. See docs/armadilhas.md 4.6.
+    const HWND hwnd = RootWindow();
+    if (hwnd == nullptr) {
+      result->Success(EncodableValue(false));
+      return;
+    }
+    const auto* raw = std::get_if<bool>(call.arguments());
+    const bool focusable = raw != nullptr && *raw;
+    LONG_PTR ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if (focusable) {
+      ex &= ~WS_EX_NOACTIVATE;
+    } else {
+      ex |= WS_EX_NOACTIVATE;
+    }
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, ex);
     result->Success(EncodableValue(true));
     return;
   }
@@ -438,8 +509,7 @@ void DitoWin32Plugin::HandleMethod(
       result->Error("KEY_UNKNOWN", "tecla desconhecida: " + key);
       return;
     }
-    SendKeyStroke(vk, ctrl);
-    result->Success(EncodableValue(true));
+    result->Success(EncodableValue(SendKeyStroke(vk, ctrl)));
     return;
   }
 
@@ -673,7 +743,10 @@ void DitoWin32Plugin::HandleMethod(
     const HWND current = GetForegroundWindow();
     const HWND mine = RootWindow();
     // Never remember ourselves, or two takes in a row give focus back to Dito.
-    if (current != nullptr && current != mine) previous_foreground_ = current;
+    if (current != nullptr && current != mine) {
+      previous_foreground_ = current;
+      last_paste_target_ = current;
+    }
     result->Success();
     return;
   }
@@ -685,6 +758,7 @@ void DitoWin32Plugin::HandleMethod(
       result->Success(EncodableValue(false));
       return;
     }
+    last_paste_target_ = target;
     result->Success(EncodableValue(ForceForeground(target)));
     return;
   }

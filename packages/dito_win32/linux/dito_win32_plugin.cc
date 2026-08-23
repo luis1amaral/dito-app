@@ -1031,6 +1031,20 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
+  if (g_strcmp0(method, "input.targetKind") == 0) {
+    const char* kind = "gui";
+    Display* display = XOpenDisplay(nullptr);
+    if (display) {
+      Window target = self->state ? self->state->last_paste_target : 0;
+      if (target == 0) target = ReadNetActiveWindow(display);
+      if (target != 0 && IsTerminalWindow(display, target)) kind = "terminal";
+      XCloseDisplay(display);
+    }
+    g_autoptr(FlValue) result = fl_value_new_string(kind);
+    fl_method_call_respond_success(method_call, result, nullptr);
+    return;
+  }
+
   if (g_strcmp0(method, "input.sendCtrlV") == 0 ||
       g_strcmp0(method, "paste.ctrl_v") == 0) {
     bool is_terminal = false;

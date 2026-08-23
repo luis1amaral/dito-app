@@ -13,11 +13,18 @@ class NativePasteBackend implements PasteBackend {
   Future<bool> writeClipboard(String text) => DitoWin32.clipboardSet(text);
 
   @override
-  Future<bool> pressCtrlV() => DitoWin32.sendCtrlV();
+  Future<bool> pressCtrlV({String? text}) => DitoWin32.sendCtrlV(text: text);
 
   @override
   Future<bool> pressEnter() => DitoWin32.sendEnter();
 
   @override
   Future<bool> restoreFocus() => DitoWin32.giveBackFocus();
+
+  @override
+  Future<PasteTarget> describeTarget() async => switch (await DitoWin32.targetKind()) {
+        'console' => PasteTarget.console,
+        'terminal' => PasteTarget.terminal,
+        _ => PasteTarget.gui,
+      };
 }

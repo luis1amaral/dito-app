@@ -28,7 +28,7 @@ esteja **100% pronto para produção** na máquina Windows.
 | **1.6.4** | **Remoção de WAV em disco** | O Dito **não grava mais WAV em disco** na biblioteca em produção (apenas o JSON com o texto transcrito). Para depurar áudio no Windows, define-se `DITO_SALVAR_WAV=1`. |
 | **1.6.5** | **Alarme de Silêncio com Histerese** | A máquina de estado do watchdog de áudio e aquecimento por tempo (1,2 s) roda no Dart (`alarm_policy.dart` e `dito_controller.dart`). No WASAPI, verificar se dispositivos Bluetooth / USB entregam áudio válido após retorno de suspensão. |
 | **1.6.7** | **Tratamento do Enter no Cartão de Revisão** | `review_card.dart` unificou `onChanged` e `_onKey` para evitar que o primeiro Enter quebre linha. No Windows, o primeiro Enter envia o texto imediatamente; Shift+Enter continua quebrando linhas. |
-| **1.6.8** | **Colagem no Terminal e GUI** | No Windows, `SendInput` enviando `Ctrl+V` funciona universalmente tanto para janelas normais (WhatsApp, Word, VS Code, Discord) quanto para o **Windows Terminal, PowerShell e CMD**. |
+| **1.6.8** | **Colagem no Terminal e GUI** | ~~Funciona universalmente~~ — **falso, e medido**: no `cmd.exe`/conhost em modo cru (o modo do Claude Code e do Gemini CLI) o `Ctrl+V` vira o caractere `0x16` e nada é colado. Corrigido na 1.6.9 digitando com `KEYEVENTF_UNICODE` **só** para `ConsoleWindowClass`. Windows Terminal, Git Bash e janelas GUI seguem no `Ctrl+V`. Ver `docs/medicoes/colagem-windows.md` e armadilha 6.7. |
 
 ---
 

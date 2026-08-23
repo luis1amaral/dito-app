@@ -421,5 +421,7 @@ class NativeEngine {
     await shutdown();
     _worker?.dispose();
     await _events.close();
+    // Windows cannot delete a file that is still open, so an unclosed log leaks the whole folder.
+    await _log.close();
   }
 }

@@ -4,6 +4,73 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-22 — a colagem no Claude Code/Gemini CLI do Windows, e a paridade que faltava, 1.6.9
+
+**Sintoma do dono:** ao ditar com o cursor no **Claude Code ou Gemini CLI** no Windows, o texto
+**não era colado** — só um Enter vazio chegava ao prompt. Idêntico ao que a 1.6.8 consertou no
+Linux, só que aqui a documentação afirmava que não podia acontecer.
+
+**Causa raiz, medida e não suposta.** A armadilha 6.4 e o `docs/WINDOWS.md` diziam que no Windows o
+`Ctrl+V` é *universal*. **Nunca tinha sido medido em console:** o `tool/spike_paste.dart` prova a
+colagem contra um controle **EDIT do Win32** criado pelo próprio app, jamais contra um terminal.
+Lendo com `AttachConsole` o console real de uma sessão do Claude Code: **`0x0208`** —
+`ENABLE_PROCESSED_INPUT` desligado, `ENABLE_QUICK_EDIT_MODE` desligado, `VT_INPUT` ligado — contra
+`0x01E7` de um `cmd` comum. Sem `PROCESSED_INPUT` **o conhost para de interceptar o `Ctrl+V`** e
+entrega o caractere de controle `0x16` (SYN) ao aplicativo, exatamente como o termios no Linux.
+
+**O que mudou — cirúrgico, só onde estava quebrado.**
+
+- `ClassifyTarget(HWND)` no plugin Windows, gêmeo do `IsTerminalWindow` do Linux: lê `GetClassName`
+  do **alvo lembrado**. Só `ConsoleWindowClass` muda de caminho — passa a receber o texto digitado
+  com `SendInput` + `KEYEVENTF_UNICODE`. Windows Terminal, Git Bash e janelas GUI **continuam no
+  `Ctrl+V`**, porque a medição mostrou que já funcionam.
+- `PasteService` junta as quebras de linha num espaço **quando o alvo é console/terminal**. Não é
+  preferência: o conhost e o mintty **não** fazem bracketed paste, então 3 linhas viram 3 envios no
+  CLI. O Windows Terminal embrulha e não sofre. A sobra do clipboard guarda o texto **original**.
+- `input.targetKind` novo **nas duas plataformas** — no Linux reaproveitando o `IsTerminalWindow`
+  que já existia, sem lógica nova lá.
+
+**Duas coisas quebradas no Windows que ninguém tinha visto** (achadas comparando a tabela de métodos
+dos dois plugins):
+
+- O alvo lembrado era **por engine** e o `giveBack` o apagava. Como `windows/runner/main.cpp:61`
+  registra o plugin em **cada** sub-janela, o `focus.take` do HUD e o `restoreFocus()` do
+  `PasteService` falavam com instâncias diferentes: **`restoreFocus()` sempre devolvia `false`**.
+  Agora é estado de processo, com `last_paste_target_` sobrevivendo ao `giveBack`, como no Linux.
+- `window.setFocusable` era chamado pelo `lib/` compartilhado (`hud_window.dart:252,273,285`) e
+  **não tinha handler no Windows** — o `_tryNative` engolia a exceção. Implementado como pôr/tirar
+  `WS_EX_NOACTIVATE`.
+- `input.sendCtrlV`, `input.sendEnter` e `input.sendChord` devolviam `true` fixo. Agora devolvem o
+  retorno real do `SendInput`, como o Linux já fazia desde a 1.6.3 — sem isso o `PasteService` nunca
+  conseguia cair para a sobra.
+
+**Dois defeitos preexistentes do Windows, achados ao levantar a linha de base:**
+
+- `NativeEngine.dispose()` não fechava o `Logbook`, e o `IOSink` aberto travava a pasta temporária:
+  no Windows `deleteSync` falha com `errno 32`, no Linux não. Era o único vermelho da suíte.
+- `%LOCALAPPDATA%\Programs\Dito` no `PATH` faz `flutter test` carregar o DLL nativo do app
+  **instalado** em vez do recém-compilado. Documentado na armadilha 6.9; não é código, é máquina.
+
+**Como foi verificado.**
+
+1. **Linha de base primeiro, no `f07a3e5` intocado** (armadilha 5.4): `analyze` limpo (só depois de
+   `pub get` nos 3 sub-pacotes), **217 verdes / 1 vermelho**, `build windows --debug` exit 0.
+2. **Instrumento validado no controle** antes de valer: Bloco de Notas, onde `Ctrl+V` é sabidamente
+   bom. E o alvo em modo cru é **fixado** no `0x0208` da sessão real — o `setRawMode` do Node sozinho
+   dá `0x0008`, sem `VT_INPUT`, e a sonda **aborta** o alvo se o modo não bater.
+3. **Tabela medida** em `docs/medicoes/colagem-windows.md`, com `tool/sonda_colagem.ps1`: no conhost
+   o `Ctrl+V` entrega **só `0x16`** e a coluna `Enter na ordem` dá **NÃO** — o sintoma do dono
+   reproduzido —, enquanto `SendInput` UNICODE entrega as três amostras com o Enter na ordem.
+4. **Os testes novos falharam primeiro:** com a regra de juntar linhas desligada, 2 falham; ligada,
+   os 18 do arquivo passam.
+5. **Suíte: 224 verdes, zero vermelhos** (eram 217+1). `analyze` limpo, `build windows` exit 0.
+
+**Ainda não verificado:** a colagem ponta a ponta ditando de verdade no app instalado, e o Linux
+nativo — esta máquina não compila Linux. O `input.targetKind` do Linux sai daqui compilando só no
+papel.
+
+---
+
 ## 2026-08-22 — colagem automatica em emuladores de terminal (Ctrl+Shift+V) no Linux, 1.6.8
 
 **Sintoma do dono:** ao ditar no terminal (como no CLI do Antigravity `agy`), o texto **nao era colado** e
