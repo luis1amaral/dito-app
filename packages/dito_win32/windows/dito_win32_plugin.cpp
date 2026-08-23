@@ -403,6 +403,13 @@ void DitoWin32Plugin::HandleMethod(
     return;
   }
 
+  if (method == "window.clearHitRect") {
+    // Back to a plain rectangular window; the overlay clip would otherwise shape the main window.
+    SetWindowRgn(RootWindow(), nullptr, TRUE);
+    result->Success();
+    return;
+  }
+
   if (method == "window.forceRepaint") {
     // Same jiggle as showNoActivate: a window resized while hidden keeps a dead black band
     // until a real resize happens while it is visible.
@@ -636,18 +643,6 @@ void DitoWin32Plugin::HandleMethod(
     return;
   }
 
-  if (method == "notify.balloon") {
-    result->Success(EncodableValue(dito::Tray::Shared().ShowBalloon(
-        Widen(GetString(*args, "title")), Widen(GetString(*args, "body")))));
-    return;
-  }
-
-  if (method == "notify.alarmSound") {
-    PlaySound(TEXT("SystemExclamation"), nullptr, SND_ALIAS | SND_ASYNC);
-    result->Success(EncodableValue(true));
-    return;
-  }
-
   if (method == "window.rect") {
     RECT rect{};
     GetWindowRect(RootWindow(), &rect);
@@ -732,7 +727,10 @@ void DitoWin32Plugin::HandleMethod(
     const int height = static_cast<int>(GetDouble(*args, "height", 0));
     const int radius = static_cast<int>(GetDouble(*args, "radius", 0));
     if (width <= 0 || height <= 0) {
-      SetWindowRgn(hwnd, nullptr, TRUE);
+      // An EMPTY region, never nullptr: nullptr drops the clip and the whole 900x900 canvas
+      // flashes on screen before the hide lands. See armadilha 4.3 and 4.16.
+      HRGN hidden_region = CreateRectRgn(0, 0, 0, 0);
+      if (SetWindowRgn(hwnd, hidden_region, TRUE) == 0) DeleteObject(hidden_region);
       result->Success(EncodableValue(false));
       return;
     }

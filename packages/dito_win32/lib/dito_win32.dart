@@ -81,16 +81,6 @@ class DitoWin32 {
 
   static Future<void> trayDestroy() => _methods.invokeMethod<void>('tray.destroy');
 
-  /// Balloon on the tray icon, always without the system ding.
-  static Future<bool> notifyBalloon({required String title, required String body}) async =>
-      await _methods.invokeMethod<bool>(
-          'notify.balloon', <String, Object?>{'title': title, 'body': body}) ??
-      false;
-
-  /// The app's own alarm sound, chosen to be unmistakable rather than pleasant.
-  static Future<bool> playAlarmSound() async =>
-      await _methods.invokeMethod<bool>('notify.alarmSound') ?? false;
-
   /// Test-only: creates an EDIT control inside our own window as a safe paste target.
   static Future<int?> createEditTarget() =>
       _methods.invokeMethod<int>('test.createEditTarget');
@@ -122,6 +112,9 @@ class DitoWin32 {
       foreground: (map['foreground'] as num?)?.toInt() ?? 0,
     );
   }
+
+  /// Drops the overlay clip so the window is a plain rectangle again.
+  static Future<void> clearHitRect() => _methods.invokeMethod<void>('window.clearHitRect');
 
   /// Forces the swapchain to present; a window resized while hidden stays partly black.
   static Future<void> forceRepaint() => _methods.invokeMethod<void>('window.forceRepaint');

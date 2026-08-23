@@ -99,6 +99,8 @@ class WindowOrchestrator extends ChangeNotifier {
 
     try {
       await DitoWin32.setFocusable(true);
+      // The overlay clip is still on the window; without dropping it the panel stays pill-shaped.
+      await DitoWin32.clearHitRect();
       await windowManager.setAlwaysOnTop(false);
       await windowManager.setSkipTaskbar(false);
       await windowManager.setSize(const Size(880, 760));
