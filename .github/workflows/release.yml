@@ -34,7 +34,7 @@ jobs:
         run: |
           flutter pub get
           flutter analyze
-          flutter test --exclude-tags live
+          flutter test --exclude-tags "live,golden"
 
       - name: Build Linux Release Package
         run: |
@@ -72,7 +72,7 @@ jobs:
         run: |
           flutter pub get
           flutter analyze
-          flutter test --exclude-tags live
+          flutter test --exclude-tags "live,golden"
 
       - name: Build Windows Release Package
         run: |

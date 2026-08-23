@@ -155,15 +155,7 @@ class _UpdateDialogContent extends StatelessWidget {
         final failed = c.stage == UpdateStage.error;
 
         return AlertDialog(
-          backgroundColor: colors.hudSurface,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.overlay),
-            side: BorderSide(
-              color: colors.border.withValues(alpha: 0.35),
-              width: AppSize.hairline,
-            ),
-          ),
+          // backgroundColor/surfaceTintColor/shape inherit from theme.dart's dialogTheme.
           contentPadding: const EdgeInsets.fromLTRB(
               AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.md),
           title: Row(

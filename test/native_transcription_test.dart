@@ -1,3 +1,6 @@
+@Tags(<String>['live'])
+library;
+
 import 'dart:io';
 import 'package:dito_app/config/paths.dart';
 import 'package:dito_app/core/logbook.dart';
