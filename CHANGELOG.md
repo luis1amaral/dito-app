@@ -15,6 +15,16 @@
 - **A pílula fica por cima mesmo depois** de um Meet ou overlay de jogo assumir o modo
   "sempre no topo" — ela volta a se reafirmar acima de quem chegou depois.
 
+### Correções
+
+- **Os dados do app podiam ir parar numa pasta relativa** em vez de `%APPDATA%\dito`, levando junto
+  o log e os modelos. Acontecia quando a variável de ambiente que aponta a pasta existia vazia.
+
+### Conhecido
+
+O modo **segurar** tem um portão de teste intermitente sob repetição muito rápida. O modo padrão é
+o alternar, que está provado. Detalhes e evidência em `plano.md`.
+
 ## 2.0.1 — 2026-08-23
 
 ### Novidades

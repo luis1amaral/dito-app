@@ -166,7 +166,8 @@ for (let i = 1; i <= 5; i += 1) {
   if (!(await waitForNext(pid, 'dictation: started', 8, base))) {
     await finish(1, 'HOLD: FALHA - ciclo ' + i + '/5: down nao iniciou o ditado')
   }
-  await wait(600)
+  // 600 ms with no gap between cycles outran real speech and the engine that reads it.
+  await wait(1500)
   base = countMatches(pid, 'dictation: stopped')
   keyUp()
   if (!(await waitForNext(pid, 'dictation: stopped', 8, base))) {
@@ -179,6 +180,7 @@ for (let i = 1; i <= 5; i += 1) {
     await finish(1, 'HOLD: FALHA - ciclo ' + i + '/5: a transcricao nao terminou')
   }
   console.log('   ciclo ' + i + '/5: OK')
+  await wait(500)
 }
 
 // Test C: a swallowed key-up must not leave dictation stuck -- the watchdog timer has to catch it
