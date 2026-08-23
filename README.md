@@ -55,11 +55,11 @@ docs/           os porquês que não cabem num comentário de uma linha
 ## O portão de qualidade
 
 Nada é dado por pronto sem o binário ter subido — a 1.7.0 saiu com 220 testes verdes e morria antes
-da primeira linha de log. `npm run verify` roda 12 camadas e devolve **exit 0 PASSA, 1 FALHA,
+da primeira linha de log. `npm run verify` roda 13 camadas e devolve **exit 0 PASSA, 1 FALHA,
 2 INCOMPLETO**; INCOMPLETO nunca é verde.
 
 ```
-typecheck · lint · regras do projeto · motor · mutação · modelos ·
+typecheck · lint · regras do projeto · motor · mutação · modelos · cortador ·
 nativo · tecla · segurar · fumaça · colagem console · colagem gui
 ```
 

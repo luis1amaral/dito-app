@@ -12,7 +12,7 @@ Projeto: `C:\Users\Luis\Desktop\Projetos\dito\dito-desktop`
 ```bash
 npm install
 npm run addon      # precisa de MSVC + Windows SDK; faz build limpo sempre
-npm run verify     # 12 camadas; exit 0 PASSA, 1 FALHA, 2 INCOMPLETO
+npm run verify     # 13 camadas; exit 0 PASSA, 1 FALHA, 2 INCOMPLETO
 ```
 
 **Regra que não se pula:** nada é dado por pronto sem `verify` em verde. INCOMPLETO nunca é verde.
@@ -52,21 +52,21 @@ O repositório já foi substituído por este projeto num commit só.
 Falta apenas, quando o corredor estiver verde: instalar o `.exe` e rodar
 `pwsh -File quality/smoke.ps1 -Exe "$env:LOCALAPPDATA\Programs\Dito\Dito.exe"`.
 
-## 2. Portões que ainda faltam
+## 3. Portões que ainda faltam
 
-| Portão | O que provar | Onde |
+Os 13 que existem estão em `quality/verify.ps1`. **O cortador de áudio já tem portão** (`chunker.ts`,
+provado nos dois sentidos) — não refaça.
+
+| Portão | O que provar | Situação |
 |---|---|---|
-| `review` | o cartão abre **com o texto**, `Enter` cola no alvo, `Tab` não cola nada | novo em `quality/` |
-| `chunker` | 20 s de áudio viram ≥2 janelas, o corte cai em silêncio, a emenda não duplica | novo, unitário sobre `src/main/audio-chunker.ts` |
-| `i18n` | toda chave existe em `pt` e `en`, e nenhum texto fixo sobrou no HTML | novo; o `Record<MessageKey, string>` já garante metade em tempo de compilação |
-| ditado longo | 3 minutos falando sem estourar memória (é a issue #7925 do Orca) | manual, com o app aberto |
+| `review` | o cartão abre **com o texto**, `Enter` cola no alvo, `Tab` não cola nada | não existe |
+| `i18n` | nenhum texto fixo sobrou nos `.ts` das telas | parcial: `code-quality.ts` já conta o HTML (dá 0), e `Record<MessageKey, string>` já barra chave faltando em tempo de compilação; falta cobrir os `.ts` |
+| ditado longo | 3 minutos falando sem estourar memória (issue #7925 do Orca) | manual, com o app aberto |
 
-O `quality/verify.ps1` já tem a lista de camadas; basta acrescentar as novas linhas seguindo o
-padrão dos outros arquivos.
+Para o `review`, o caminho mais direto é uma flag de teste que peça ao app para abrir o cartão com
+um texto conhecido, como `--capture` já faz com a janela de ajustes.
 
----
-
-## 3. Linux — o trabalho de verdade
+## 4. Linux — o trabalho de verdade
 
 **Nada disso pode ser feito no Windows.** Precisa de uma máquina Linux com X11.
 
@@ -90,7 +90,7 @@ nenhum — o updater lê o `Packages` do repositório APT, que está parado na 1
 
 ---
 
-## 4. Pendências do Windows
+## 5. Pendências do Windows
 
 Lista completa em `PENDENCIAS.md` §2. Por ordem de risco:
 

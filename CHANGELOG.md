@@ -34,7 +34,7 @@
   então uma opção de tela que o código não aceita deixa de compilar.
 - O processo principal virou 15 módulos de um assunto cada; a partida tem 46 linhas.
 - As telas rodam com `contextIsolation`, sem acesso a Node.
-- `npm run verify` roda 12 camadas de portão, cada uma provada também no sentido contrário.
+- `npm run verify` roda 13 camadas de portão, cada uma provada também no sentido contrário.
 - **Obsidian foi removido**: o Dito é só transcrição.
 
 ### Não incluído
