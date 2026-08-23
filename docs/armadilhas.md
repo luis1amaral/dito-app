@@ -396,3 +396,22 @@ apagar arquivo aberto funciona; no Windows o arquivo está travado. Um teste esc
 **não podia** passar no Windows.
 **Regra:** quem abre `IOSink` fecha no `dispose`. E teste que cria pasta temporária no Windows só
 apaga depois de todo dono de handle ter fechado.
+
+### 6.11 A 6.8 consertou o mecanismo; a refatoração seguinte apagou quem o chamava
+**Sintoma do dono:** *"às vezes não manda no terminal certo porque ele não estava selecionado"*.
+Intermitente, sem erro na tela, sem exceção no log — só uma linha discreta de
+`paste: falha ao restaurar foco (prosseguindo mesmo assim)`.
+**Causa:** a migração single-engine apagou `lib/ui/hud/hud_window.dart`, e junto foi o **único**
+`DitoWin32.takeFocus` que o app tinha (estava em `_mostrarCartao()`, linha 249 do arquivo no
+`master` antigo). O substituto, `dito_root_app.dart`, ficou com `setFocusable(true)` +
+`focusWindow()` e **sem** o `takeFocus` que vinha antes deles. Como `focus.take` é o único lugar que
+escreve `previous_foreground_` e `last_paste_target_` (ver 6.8), os dois passaram a ficar `nullptr`
+para sempre: o `giveBack` devolvia `false` sem restaurar nada, e o `ClassifyTarget(nullptr)` matou
+em silêncio o conserto do conhost da 1.6.9 (6.7) — o `SendInput` UNICODE nunca mais era escolhido.
+**Por que nenhum teste pegou:** `PasteService` é testado contra um `PasteBackend` falso cujo
+`restoreFocus()` devolve `true` sempre. A suíte provava a *sequência*, nunca a *captura*.
+**Regra:** ao apagar um arquivo numa refatoração, procure o que ele chamava no **nativo** antes de
+apagar — o Dart compila igual sem a chamada, e o defeito só aparece na mão do dono. E o alvo se
+captura no **início da gravação** (`DitoController.onHotkeyStart`), não quando o cartão aparece:
+nessa hora o foreground já é o próprio Dito, e o guard `current != mine` do `focus.take` descarta a
+captura. Travado por `test/focus_target_test.dart`, que fica vermelho se a chamada sumir de novo.
