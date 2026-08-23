@@ -94,9 +94,6 @@ if (!(await waitForCleanSlate())) {
 // process; the next launch would then quit silently and log nothing at all.
 await wait(1500)
 
-const pid = Number(ps(`(Start-Process '${EXE}' -PassThru).Id`).trim())
-console.log('app subiu: pid ' + pid + ' · tecla ' + key)
-
 // Taskkill returns as soon as it asks Windows to terminate the tree; the process (and its GPU
 // / renderer children) can take a moment to actually vanish. Until it does, it still owns the
 // single-instance lock, and the NEXT gate's launch would quit silently with no log line at all.
@@ -105,6 +102,21 @@ async function finish(code, msg) {
   await waitForCleanSlate()
   if (msg) console.error(msg)
   process.exit(code)
+}
+
+// A launch that loses the single-instance race dies before writing a single log line -- there is
+// nothing to wait longer for. Retrying after a clean slate is the only recovery from that race.
+let pid = 0
+let subiu = false
+for (let tentativa = 1; tentativa <= 3 && !subiu; tentativa += 1) {
+  pid = Number(ps(`(Start-Process '${EXE}' -PassThru).Id`).trim())
+  console.log('app subiu: pid ' + pid + ' · tecla ' + key + (tentativa > 1 ? ' (tentativa ' + tentativa + ')' : ''))
+  subiu = await waitFor(pid, 'starting', 20)
+  if (!subiu) {
+    console.log('   nada no log em 20s -- pode ter perdido a corrida do lock; tentando de novo')
+    try { execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }) } catch {}
+    await waitForCleanSlate()
+  }
 }
 
 if (!(await waitFor(pid, 'boot completo', 60))) await finish(1, 'HOTKEY: FALHA - o app nao terminou de subir')

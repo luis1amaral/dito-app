@@ -133,7 +133,7 @@ for (const fx of cfg.fixtures) {
 
   const inicio = Date.now()
   const stream = recognizer.createStream()
-  stream.acceptWaveform({ sampleRate: SAMPLE_RATE, samples: new Float32Array(amostras.length) }) // MUTATION
+  stream.acceptWaveform({ sampleRate: SAMPLE_RATE, samples: amostras })
   recognizer.decode(stream)
   const texto = (recognizer.getResult(stream).text || '').trim()
   const ms = Date.now() - inicio

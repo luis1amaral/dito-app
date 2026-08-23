@@ -45,14 +45,20 @@ dictation: started    23:33:57.448
 CRASH Utility: crashed (exit -1)
 ```
 
-**Leitura honesta:** o portão segura a tecla por 600 ms e repete cinco vezes em dez segundos — um
-ritmo que nenhuma pessoa produz. Parte da falha é o produto recusando começar enquanto a
-transcrição anterior roda, que é a regra correta ("um ouvindo por vez"), e o teste culpa a tecla
-por isso. Já pus uma espera pelo `transcribed:` entre ciclos e ainda assim oscila.
+**Causa medida:** a máquina fica com **3,2–3,7 GB livres de 16 GB** enquanto os portões rodam —
+Orca, Chrome, Discord e várias sessões do Claude ocupam o resto. Sob essa pressão, subir o Electron
+e carregar o modelo de 640 MB fica na margem, e o portão mais pesado (cinco boots e ciclos
+seguidos) é o primeiro a quebrar. Os sintomas batem: `CRASH Utility: crashed (exit -1)`,
+`CRASH renderer: crashed (exit -1)` e "o app nao terminou de subir".
 
-**Próximo passo sugerido:** medir se o `CRASH Utility` acontece só sob esse ritmo ou também em uso
-normal. Se for só sob metralhadora, o portão precisa de ritmo realista (segurar 2 s, esperar o
-ciclo fechar). Se acontecer em uso normal, é defeito de produto e vira prioridade.
+Confirmado que **não é lixo dos testes**: matar todos os processos `Dito`/`electron` não muda a
+memória livre.
+
+**Como fechar isto:** rodar `npm run verify` com a máquina mais folgada (fechar o que estiver
+pesado) e ver se `segurar` fica verde em duas corridas seguidas. Se ficar, o portão precisa apenas
+de uma checagem de memória livre antes de começar, avisando `PENDENTE` em vez de `FALHA` quando a
+máquina não tem folga — reprovar por falta de RAM é portão mentindo. Se continuar caindo com a
+máquina folgada, aí sim é defeito de produto e vira prioridade.
 
 Enquanto isso: **modo segurar não é o padrão** (o padrão é alternar, que tem portão verde), e as
 outras 12 camadas passam.
