@@ -4,6 +4,27 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-23 — Arquitetura Single-Engine (fim da tela preta fantasma) e instalador limpo no Defender (branch loucura)
+
+**Sintoma:** Janelas pretas congeladas e perda de contexto de GPU quando o HUD da pílula F9 e cartões F10 abriam/fechavam com frequência, além de falso-positivo `Bearfoos.B!ml` no instalador Inno Setup gerado.
+
+**Causa raiz eliminada:**
+1. O pacote `desktop_multi_window` instanciava 3 Flutter Engines concorrentes no mesmo processo (`dito.exe`). Em drivers DirectX/OpenGL, esconder e mostrar sub-janelas causava descarte de shaders e perda irrecuperável de contexto gráfico ("tela preta fantasma").
+2. A seção `[Run]` do `dito.iss` invocava `powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden` em executável não assinado, caindo na heurística de *dropper* do Defender.
+
+**O que mudou:**
+- **Single-Engine Nativo:** Removido completamente o pacote `desktop_multi_window` e o barramento IPC `MultiWindowBus`. O Dito agora opera com **1 único Flutter Engine** e **1 única janela nativa dinâmica** gerenciada por `WindowOrchestrator` e `DitoRootApp`.
+- **Zero Conflitos de GPU:** O contexto gráfico permanece aberto e ativo, alternando suavemente entre modo Oculto (bandeja), Overlay de Rodapé (Pílula F9 / Cartão F10) e Janela Completa de Configurações (880x760).
+- **Instalador Limpo:** Removidas as tarefas de PowerShell oculto do `dito.iss`.
+- **Zero Python em Runtime:** Todo o processamento de áudio e Whisper permanece em C++ nativo (`whisper.cpp` / miniaudio / Win32 FFI).
+
+**Como foi verificado:**
+- `flutter analyze`: **0 problemas**.
+- `flutter test --exclude-tags live`: **224 de 224 testes aprovados (100% de sucesso)**.
+- `MpCmdRun.exe` (Windows Defender): **`found no threats` (0 ameaças detectadas)**.
+
+---
+
 ## 2026-08-22 — a colagem no Claude Code/Gemini CLI do Windows, e a paridade que faltava, 1.6.9
 
 **Sintoma do dono:** ao ditar com o cursor no **Claude Code ou Gemini CLI** no Windows, o texto

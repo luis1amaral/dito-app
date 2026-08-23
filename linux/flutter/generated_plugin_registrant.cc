@@ -6,7 +6,6 @@
 
 #include "generated_plugin_registrant.h"
 
-#include <desktop_multi_window/desktop_multi_window_plugin.h>
 #include <dito_whisper/dito_whisper_plugin.h>
 #include <dito_win32/dito_win32_plugin.h>
 #include <screen_retriever_linux/screen_retriever_linux_plugin.h>
@@ -14,9 +13,6 @@
 #include <window_manager/window_manager_plugin.h>
 
 void fl_register_plugins(FlPluginRegistry* registry) {
-  g_autoptr(FlPluginRegistrar) desktop_multi_window_registrar =
-      fl_plugin_registry_get_registrar_for_plugin(registry, "DesktopMultiWindowPlugin");
-  desktop_multi_window_plugin_register_with_registrar(desktop_multi_window_registrar);
   g_autoptr(FlPluginRegistrar) dito_whisper_registrar =
       fl_plugin_registry_get_registrar_for_plugin(registry, "DitoWhisperPlugin");
   dito_whisper_plugin_register_with_registrar(dito_whisper_registrar);

@@ -19,9 +19,6 @@ dependencies:
   window_manager: ^0.5.2
   flutter_dotenv: ^5.2.1
   win32: ^5.15.0
-  # Fork local: a janela do HUD nao pode roubar o foco. Ver packages/desktop_multi_window/FORK.md
-  desktop_multi_window:
-    path: packages/desktop_multi_window
   dito_win32:
     path: packages/dito_win32
   dito_whisper:

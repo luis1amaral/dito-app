@@ -1,4 +1,3 @@
-#include <desktop_multi_window/desktop_multi_window_plugin.h>
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <shobjidl.h>
@@ -7,13 +6,6 @@
 #include "flutter/generated_plugin_registrant.h"
 #include "flutter_window.h"
 #include "utils.h"
-
-// Sub-windows get their own engine; without this they have no plugin channels at all.
-void RegisterPluginsInSubWindow(void *controller) {
-  auto *view_controller =
-      reinterpret_cast<flutter::FlutterViewController *>(controller);
-  RegisterPlugins(view_controller->engine());
-}
 
 static bool ForceForeground(HWND target) {
   if (target == nullptr || IsWindow(target) == 0) return false;
@@ -57,8 +49,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // Without this the shell labels our notifications with the executable name.
   ::SetCurrentProcessExplicitAppUserModelID(L"com.defalt.dito");
-
-  DesktopMultiWindowSetWindowCreatedCallback(RegisterPluginsInSubWindow);
 
   flutter::DartProject project(L"data");
 

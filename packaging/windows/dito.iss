@@ -44,11 +44,6 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 [Tasks]
 Name: "startup"; Description: "Iniciar o Dito junto com o Windows (fica só na bandeja)"; GroupDescription: "Ao ligar o computador:"
 Name: "desktopicon"; Description: "Criar um atalho na Área de Trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
-Name: "model_small"; Description: "Baixar o modelo de voz padrão agora (small - ~484 MB, recomendado)"; GroupDescription: "Modelos de transcrição:"
-Name: "model_tiny"; Description: "Baixar o modelo Mínimo (tiny - ~75 MB)"; GroupDescription: "Modelos adicionais:"; Flags: unchecked
-Name: "model_base"; Description: "Baixar o modelo Básico (base - ~145 MB)"; GroupDescription: "Modelos adicionais:"; Flags: unchecked
-Name: "model_medium"; Description: "Baixar o modelo Bom (medium - ~1,5 GB)"; GroupDescription: "Modelos adicionais:"; Flags: unchecked
-Name: "model_large"; Description: "Baixar o modelo Melhor (large-v3 - ~3,1 GB)"; GroupDescription: "Modelos adicionais:"; Flags: unchecked
 
 [InstallDelete]
 ; Limpeza do motor Python legado e DLLs antigas
@@ -60,7 +55,6 @@ Type: files; Name: "{app}\tray_manager_plugin.dll"
 
 [Files]
 Source: "{#AppBundle}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "download_model.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Comment: "Dito - ditado por voz offline"; AppUserModelID: "com.defalt.dito"
@@ -69,11 +63,6 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Comment: "Dit
 Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Parameters: "--startup"; Comment: "Dito - ditado por voz offline"; AppUserModelID: "com.defalt.dito"; Tasks: startup
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""{app}\download_model.ps1"" -Model small"; StatusMsg: "Baixando o modelo de voz padrão Small (~484 MB)..."; Flags: waituntilterminated runhidden; Tasks: model_small
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""{app}\download_model.ps1"" -Model tiny"; StatusMsg: "Baixando o modelo Mínimo Tiny (~75 MB)..."; Flags: waituntilterminated runhidden; Tasks: model_tiny
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""{app}\download_model.ps1"" -Model base"; StatusMsg: "Baixando o modelo Básico Base (~145 MB)..."; Flags: waituntilterminated runhidden; Tasks: model_base
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""{app}\download_model.ps1"" -Model medium"; StatusMsg: "Baixando o modelo Bom Medium (~1,5 GB)..."; Flags: waituntilterminated runhidden; Tasks: model_medium
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""{app}\download_model.ps1"" -Model large-v3"; StatusMsg: "Baixando o modelo Melhor Large-v3 (~3,1 GB)..."; Flags: waituntilterminated runhidden; Tasks: model_large
 Filename: "{app}\{#MyAppExe}"; Description: "Abrir o Dito"; Flags: nowait postinstall skipifsilent
 
 [Code]
