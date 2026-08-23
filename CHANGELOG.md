@@ -8,8 +8,9 @@
   removido: cada trecho de 8 segundos é digitado direto no alvo assim que fica pronto, e só
   digita se aquela janela ainda estiver em primeiro plano — trocar de janela no meio da fala
   não faz o texto cair no lugar errado.
-- **Sem campo onde digitar, vai para a área de transferência.** Se não há onde colar, o ditado
-  inteiro é copiado e a pílula avisa, em vez de o texto se perder.
+- **O texto sempre vai também para a área de transferência** — mesmo quando é digitado no
+  destino, um `Ctrl+V` recupera. Assim, nenhum ditado se perde quando a janela ativa não aceita
+  o texto e a colagem falha em silêncio.
 - **Texto ao vivo na pílula ficou branco**, mais legível que o cinza apagado de antes.
 - **A pílula fica por cima mesmo depois** de um Meet ou overlay de jogo assumir o modo
   "sempre no topo" — ela volta a se reafirmar acima de quem chegou depois.

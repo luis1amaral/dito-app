@@ -2,8 +2,8 @@
 import { app } from 'electron'
 import { join } from 'node:path'
 
-// The override lets a gate import this module outside Electron, where app is undefined.
-export const APPDATA = process.env['DITO_APPDATA'] ?? app.getPath('appData')
+// Override for gates outside Electron; || not ?? because an empty value must not win.
+export const APPDATA = process.env['DITO_APPDATA'] || app.getPath('appData')
 export const DATA_DIR = join(APPDATA, 'dito')
 export const CONFIG_FILE = join(DATA_DIR, 'config.json')
 export const LOG_FILE = join(DATA_DIR, 'logs', 'app.log')

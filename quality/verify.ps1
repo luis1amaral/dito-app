@@ -16,7 +16,12 @@ function RodarIsolado([scriptblock]$corpo, [hashtable]$vars) {
     }
     try { & $corpo }
     finally {
-        foreach ($k in $vars.Keys) { [Environment]::SetEnvironmentVariable($k, $antigo[$k]) }
+        foreach ($k in $vars.Keys) {
+            # Restoring as an empty string is not the same as removing it: the app would read '' and
+            # write its data to a relative path inside the project.
+            if ([string]::IsNullOrEmpty($antigo[$k])) { Remove-Item "Env:$k" -ErrorAction SilentlyContinue }
+            else { [Environment]::SetEnvironmentVariable($k, $antigo[$k]) }
+        }
     }
 }
 

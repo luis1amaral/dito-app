@@ -116,22 +116,30 @@ if (!(await waitForCleanSlate())) {
   process.exit(2)
 }
 
+// The process table can be clear while the single-instance mutex is still held by a dying
+// process; the next launch would then quit silently and log nothing at all.
+await wait(1500)
+
 const pid = Number(ps(`$env:DITO_MAX_HOLD_MS='2500'; (Start-Process '${EXE}' -PassThru).Id`).trim())
 console.log('app subiu: pid ' + pid + ' · tecla ' + key + ' · modo hold')
 
-function finish(code, msg) {
+// Taskkill returns as soon as it asks Windows to terminate the tree; the process (and its GPU
+// / renderer children) can take a moment to actually vanish. Until it does, it still owns the
+// single-instance lock, and the NEXT gate's launch would quit silently with no log line at all.
+async function finish(code, msg) {
   try { execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }) } catch {}
+  await waitForCleanSlate()
   restoreConfig()
   if (msg) console.error(msg)
   process.exit(code)
 }
 
-if (!(await waitForNext(pid, 'boot completo', 60, 0))) finish(1, 'HOLD: FALHA - o app nao terminou de subir')
+if (!(await waitForNext(pid, 'boot completo', 60, 0))) await finish(1, 'HOLD: FALHA - o app nao terminou de subir')
 
 const bound = logSince(pid).find((l) => l.includes('key: '))
 console.log('   ' + (bound || 'sem linha de tecla no log').trim().replace(/^\S+\s/, ''))
 if (!bound || !bound.includes('installed=true') || !bound.includes('mode=hold')) {
-  finish(1, 'HOLD: FALHA - o hook nao instalou em modo hold')
+  await finish(1, 'HOLD: FALHA - o hook nao instalou em modo hold')
 }
 
 // Test A: hold and release
@@ -139,14 +147,14 @@ console.log('-- teste A: segurar e soltar')
 let base = countMatches(pid, 'dictation: started')
 keyDown()
 if (!(await waitForNext(pid, 'dictation: started', 8, base))) {
-  finish(1, 'HOLD: FALHA - segurei ' + key + ' e o ditado NAO comecou')
+  await finish(1, 'HOLD: FALHA - segurei ' + key + ' e o ditado NAO comecou')
 }
 console.log('   down -> ditado comecou: OK')
 await wait(1500)
 base = countMatches(pid, 'dictation: stopped')
 keyUp()
 if (!(await waitForNext(pid, 'dictation: stopped', 8, base))) {
-  finish(1, 'HOLD: FALHA - soltei ' + key + ' e o ditado NAO parou')
+  await finish(1, 'HOLD: FALHA - soltei ' + key + ' e o ditado NAO parou')
 }
 console.log('   up -> ditado parou: OK')
 
@@ -156,13 +164,19 @@ for (let i = 1; i <= 5; i += 1) {
   base = countMatches(pid, 'dictation: started')
   keyDown()
   if (!(await waitForNext(pid, 'dictation: started', 8, base))) {
-    finish(1, 'HOLD: FALHA - ciclo ' + i + '/5: down nao iniciou o ditado')
+    await finish(1, 'HOLD: FALHA - ciclo ' + i + '/5: down nao iniciou o ditado')
   }
   await wait(600)
   base = countMatches(pid, 'dictation: stopped')
   keyUp()
   if (!(await waitForNext(pid, 'dictation: stopped', 8, base))) {
-    finish(1, 'HOLD: FALHA - ciclo ' + i + '/5: up nao parou o ditado')
+    await finish(1, 'HOLD: FALHA - ciclo ' + i + '/5: up nao parou o ditado')
+  }
+  // One dictation at a time is the rule: starting the next before this one finished transcribing
+  // is refused by design, and the gate would blame the key for it.
+  const done = countMatches(pid, 'transcribed:')
+  if (!(await waitForNext(pid, 'transcribed:', 20, done))) {
+    await finish(1, 'HOLD: FALHA - ciclo ' + i + '/5: a transcricao nao terminou')
   }
   console.log('   ciclo ' + i + '/5: OK')
 }
@@ -172,14 +186,14 @@ console.log('-- teste C: teto de duracao')
 base = countMatches(pid, 'dictation: started')
 keyDown()
 if (!(await waitForNext(pid, 'dictation: started', 8, base))) {
-  finish(1, 'HOLD: FALHA - down nao iniciou o ditado antes do teste de key-up engolido')
+  await finish(1, 'HOLD: FALHA - down nao iniciou o ditado antes do teste de key-up engolido')
 }
 console.log('   down -> ditado comecou: OK (up NAO sera enviado; espera o teto)')
 base = countMatches(pid, 'dictation: stopped')
 if (!(await waitForNext(pid, 'dictation: stopped', 3, base))) {
-  finish(1, 'HOLD: FALHA - o teto de duracao nao encerrou o ditado; ele ficaria preso ligado')
+  await finish(1, 'HOLD: FALHA - o teto de duracao nao encerrou o ditado; ele ficaria preso ligado')
 }
 console.log('   watchdog percebeu a tecla fisicamente solta e parou sozinho: OK')
 
 console.log('HOLD: PASSA - segurar/soltar, 5 ciclos e key-up engolido todos provados')
-finish(0)
+await finish(0)

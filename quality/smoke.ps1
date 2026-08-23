@@ -50,14 +50,6 @@ function AnalisarQuadro($arquivo) {
     }
 }
 
-function Falhar($motivo, $pid_) {
-    if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
-    Write-Host "FUMACA: FALHA - $motivo" -ForegroundColor Red
-    $evt = Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'; StartTime=(Get-Date).AddMinutes(-2)} -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($evt) { Write-Host "  modulo com falha: $((($evt.Message -split "`n") | Where-Object { $_ -match 'modulo com falha|faulting module' }) -join ' ')" -ForegroundColor Red }
-    exit 1
-}
-
 # Uma instancia velha segura o lock e o app novo sai sem abrir nada. Esperar um tempo fixo e
 # corrida: espera ate a ultima morrer de verdade, ou reprova dizendo por que.
 function MatarTodas() {
@@ -65,10 +57,25 @@ function MatarTodas() {
     $fim = [Environment]::TickCount + 10000
     while ([Environment]::TickCount -lt $fim) {
         $vivos = @(Get-Process Dito, dito, dito_app, electron -ErrorAction SilentlyContinue)
-        if ($vivos.Count -eq 0) { return $true }
+        if ($vivos.Count -eq 0) {
+            # The single-instance mutex can outlive the process; without this settle the next
+            # launch quits silently and never writes a line to the log.
+            Start-Sleep -Milliseconds 1500
+            return $true
+        }
         Start-Sleep -Milliseconds 200
     }
     return $false
+}
+
+function Falhar($motivo, $pid_) {
+    # Stop-Process on a single pid leaves GPU/renderer children orphaned holding the singleton
+    # lock; MatarTodas kills by name AND verifies the table is actually clear before returning.
+    if (-not (MatarTodas)) { Write-Host "  aviso: sobrou instancia viva apos a falha" -ForegroundColor Yellow }
+    Write-Host "FUMACA: FALHA - $motivo" -ForegroundColor Red
+    $evt = Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'; StartTime=(Get-Date).AddMinutes(-2)} -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($evt) { Write-Host "  modulo com falha: $((($evt.Message -split "`n") | Where-Object { $_ -match 'modulo com falha|faulting module' }) -join ' ')" -ForegroundColor Red }
+    exit 1
 }
 if (-not (MatarTodas)) {
     Write-Host "FUMACA: FALHA - sobrou instancia viva; a medida seria de outro processo" -ForegroundColor Red

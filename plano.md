@@ -23,26 +23,39 @@ máximo 1 linha, texto de tela em pt-BR/en via `src/shared/i18n.ts`).
 
 ---
 
-## 1. O corredor de portões falha em sequência (o mais urgente)
+## 1. O portão `segurar` é intermitente (o mais urgente)
 
-**Sintoma:** `npm run verify` reprova em `segurar` e `fumaca`, mas os dois **passam quando rodados
-sozinhos**. Medido: o app sobe normalmente (`boot completo` no log), o modelo está no lugar, e as
-mesmas camadas passam isoladas.
+**Resolvido no caminho, e era defeito de PRODUTO:** o app gravava os dados em caminho **relativo**
+dentro do projeto em vez de `%APPDATA%\dito`. Causa: `process.env['DITO_APPDATA'] ?? app.getPath(...)`
+— o `??` só cai para o outro lado com `null`, então uma variável vazia vencia e `join('', 'dito')`
+virava caminho relativo. Trocado por `||`. Isso derrubava `tecla`, `segurar` e `fumaca` juntos;
+as duas primeiras voltaram a passar.
 
-```bash
-node quality/hold.mjs              # PASSA sozinho
-pwsh -File quality/smoke.ps1       # PASSA sozinho
-pwsh -File quality/verify.ps1      # as duas REPROVAM aqui
+**O que sobrou:** `node quality/hold.mjs` passa e falha de forma **intermitente**, com mensagem
+diferente a cada corrida (`up nao parou o ditado`, `a transcricao nao terminou`, `down nao iniciou`).
+
+**O que o log do app mostra durante a falha:**
+
+```
+dictation: started    23:33:55.759
+dictation: stopped    23:33:55.884   <- 125 ms depois, nao 1500
+transcribed: 0 ms ""
+dictation: started    23:33:57.448
+...
+CRASH Utility: crashed (exit -1)
 ```
 
-**O que já foi descartado por medição:** não é vazamento da variável `DITO_APPDATA` (não existe log
-na pasta temporária), não é modelo apagado (640 MB intactos), não é o app deixando de subir.
+**Leitura honesta:** o portão segura a tecla por 600 ms e repete cinco vezes em dez segundos — um
+ritmo que nenhuma pessoa produz. Parte da falha é o produto recusando começar enquanto a
+transcrição anterior roda, que é a regra correta ("um ouvindo por vez"), e o teste culpa a tecla
+por isso. Já pus uma espera pelo `transcribed:` entre ciclos e ainda assim oscila.
 
-**Suspeita a investigar:** as camadas casam a linha do log pelo PID que subiram; alguma delas está
-lendo o log de um processo anterior, ou o `taskkill` de uma camada derruba o processo da seguinte.
-`quality/hold.mjs` também não restaurou a `config.json` numa das corridas (ficou `mode: alternar`).
+**Próximo passo sugerido:** medir se o `CRASH Utility` acontece só sob esse ritmo ou também em uso
+normal. Se for só sob metralhadora, o portão precisa de ritmo realista (segurar 2 s, esperar o
+ciclo fechar). Se acontecer em uso normal, é defeito de produto e vira prioridade.
 
-Enquanto isso não fecha, **o produto está provado**: as 13 camadas passam individualmente.
+Enquanto isso: **modo segurar não é o padrão** (o padrão é alternar, que tem portão verde), e as
+outras 12 camadas passam.
 
 ## 2. Publicar
 
