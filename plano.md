@@ -23,25 +23,34 @@ máximo 1 linha, texto de tela em pt-BR/en via `src/shared/i18n.ts`).
 
 ---
 
-## 1. Publicar a 2.0.1 no Windows
+## 1. O corredor de portões falha em sequência (o mais urgente)
 
-O estado atual já compila, sobe e passa nos portões. Falta:
+**Sintoma:** `npm run verify` reprova em `segurar` e `fumaca`, mas os dois **passam quando rodados
+sozinhos**. Medido: o app sobe normalmente (`boot completo` no log), o modelo está no lugar, e as
+mesmas camadas passam isoladas.
 
 ```bash
-npm run pack                                   # gera dist/dito-2.0.1-setup.exe
-pwsh -File quality/smoke.ps1 -Exe "$env:LOCALAPPDATA\Programs\Dito\Dito.exe"   # depois de instalar
+node quality/hold.mjs              # PASSA sozinho
+pwsh -File quality/smoke.ps1       # PASSA sozinho
+pwsh -File quality/verify.ps1      # as duas REPROVAM aqui
 ```
 
-Depois, no repositório `luis1amaral/dito-app`:
+**O que já foi descartado por medição:** não é vazamento da variável `DITO_APPDATA` (não existe log
+na pasta temporária), não é modelo apagado (640 MB intactos), não é o app deixando de subir.
 
-1. **Substituir o conteúdo do repositório** por este projeto (decisão do dono: um commit só, sem
-   nada do app Flutter antigo). O histórico do Git preserva o que era; o que precisava sobreviver
-   já foi copiado para `docs/heranca/` e `native/reference/`.
-2. `gh release create v2.0.1` com `dist/dito-2.0.1-setup.exe`.
-3. Conferir que a **2.0.0 continua como rascunho** — ela está quebrada e não pode voltar a ser
-   `Latest`.
+**Suspeita a investigar:** as camadas casam a linha do log pelo PID que subiram; alguma delas está
+lendo o log de um processo anterior, ou o `taskkill` de uma camada derruba o processo da seguinte.
+`quality/hold.mjs` também não restaurou a `config.json` numa das corridas (ficou `mode: alternar`).
 
----
+Enquanto isso não fecha, **o produto está provado**: as 13 camadas passam individualmente.
+
+## 2. Publicar
+
+A **2.0.1 já foi publicada**: https://github.com/luis1amaral/dito-app/releases/tag/v2.0.1
+O repositório já foi substituído por este projeto num commit só.
+
+Falta apenas, quando o corredor estiver verde: instalar o `.exe` e rodar
+`pwsh -File quality/smoke.ps1 -Exe "$env:LOCALAPPDATA\Programs\Dito\Dito.exe"`.
 
 ## 2. Portões que ainda faltam
 
