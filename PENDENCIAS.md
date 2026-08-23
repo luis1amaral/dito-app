@@ -22,6 +22,34 @@ cliente-vs-janela, ou pode não ter, mas ninguém mediu. Idem o comportamento de
 (armadilha 4.15 e o `--startup` nos atalhos): isso hoje só está garantido no instalador Windows
 (`packaging/windows/dito.iss`); o empacotamento Linux não foi revisado com o mesmo critério.
 
+## Linux: `windowManager.hide()` viola a armadilha 4.3
+
+`lib/ui/window_orchestrator.dart` chama `windowManager.hide()` nas linhas **47, 90 e 124**, sem
+nenhum desvio por plataforma. No Windows isso é correto. No **X11 é a armadilha 4.3**, paga em
+2026-08-21: desmapear a janela faz o `FlView` perder o contexto GL e **não voltar** — o HUD some
+para sempre até reabrir o app. A regra que o projeto aprendeu é: esconder é recortar para uma
+região **vazia**, nunca desmapear.
+
+Isso já foi feito no Windows (`window.setHitRect` com retângulo vazio agora aplica
+`CreateRectRgn(0,0,0,0)` em vez de remover a região). Falta o equivalente no caminho Linux, e falta
+o `hide()` deixar de ser chamado lá.
+
+## Linux: dois métodos nativos novos só existem no Windows
+
+`window.clearHitRect` e `window.forceRepaint` foram criados hoje em
+`packages/dito_win32/windows/dito_win32_plugin.cpp` e **não têm par** em
+`packages/dito_win32/linux/dito_win32_plugin.cc` (grep: zero ocorrências). No Linux as chamadas
+levantam `MissingPluginException` — engolida pelo `try/catch` do `WindowOrchestrator`, então não
+quebra, mas o comportamento simplesmente não acontece:
+
+- `clearHitRect` é quem devolve a janela à forma retangular ao abrir o painel de Configurações. Sem
+  ele, o painel pode herdar o recorte da pílula.
+- `forceRepaint` é o *jiggle* que evita a faixa preta quando a janela é dimensionada escondida.
+
+No GTK o equivalente de limpar o recorte é `gtk_widget_shape_combine_region(widget, NULL)`; o
+`forceRepaint` provavelmente é desnecessário fora do swapchain do Windows, mas isso **precisa ser
+medido numa máquina X11**, não presumido.
+
 ## `stt.device` é botão morto
 
 O campo existe na config (`lib/config/config_model.dart`), aparece nos Ajustes
