@@ -1,9 +1,10 @@
-name: Release Dito
+name: Release Dito (manual, reserva)
 
+# O release oficial NAO sai daqui: e build local, subido a mao. Ver docs/RELEASE.md.
+# Este workflow fica so como reserva, disparado a mao, para nunca correr junto com
+# um upload manual e sobrescrever asset publicado.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
