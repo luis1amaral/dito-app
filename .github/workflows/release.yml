@@ -48,3 +48,40 @@ jobs:
             build/linux/installer/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    name: Build Windows (.exe setup & .zip)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies & Run Tests
+        run: |
+          flutter pub get
+          flutter test --exclude-tags live
+
+      - name: Build Windows Release Package
+        run: |
+          powershell -ExecutionPolicy Bypass -File packaging\windows\construir.ps1 -SemPortao
+
+      - name: Upload Windows Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/windows/installer/*.exe
+            build/windows/installer/*.zip
+            build/windows/installer/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
