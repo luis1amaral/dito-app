@@ -51,6 +51,7 @@ class DitoPaths {
   static String get configFile => '$configDir${_sep}config.toml';
 
   /// Documents via SHGetFolderPath, because OneDrive moves the folder elsewhere.
+  /// Kept only so config_service can detect the pre-migration default library path.
   static String get documents {
     if (Platform.isWindows) {
       final buffer = wsalloc(MAX_PATH);
@@ -70,7 +71,7 @@ class DitoPaths {
     return _env('XDG_DOCUMENTS_DIR', '$_home/Documents');
   }
 
-  static String get defaultLibrary => '$documents${_sep}Dito';
+  static String get defaultLibrary => '$_home${_sep}Dito';
 
   /// A path typed with a leading tilde is text, not a directory, until it is expanded here.
   static String expandHome(String path) =>

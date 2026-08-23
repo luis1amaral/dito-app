@@ -11,13 +11,24 @@ import 'paths.dart';
 
 /// The only writer of config.toml; sub-windows read a copy and never touch the file.
 class ConfigService extends ChangeNotifier {
-  ConfigService({String? path, Logbook? log, this.codec = const ConfigCodec()})
-      : _path = path ?? DitoPaths.configFile,
-        _log = log ?? Logbook('config');
+  ConfigService({
+    String? path,
+    Logbook? log,
+    this.codec = const ConfigCodec(),
+    String? oldDefaultLibrary,
+    String? newDefaultLibrary,
+  })  : _path = path ?? DitoPaths.configFile,
+        _log = log ?? Logbook('config'),
+        _oldDefaultLibrary =
+            oldDefaultLibrary ?? '${DitoPaths.documents}${Platform.pathSeparator}Dito',
+        _newDefaultLibrary = newDefaultLibrary ?? DitoPaths.defaultLibrary;
 
   final String _path;
   final Logbook _log;
   final ConfigCodec codec;
+  /// Overridable in tests; production always resolves from [DitoPaths].
+  final String _oldDefaultLibrary;
+  final String _newDefaultLibrary;
 
   AppConfig _config = const AppConfig();
   Map<String, dynamic> _extras = <String, dynamic>{};
@@ -40,10 +51,30 @@ class ConfigService extends ChangeNotifier {
       }
       _config = decoded.config;
       _extras = decoded.extras;
+      await _migrateOldDefaultLibrary();
       notifyListeners();
     } catch (e) {
       await _setAside(file, '$e');
     }
+  }
+
+  /// One-time move of the pre-2026-08 default library into the profile root; see CHANGELOG.
+  Future<void> _migrateOldDefaultLibrary() async {
+    final folder = _config.library.folder.trim();
+    // Empty followed the old default implicitly, so it moves too or the history vanishes.
+    final followsOldDefault = folder.isEmpty || folder == _oldDefaultLibrary;
+    if (!followsOldDefault) return;
+    if (!Directory(_oldDefaultLibrary).existsSync()) return;
+    if (Directory(_newDefaultLibrary).existsSync()) return;
+    try {
+      Directory(_oldDefaultLibrary).renameSync(_newDefaultLibrary);
+    } catch (e) {
+      _log('falha ao migrar biblioteca de $_oldDefaultLibrary para $_newDefaultLibrary: $e');
+      return;
+    }
+    if (folder.isEmpty) return;
+    _config = _config.copyWith(library: _config.library.copyWith(folder: ''));
+    await save();
   }
 
   Future<void> _setAside(File file, String reason) async {

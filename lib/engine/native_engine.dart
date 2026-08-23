@@ -63,8 +63,8 @@ class NativeEngine {
   String get loadedModel => _loadedModelName;
 
   /// Debug valve: the WAV is off by default because it was 99,9% of the library on disk.
-  static bool get savesWav =>
-      (Platform.environment['DITO_SALVAR_WAV'] ?? '').trim() == '1';
+  static bool savesWav([Map<String, String>? env]) =>
+      ((env ?? Platform.environment)['DITO_SALVAR_WAV'] ?? '').trim() == '1';
 
   Future<void> init() async {
     _log('iniciando motor nativo C++ (whisper.cpp ${DitoWhisper.version})');
@@ -216,7 +216,7 @@ class NativeEngine {
     _currentStem = '$hh-$mm-$ss';
     _currentSessionId = '$y-$m-${d}_$_currentStem';
     _currentWavPath =
-        savesWav ? '$_currentFolder$sep$_currentStem${DitoPaths.audioSuffix}' : '';
+        savesWav() ? '$_currentFolder$sep$_currentStem${DitoPaths.audioSuffix}' : '';
 
     Directory(_currentFolder).createSync(recursive: true);
 
