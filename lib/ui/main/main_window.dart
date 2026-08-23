@@ -11,38 +11,10 @@ import '../../engine/engine_health.dart';
 import '../../engine/engine_protocol.dart';
 import '../../state/app_snapshot.dart';
 import '../palette.dart';
-import '../theme.dart';
 import '../tokens.dart';
-import 'package:provider/provider.dart';
 import '../widgets/update_banner.dart';
 import 'sessions_page.dart';
 import 'settings_page.dart';
-
-class DitoMainApp extends StatelessWidget {
-  const DitoMainApp({super.key, required this.app});
-
-  final DitoApp app;
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-        listenable: app.config,
-        builder: (_, _) => ChangeNotifierProvider.value(
-          value: app.updateController,
-          child: MaterialApp(
-            title: 'Dito',
-            debugShowCheckedModeBanner: false,
-            theme: appTheme(Brightness.light),
-            darkTheme: appTheme(Brightness.dark),
-            themeMode: themeModeFrom(app.config.config.ui.theme),
-            localizationsDelegates: AppStrings.localizationsDelegates,
-            supportedLocales: AppStrings.supportedLocales,
-            // null follows the system, which is what 'auto' means.
-            locale: localeFromCode(app.config.config.ui.language),
-            home: MainWindow(app: app),
-          ),
-        ),
-      );
-}
 
 class MainWindow extends StatefulWidget {
   const MainWindow({super.key, required this.app});

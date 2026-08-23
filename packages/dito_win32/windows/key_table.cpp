@@ -10,7 +10,7 @@ namespace {
 const std::map<std::string, UINT>& Table() {
   static const std::map<std::string, UINT> table = {
       {"f1", VK_F1},   {"f2", VK_F2},   {"f3", VK_F3},   {"f4", VK_F4},
-      {"f5", VK_F5},   {"f6", VK_F6},   {"f7", VK_F7},   {"f8", VK_F8},
+      {"f5", VK_F5},
       {"f9", VK_F9},   {"f10", VK_F10}, {"f11", VK_F11}, {"f12", VK_F12},
       {"f13", VK_F13}, {"f14", VK_F14}, {"f15", VK_F15}, {"f16", VK_F16},
       {"space", VK_SPACE},

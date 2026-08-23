@@ -1,3 +1,4 @@
+# Last living Python tool; needs a Dart port.
 """Converte o catalogo de strings escrito a mao em ARB, o formato padrao do Flutter.
 
     python tool/arb_from_dart.py

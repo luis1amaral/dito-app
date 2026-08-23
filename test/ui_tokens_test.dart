@@ -16,7 +16,6 @@ void main() {
   // does not desync this list. Left unconsumed once the owning agent fixes it - harmless.
   final knownExceptions = <String>{
     'lib/ui/main/settings_page.dart|Duration literal|Duration(seconds: 3)',
-    'lib/ui/hud/hud_window.dart|Duration literal|Duration(milliseconds: 200)',
   };
 
   test('lib/ui/** sources colors, spacing, radii and durations only from tokens', () {
