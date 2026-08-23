@@ -8,6 +8,11 @@ O que é específico de plataforma (teclas globais, janelas, foco, colagem, noti
 do plugin `packages/dito_win32` — nome herdado do Windows, mas serve as duas plataformas
 (`windows/` e `linux/`).
 
+**Single-engine, uma janela só.** Não existe mais `desktop_multi_window`: há **um** Flutter Engine
+e **uma** janela nativa que troca de papel (`AppWindowMode.hidden | overlay | mainWindow`, em
+`lib/ui/window_orchestrator.dart`). Três engines disputando contexto de GPU eram a causa da tela
+preta fantasma. **Não crie sub-janela** — o preço disso já foi pago uma vez.
+
 ## Regras de código — sem exceção
 
 - **Comentário só em INGLÊS, e no máximo 1 LINHA.** Vale para `//`, `///` e docstring. Se o porquê
@@ -40,7 +45,11 @@ do plugin `packages/dito_win32` — nome herdado do Windows, mas serve as duas p
 - **Tecla suprimida some do `GetAsyncKeyState`** — o hook é a autoridade, `GetAsyncKeyState` é só
   resgate para tecla que nunca passou pelo hook.
 - **A janela do HUD só não rouba foco se nascer com `WS_EX_NOACTIVATE`** — aplicar depois não
-  retroage. Ver `packages/desktop_multi_window/FORK.md`.
+  retroage. Hoje quem aplica é `window.adoptAsHud` em `packages/dito_win32/windows/`.
+- **Refatoração que apaga um arquivo leva junto as chamadas nativas dele.** A migração
+  single-engine apagou `lib/ui/hud/hud_window.dart` e com ele o único `DitoWin32.takeFocus` do app;
+  sem ele o foco nunca voltava e a colagem no conhost morria calada. Ao apagar um arquivo, procure
+  o que ele chamava no nativo antes de apagar. Travado por `test/focus_target_test.dart`.
 - **`started` com `session_id == "engine_ready"` é handshake, não gravação.** Separado no parsing.
 - Sessões no disco são `<lib>/YYYY/MM/DD/<HH-MM-SS>.json`, **não** `session.json`.
 - **CUDA `CUDA_ARCHITECTURES` nunca só `-virtual` (PTX).** Faz o driver compilar (JIT) cada
@@ -51,8 +60,15 @@ do plugin `packages/dito_win32` — nome herdado do Windows, mas serve as duas p
 ## Portão
 
 ```
-flutter analyze && flutter test
+flutter analyze && flutter test --exclude-tags live
 ```
 
-Prova do fork de janela: `flutter build windows --debug --target=tool/spike_focus.dart` e rodar o
-executável — `VEREDITO ... PASSA`.
+Golden é portão **local**, nunca de CI (fonte renderiza diferente entre Windows e Linux, e o
+compare cross-OS dá falso positivo):
+
+```
+flutter test --tags golden
+```
+
+Prova que exit code não dá: ditar com F9 dentro de um `cmd.exe` rodando Claude Code e ver o texto
+inteiro chegar **antes** do Enter. É o único teste do caminho conhost em modo cru.

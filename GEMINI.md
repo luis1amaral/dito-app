@@ -1,43 +1,7 @@
 # dito-flutter
 
-Porte do Dito (ditado por voz offline) para Flutter/Windows. O motor Python (`../dito-app`) roda
-como **sidecar** e é a verdade do produto: áudio, Whisper, watchdog, sessão e biblioteca vivem lá.
-O Flutter é interface, teclas, colagem e janelas.
+As regras deste repositório vivem num lugar só: **[`CLAUDE.md`](CLAUDE.md)**.
 
-## Regras de código — sem exceção
-
-- **Comentário só em INGLÊS, e no máximo 1 LINHA.** Vale para `//`, `///` e docstring. Se o porquê
-  não cabe numa linha, ele não é comentário: vai para `CHANGELOG.md` ou `docs/`, e o comentário
-  vira um ponteiro de uma linha para lá.
-- **Comentário só quando carrega um *porquê*** que o código não diz sozinho. Nada de narrar a linha.
-- `CHANGELOG.md`, `README.md` e documentação: **pt-BR**.
-- Nada de cor, espaçamento, raio ou duração cru em `lib/ui/**` — só de `ui/tokens.dart` e
-  `ui/palette.dart`. Há teste que varre isso.
-
-## As 4 garantias inegociáveis (herdadas do dito-app)
-
-1. **O áudio NÃO vai para o disco em produção.** Salva apenas texto JSON; `DITO_SALVAR_WAV=1` apenas para depuração.
-2. Quando não capta, **avisa em ~1 s** por forma + cor no pill.
-3. **A gravação não tem limite de tempo.** O F10 é modo alternador (toggle) para ditar sem segurar a tecla (andando ou afastado do teclado). O conceito de "modo reunião" foi abandonado pelo dono.
-4. Nada aparece no login além do ícone da bandeja.
-
-## Armadilhas que este porte já pagou
-
-- **Push-to-talk não sai de `hotkey_manager`.** `RegisterHotKey`/`WM_HOTKEY` só entrega key-down;
-  `keyUpHandler` é código morto no Windows. Precisa de `WH_KEYBOARD_LL` nativo.
-- **Não use o evento de release da tecla.** Estado físico + 300 ms contínuos solto.
-- **Tecla suprimida some do `GetAsyncKeyState`** — o hook é a autoridade, `GetAsyncKeyState` é só
-  resgate para tecla que nunca passou pelo hook.
-- **A janela do HUD só não rouba foco se nascer com `WS_EX_NOACTIVATE`** — aplicar depois não
-  retroage. Ver `packages/desktop_multi_window/FORK.md`.
-- **`started` com `session_id == "engine_ready"` é handshake, não gravação.** Separado no parsing.
-- Sessões no disco são `<lib>/YYYY/MM/DD/<HH-MM-SS>.json`, **não** `session.json`.
-
-## Portão
-
-```
-flutter analyze && flutter test
-```
-
-Prova do fork de janela: `flutter build windows --debug --target=tool/spike_focus.dart` e rodar o
-executável — `VEREDITO ... PASSA`.
+Este arquivo era uma cópia delas e ficou para trás — chegou a afirmar que o motor Python roda como
+sidecar, coisa que não é verdade desde que o Whisper virou C++ in-process via FFI. Duas cópias da
+mesma regra viram duas verdades diferentes, e foi exatamente o que aconteceu. Agora é um ponteiro.
