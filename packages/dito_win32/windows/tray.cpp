@@ -30,6 +30,12 @@ LRESULT CALLBACK Tray::WndProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) {
     return 0;
   }
 
+  if (self->taskbar_created_ != 0 && message == self->taskbar_created_) {
+    // Explorer came back and dropped every icon; ours only returns if we re-add it.
+    self->AddIcon();
+    return 0;
+  }
+
   if (message == WM_COMMAND) {
     const UINT index = LOWORD(w) - kFirstCommand;
     if (index < self->items_.size() && self->on_menu) {
@@ -51,23 +57,30 @@ bool Tray::Create(const std::wstring& tooltip) {
   wc.lpszClassName = kClassName;
   RegisterClassEx(&wc);
 
-  // A message-only window: it hosts the icon and never appears anywhere.
-  window_ = CreateWindowEx(0, kClassName, L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr,
-                           GetModuleHandle(nullptr), nullptr);
+  // Top level, never shown: HWND_MESSAGE would be tidier but message-only windows are cut out
+  // of broadcasts, and TaskbarCreated is a broadcast. WS_EX_TOOLWINDOW keeps it out of Alt+Tab.
+  window_ = CreateWindowEx(WS_EX_TOOLWINDOW, kClassName, L"", WS_POPUP, 0, 0, 0, 0, nullptr,
+                           nullptr, GetModuleHandle(nullptr), nullptr);
   if (window_ == nullptr) return false;
   SetWindowLongPtr(window_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
+  taskbar_created_ = RegisterWindowMessage(L"TaskbarCreated");
+  tooltip_ = tooltip;
+
+  created_ = AddIcon();
+  return created_;
+}
+
+bool Tray::AddIcon() {
   NOTIFYICONDATA data{};
   data.cbSize = sizeof(NOTIFYICONDATA);
   data.hWnd = window_;
   data.uID = kIconId;
   data.uFlags = NIF_MESSAGE | NIF_TIP | NIF_ICON;
   data.uCallbackMessage = kTrayMessage;
-  data.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-  wcsncpy_s(data.szTip, tooltip.c_str(), _TRUNCATE);
-
-  created_ = Shell_NotifyIcon(NIM_ADD, &data) != 0;
-  return created_;
+  data.hIcon = icon_ != nullptr ? icon_ : LoadIcon(nullptr, IDI_APPLICATION);
+  wcsncpy_s(data.szTip, tooltip_.c_str(), _TRUNCATE);
+  return Shell_NotifyIcon(NIM_ADD, &data) != 0;
 }
 
 bool Tray::SetIcon(const std::wstring& path) {
@@ -102,7 +115,9 @@ bool Tray::SetTooltip(const std::wstring& tooltip) {
   data.uID = kIconId;
   data.uFlags = NIF_TIP;
   wcsncpy_s(data.szTip, tooltip.c_str(), _TRUNCATE);
-  return Shell_NotifyIcon(NIM_MODIFY, &data) != 0;
+  const bool ok = Shell_NotifyIcon(NIM_MODIFY, &data) != 0;
+  if (ok) tooltip_ = tooltip;
+  return ok;
 }
 
 void Tray::SetMenu(std::vector<TrayMenuItem> items) { items_ = std::move(items); }

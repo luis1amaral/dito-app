@@ -52,18 +52,22 @@ Type: files; Name: "{app}\hotkey_manager_windows_plugin.dll"
 Type: files; Name: "{app}\local_notifier_plugin.dll"
 Type: files; Name: "{app}\system_tray_plugin.dll"
 Type: files; Name: "{app}\tray_manager_plugin.dll"
+; Sobra da arquitetura multi-janela: o Inno nao apaga arquivo que saiu do pacote.
+Type: files; Name: "{app}\desktop_multi_window_plugin.dll"
 
 [Files]
 Source: "{#AppBundle}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Comment: "Dito - ditado por voz offline"; AppUserModelID: "com.defalt.dito"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Comment: "Dito - ditado por voz offline"; AppUserModelID: "com.defalt.dito"; Tasks: desktopicon
+; Todo atalho sobe na bandeja: a janela so abre pelo menu do icone, nunca sozinha.
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Parameters: "--startup"; Comment: "Dito - ditado por voz offline"; AppUserModelID: "com.defalt.dito"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Parameters: "--startup"; Comment: "Dito - ditado por voz offline"; AppUserModelID: "com.defalt.dito"; Tasks: desktopicon
 ; Parameters --startup: no boot o app sobe em segundo plano (bandeja), sem abrir a janela.
 Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Parameters: "--startup"; Comment: "Dito - ditado por voz offline"; AppUserModelID: "com.defalt.dito"; Tasks: startup
 
 [Run]
-Filename: "{app}\{#MyAppExe}"; Description: "Abrir o Dito"; Flags: nowait postinstall skipifsilent
+; --startup: termina a instalacao com o app pronto na bandeja, sem abrir janela nenhuma.
+Filename: "{app}\{#MyAppExe}"; Parameters: "--startup"; Description: "Deixar o Dito pronto na bandeja"; Flags: nowait postinstall skipifsilent
 
 [Code]
 // O Windows guarda o icone antigo em cache e continua mostrando o do instalador anterior.
@@ -100,7 +104,7 @@ begin
   begin
     // As gravações e a configuração são do dono: essas nunca apagamos.
     MsgBox('O Dito foi removido com sucesso.' + #13#10 + #13#10 +
-           'Suas gravações continuam em Documentos\Dito e as configurações em ' +
+           'Suas gravações continuam na pasta Dito do seu usuário e as configurações em ' +
            '%APPDATA%\dito.',
            mbInformation, MB_OK);
   end;

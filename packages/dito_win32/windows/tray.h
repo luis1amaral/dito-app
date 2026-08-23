@@ -37,9 +37,16 @@ class Tray {
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM w, LPARAM l);
   void ShowMenu();
 
+  /// Re-adds the icon with the state we already hold; Explorer restarts wipe it.
+  bool AddIcon();
+
   HWND window_ = nullptr;
   HICON icon_ = nullptr;
   bool created_ = false;
+  std::wstring tooltip_;
+
+  /// Broadcast Explorer sends after a restart; a message-only window would never see it.
+  UINT taskbar_created_ = 0;
   std::vector<TrayMenuItem> items_;
 };
 

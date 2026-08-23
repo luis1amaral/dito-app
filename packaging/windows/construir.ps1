@@ -95,6 +95,10 @@ Compress-Archive -Path "$Bundle\*" -DestinationPath $Zip -Force
 
 # --- checksum ---------------------------------------------------------------
 # O updater recusa instalar sem hash publicado, entao isto nao e opcional.
+Etapa 'Teste de fumaca do INSTALADOR: instala e sobe o app instalado'
+& (Join-Path $Raiz "tool/fumaca_instalador.ps1") -Setup $Instalador -ManterInstalado
+if ($LASTEXITCODE -ne 0) { throw 'o instalador reprovou: nao publica' }
+
 Etapa 'Calculando o SHA256'
 $hashExe = (Get-FileHash -Algorithm SHA256 $Instalador).Hash.ToLower()
 $nomeExe = Split-Path $Instalador -Leaf

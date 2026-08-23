@@ -8,7 +8,9 @@ class ModelManager {
   ModelManager({Logbook? log}) : _log = log ?? Logbook('models');
 
   final Logbook _log;
-  final Map<String, Future<String>> _activeDownloads = {};
+  // Static on purpose: boot prefetches with its own instance while the engine holds another,
+  // and two downloads of the same model share one .tmp file.
+  static final Map<String, Future<String>> _activeDownloads = {};
 
   static const String _hfBaseUrl =
       'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';

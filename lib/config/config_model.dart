@@ -142,9 +142,12 @@ class AlertConfig {
   int get hashCode => Object.hash(deadMs, quietMs, sound, notify);
 }
 
+/// The one model the product ships with; there is no chooser and no second option.
+const String kDitoModel = 'small';
+
 class SttConfig {
   const SttConfig({
-    this.model = 'small',
+    this.model = kDitoModel,
     this.language = 'pt',
     this.device = 'auto',
     this.beamDictation = 5,
@@ -152,7 +155,7 @@ class SttConfig {
     this.idleUnloadMin = 10.0,
   });
 
-  /// tiny|base|small|medium|large-v3 - the installer pre-downloads small.
+  /// Always [kDitoModel]; kept as a field so an old config.toml still parses.
   final String model;
   final String language;
 

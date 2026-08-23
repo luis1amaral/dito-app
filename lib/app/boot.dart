@@ -11,6 +11,7 @@ import '../config/paths.dart';
 import '../core/logbook.dart';
 import '../engine/engine_client.dart';
 import '../engine/engine_supervisor.dart';
+import '../engine/model_manager.dart';
 import '../engine/engine_protocol.dart';
 import '../keys/hotkey_service.dart';
 import '../library/library_reader.dart';
@@ -89,6 +90,8 @@ class DitoApp {
 
     await supervisor.start();
     isReady.value = true;
+    // Nothing to choose and nothing to click: the model the config names is fetched on boot.
+    unawaited(_prefetchModel());
     // Throttled to 6h inside and swallows its own errors; without this call nothing ever checks.
     unawaited(updateController.checkQuiet());
     log('boot completo (Single-Engine)');
@@ -108,6 +111,22 @@ class DitoApp {
   }
 
   void _playAlarm() => alerts.playAlarm();
+
+  /// Never throws: a failed prefetch just means the engine downloads it at first use instead.
+  Future<void> _prefetchModel() async {
+    final model = config.config.stt.model;
+    if (ModelManager.isDownloaded(model)) {
+      log('modelo $model ja esta no disco');
+      return;
+    }
+    log('baixando modelo $model automaticamente');
+    try {
+      await ModelManager().ensureModel(model);
+      log('modelo $model pronto');
+    } catch (e) {
+      log('falha ao baixar $model no boot: $e');
+    }
+  }
 
   /// Fire-and-forget: the recording must not wait on a window call.
   void _takeFocus() => unawaited(DitoWin32.takeFocus());

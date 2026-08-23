@@ -151,20 +151,6 @@ class SettingsPage extends StatelessWidget {
               ]),
               _Section(title: s.sectionTranscription, children: <Widget>[
                 _Options(
-                  label: s.sectionModel,
-                  hint: s.modelHint,
-                  value: cfg.stt.model,
-                  options: <String, String>{
-                    'tiny': s.optModelTinyName,
-                    'base': s.optModelBaseName,
-                    'small': s.optModelSmallName,
-                    'medium': s.optModelMediumName,
-                    'large-v3': s.optModelLargeName,
-                  },
-                  onChanged: (v) =>
-                      _update(cfg.copyWith(stt: cfg.stt.copyWith(model: v))),
-                ),
-                _Options(
                   label: s.transcriptionLanguage,
                   value: cfg.stt.language,
                   options: <String, String>{

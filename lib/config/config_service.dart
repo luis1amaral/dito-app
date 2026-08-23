@@ -52,10 +52,18 @@ class ConfigService extends ChangeNotifier {
       _config = decoded.config;
       _extras = decoded.extras;
       await _migrateOldDefaultLibrary();
+      _forceSingleModel();
       notifyListeners();
     } catch (e) {
       await _setAside(file, '$e');
     }
+  }
+
+  /// An old config could name any of the five models the app used to offer; only one ships now.
+  void _forceSingleModel() {
+    if (_config.stt.model == kDitoModel) return;
+    _log('modelo ${_config.stt.model} nao existe mais; usando $kDitoModel');
+    _config = _config.copyWith(stt: _config.stt.copyWith(model: kDitoModel));
   }
 
   /// One-time move of the pre-2026-08 default library into the profile root; see CHANGELOG.
