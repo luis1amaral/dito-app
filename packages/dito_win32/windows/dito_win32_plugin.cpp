@@ -736,11 +736,24 @@ void DitoWin32Plugin::HandleMethod(
       result->Success(EncodableValue(false));
       return;
     }
+    // Flutter measures inside the client area, SetWindowRgn counts from the window origin. On the
+    // old frameless sub-window the two were the same; the single-engine window keeps its caption,
+    // so without this shift the region sits a title bar too high. See armadilha 4.14.
+    POINT client_origin{0, 0};
+    RECT window_rect{};
+    int dx = 0;
+    int dy = 0;
+    if (ClientToScreen(hwnd, &client_origin) && GetWindowRect(hwnd, &window_rect)) {
+      dx = client_origin.x - window_rect.left;
+      dy = client_origin.y - window_rect.top;
+    }
+    const int rleft = left + dx;
+    const int rtop = top + dy;
     // The region IS the visible shape now, so it carries the content's corner radius.
     HRGN region = radius > 0
-        ? CreateRoundRectRgn(left, top, left + width + 1, top + height + 1,
+        ? CreateRoundRectRgn(rleft, rtop, rleft + width + 1, rtop + height + 1,
                              radius * 2, radius * 2)
-        : CreateRectRgn(left, top, left + width, top + height);
+        : CreateRectRgn(rleft, rtop, rleft + width, rtop + height);
     // Ownership passes to the window, so this must not be deleted here.
     const bool ok = SetWindowRgn(hwnd, region, TRUE) != 0;
     if (!ok) DeleteObject(region);
