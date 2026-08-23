@@ -9,9 +9,6 @@ export type LangChoice = (typeof LANG_CHOICES)[number]
 const pt = {
   modeLabelToggle: 'Alternar — aperta para gravar, aperta de novo para parar',
   modeLabelHold: 'Segurar — grava enquanto a tecla estiver pressionada',
-  reviewLabelNoTarget: 'Só quando não houver onde colar — o texto não se perde',
-  reviewLabelAlways: 'Sempre — reviso antes de qualquer colagem',
-  reviewLabelNever: 'Nunca — cola direto',
   modelNotDownloaded: 'esse modelo ainda não foi baixado',
   downloadInProgress: 'já existe um download em andamento',
 
@@ -43,8 +40,6 @@ const pt = {
   microphoneDefaultOption: 'Padrão do sistema',
   microphoneHelp: 'Evite entradas com “monitor” ou “mixagem estéreo” no nome: elas gravam o som que sai do computador, não a sua voz.',
   afterTranscribeTitle: 'Depois de transcrever',
-  reviewCardLabel: 'Cartão de revisão',
-  reviewCardHelp: 'O cartão guarda o texto quando não há campo para colar. Enter envia, Tab descarta.',
   autoPasteLabel: 'Digitar o texto na janela de origem',
   autoPasteHelp: 'Desligado, o texto só vai para o histórico.',
   pressEnterLabel: 'Apertar Enter depois de colar',
@@ -93,6 +88,7 @@ const pt = {
   pillRecording: 'Ouvindo',
   pillTranscribing: 'Transcrevendo',
   pillPasted: 'Colado',
+  pillCopied: 'Copiado — cole com Ctrl+V',
   pillDone: 'Transcrito',
   pillError: 'Não deu',
   pillNoMicTitle: 'Sem microfone',
@@ -100,15 +96,6 @@ const pt = {
   pillNoSoundDetail: 'nada está chegando do microfone',
   pillMicLostTitle: 'Microfone caiu',
   pillMicLostDetail: 'a entrada foi desconectada',
-
-  reviewWindowTitle: 'Revisar',
-  reviewGoingTo: 'vai para',
-  reviewHintSend: 'envia',
-  reviewHintNewline: 'nova linha',
-  reviewHintDiscard: 'descarta',
-  reviewDiscardButton: 'Descartar',
-  reviewSendButton: 'Enviar',
-  reviewKindTerminal: 'terminal'
 } as const
 
 export type MessageKey = keyof typeof pt
@@ -116,9 +103,6 @@ export type MessageKey = keyof typeof pt
 const en: Record<MessageKey, string> = {
   modeLabelToggle: 'Toggle — press to record, press again to stop',
   modeLabelHold: 'Hold — records while the key is held down',
-  reviewLabelNoTarget: 'Only when there is nowhere to paste — the text is never lost',
-  reviewLabelAlways: 'Always — review before any paste',
-  reviewLabelNever: 'Never — paste directly',
   modelNotDownloaded: 'this model has not been downloaded yet',
   downloadInProgress: 'a download is already in progress',
 
@@ -150,8 +134,6 @@ const en: Record<MessageKey, string> = {
   microphoneDefaultOption: 'System default',
   microphoneHelp: 'Avoid inputs with “monitor” or “stereo mix” in the name: they record the sound coming out of the computer, not your voice.',
   afterTranscribeTitle: 'After transcribing',
-  reviewCardLabel: 'Review card',
-  reviewCardHelp: 'The card holds the text when there is no field to paste into. Enter sends, Tab discards.',
   autoPasteLabel: 'Type the text into the source window',
   autoPasteHelp: 'Off, the text only goes to the history.',
   pressEnterLabel: 'Press Enter after pasting',
@@ -200,6 +182,7 @@ const en: Record<MessageKey, string> = {
   pillRecording: 'Listening',
   pillTranscribing: 'Transcribing',
   pillPasted: 'Pasted',
+  pillCopied: 'Copied — paste with Ctrl+V',
   pillDone: 'Transcribed',
   pillError: 'Failed',
   pillNoMicTitle: 'No microphone',
@@ -207,15 +190,6 @@ const en: Record<MessageKey, string> = {
   pillNoSoundDetail: 'nothing is coming in from the microphone',
   pillMicLostTitle: 'Microphone lost',
   pillMicLostDetail: 'the input was disconnected',
-
-  reviewWindowTitle: 'Review',
-  reviewGoingTo: 'sending to',
-  reviewHintSend: 'sends',
-  reviewHintNewline: 'new line',
-  reviewHintDiscard: 'discards',
-  reviewDiscardButton: 'Discard',
-  reviewSendButton: 'Send',
-  reviewKindTerminal: 'terminal'
 }
 
 const DICTS: Record<Lang, Record<MessageKey, string>> = { pt, en }

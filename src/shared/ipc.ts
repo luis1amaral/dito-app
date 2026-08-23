@@ -3,7 +3,7 @@ import type { Config } from './config'
 import type { Lang } from './i18n'
 import type { ModelRow } from './models'
 
-export type DictationPhase = 'idle' | 'recording' | 'transcribing' | 'pasted' | 'done' | 'error'
+export type DictationPhase = 'idle' | 'recording' | 'transcribing' | 'pasted' | 'copied' | 'done' | 'error'
 
 export type PillState = { phase: DictationPhase; detail: string }
 
@@ -29,9 +29,6 @@ export type AppStatus = {
 
 export type HistoryEntry = { at: string; text: string }
 
-export type ReviewPayload = { text: string; targetTitle: string; targetKind: string }
-
-export type ReviewResult = { action: 'send'; text: string } | { action: 'discard' }
 
 /** Channels the renderer invokes and awaits. */
 export type InvokeMap = {
@@ -47,9 +44,6 @@ export type InvokeMap = {
   'models:retry': { arg: void; ret: { error: string | null } }
   'update:check': { arg: void; ret: UpdateState }
   'i18n:lang': { arg: void; ret: Lang }
-  'review:resolve': { arg: ReviewResult; ret: void }
-  /** The card asks for its payload on load; neither side may depend on ordering. */
-  'review:pending': { arg: void; ret: ReviewPayload | null }
 }
 
 /** Messages the renderer sends without waiting. */
@@ -68,7 +62,6 @@ export type EventMap = {
   record: { microphone: string | null }
   stop: void
   'models:progress': DownloadProgress | null
-  'review:show': ReviewPayload
 }
 
 export type InvokeChannel = keyof InvokeMap

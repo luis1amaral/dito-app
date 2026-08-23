@@ -1,7 +1,7 @@
 // Every window the app owns. One place decides size, flags and how a screen is loaded.
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
-import type { EventChannel, EventMap, ReviewPayload } from '../shared/ipc'
+import type { EventChannel, EventMap } from '../shared/ipc'
 import { asset } from './paths'
 import { log } from './logger'
 
@@ -16,7 +16,6 @@ function loadScreen(win: BrowserWindow, name: string): void {
 
 let pill: BrowserWindow | null = null
 let settings: BrowserWindow | null = null
-let review: BrowserWindow | null = null
 
 export function createPill(): void {
   const area = screen.getPrimaryDisplay().workAreaSize
@@ -109,75 +108,18 @@ function armCapture(win: BrowserWindow): void {
   })
 }
 
-let pendingReview: ReviewPayload | null = null
-
-/** What the card asks for when it loads, so the payload cannot arrive before the listener. */
-export function takePendingReview(): ReviewPayload | null {
-  return pendingReview
-}
-
-// Sending before the card loads lost the payload and it opened empty: wait for the load.
-export function showReview(payload: ReviewPayload): void {
-  pendingReview = payload
-  const win = openReview()
-  const deliver = (): void => {
-    win.webContents.send('review:show', payload)
-    win.setAlwaysOnTop(true, 'screen-saver')
-    win.show()
-    win.moveTop()
-    win.focus()
-  }
-  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', deliver)
-  else deliver()
-}
-
-function openReview(): BrowserWindow {
-  if (review && !review.isDestroyed()) {
-    return review
-  }
-  const area = screen.getPrimaryDisplay().workAreaSize
-  const width = 560
-  const height = 280
-  review = new BrowserWindow({
-    width,
-    height,
-    x: Math.round((area.width - width) / 2),
-    y: Math.round(area.height * 0.55),
-    frame: false,
-    resizable: false,
-    skipTaskbar: true,
-    alwaysOnTop: true,
-    show: false,
-    backgroundColor: '#00000000',
-    transparent: true,
-    webPreferences: { preload: PRELOAD, contextIsolation: true, nodeIntegration: false }
-  })
-  review.setAlwaysOnTop(true, 'screen-saver')
-  loadScreen(review, 'review')
-  review.on('closed', () => {
-    review = null
-  })
-  return review
-}
-
-export function closeReview(): void {
-  pendingReview = null
-  if (review && !review.isDestroyed()) review.close()
-  review = null
-}
-
 /** Typed push to one screen; the channel and its payload come from the shared contract. */
 export function sendTo<C extends EventChannel>(
-  target: 'pill' | 'settings' | 'review',
+  target: 'pill' | 'settings',
   channel: C,
   payload: EventMap[C]
 ): void {
-  const win = target === 'pill' ? pill : target === 'settings' ? settings : review
+  const win = target === 'pill' ? pill : settings
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
 export function broadcast<C extends EventChannel>(channel: C, payload: EventMap[C]): void {
-  for (const win of [pill, settings, review]) {
+  for (const win of [pill, settings]) {
     if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
   }
 }

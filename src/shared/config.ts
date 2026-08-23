@@ -7,17 +7,7 @@ export type HotKey = (typeof HOTKEYS)[number]
 export const MODES = ['toggle', 'hold'] as const
 export type Mode = (typeof MODES)[number]
 
-export const REVIEWS = ['no-target', 'always', 'never'] as const
-export type Review = (typeof REVIEWS)[number]
-
-// Values map to i18n keys, not to text, so the label follows the screen's language.
-export const REVIEW_LABEL_KEYS: Record<Review, MessageKey> = {
-  'no-target': 'reviewLabelNoTarget',
-  always: 'reviewLabelAlways',
-  never: 'reviewLabelNever'
-}
-
-// Labels live next to the values so a screen cannot invent an option the code does not accept.
+// Values map to i18n keys next to the union, so a screen cannot invent an option the code rejects.
 export const MODE_LABEL_KEYS: Record<Mode, MessageKey> = {
   toggle: 'modeLabelToggle',
   hold: 'modeLabelHold'
@@ -29,7 +19,6 @@ export type Config = {
   microphone: string | null
   /** Types the text into the window that had focus when the key went down. */
   autoPaste: boolean
-  review: Review
   /** Presses Enter after pasting, so a typed command actually runs. */
   pressEnter: boolean
   /** Puts back whatever was on the clipboard before we used it. */
@@ -43,7 +32,6 @@ export const DEFAULT_CONFIG: Config = {
   mode: 'toggle',
   microphone: null,
   autoPaste: true,
-  review: 'no-target',
   pressEnter: false,
   restoreClipboard: true,
   model: 'parakeet-tdt-0.6b-v3-int8',
@@ -72,7 +60,6 @@ export function migrate(saved: Record<string, unknown>): Config {
   const merged = { ...DEFAULT_CONFIG, ...out } as Config
   // A value outside the union would typecheck at compile time but arrive from an edited file.
   if (!MODES.includes(merged.mode)) merged.mode = DEFAULT_CONFIG.mode
-  if (!REVIEWS.includes(merged.review)) merged.review = DEFAULT_CONFIG.review
   if (!HOTKEYS.includes(merged.key)) merged.key = DEFAULT_CONFIG.key
   if (merged.lang !== 'auto' && !LANGS.includes(merged.lang)) merged.lang = DEFAULT_CONFIG.lang
   return merged

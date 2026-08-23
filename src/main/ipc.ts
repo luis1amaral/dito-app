@@ -1,7 +1,7 @@
 // Every IPC handler, typed by the shared contract in src/shared/ipc.ts.
 import { app, ipcMain } from 'electron'
 import { readFileSync, unlinkSync } from 'node:fs'
-import type { AppStatus, HistoryEntry, InvokeChannel, InvokeMap, ReviewResult } from '../shared/ipc'
+import type { AppStatus, HistoryEntry, InvokeChannel, InvokeMap } from '../shared/ipc'
 import type { Config } from '../shared/config'
 import { t, type Lang } from '../shared/i18n'
 import type { ModelRow } from '../shared/models'
@@ -159,12 +159,6 @@ export function register(): void {
   handle('update:check', () => updater.checkNow())
 
   handle('i18n:lang', () => resolveLang())
-
-  handle('review:pending', () => windows.takePendingReview())
-
-  handle('review:resolve', (result: ReviewResult) => {
-    dictation.resolveReview(result)
-  })
 
   ipcMain.on('audio:chunk', (_e, data: { samples: Float32Array; sampleRate: number }) => {
     dictation.feedAudio(data.samples, data.sampleRate)

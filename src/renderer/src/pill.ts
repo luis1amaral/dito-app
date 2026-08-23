@@ -16,6 +16,7 @@ const PHASE_KEYS: Record<DictationPhase, MessageKey> = {
   recording: 'pillRecording',
   transcribing: 'pillTranscribing',
   pasted: 'pillPasted',
+  copied: 'pillCopied',
   done: 'pillDone',
   error: 'pillError'
 }

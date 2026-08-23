@@ -1,5 +1,5 @@
 // Settings; every option comes from the shared config types (docs/decisoes.md).
-import { HOTKEYS, MODE_LABEL_KEYS, MODES, REVIEW_LABEL_KEYS, REVIEWS, type Config } from '../../shared/config'
+import { HOTKEYS, MODE_LABEL_KEYS, MODES, type Config } from '../../shared/config'
 import { applyI18n, LANG_CHOICES, LANG_LABEL_KEYS, t, type Lang } from '../../shared/i18n'
 import type { AppStatus, DownloadProgress } from '../../shared/ipc'
 import type { ModelRow } from '../../shared/models'
@@ -174,11 +174,9 @@ function paintStaticText(): void {
 
   $('key').innerHTML = HOTKEYS.map((k) => '<option value="' + k + '">' + k + '</option>').join('')
   $('mode').innerHTML = MODES.map((m) => '<option value="' + m + '">' + t(lang, MODE_LABEL_KEYS[m]) + '</option>').join('')
-  $('review').innerHTML = REVIEWS.map((r) => '<option value="' + r + '">' + t(lang, REVIEW_LABEL_KEYS[r]) + '</option>').join('')
   $('lang').innerHTML = LANG_CHOICES.map((l) => '<option value="' + l + '">' + t(lang, LANG_LABEL_KEYS[l]) + '</option>').join('')
   $<HTMLSelectElement>('key').value = config.key
   $<HTMLSelectElement>('mode').value = config.mode
-  $<HTMLSelectElement>('review').value = config.review
   $<HTMLSelectElement>('lang').value = config.lang
   $<HTMLInputElement>('autoPaste').checked = config.autoPaste
   $<HTMLInputElement>('pressEnter').checked = config.pressEnter
@@ -193,7 +191,6 @@ async function save(): Promise<void> {
     mode: $<HTMLSelectElement>('mode').value as Config['mode'],
     microphone: $<HTMLSelectElement>('microphone').value || null,
     autoPaste: $<HTMLInputElement>('autoPaste').checked,
-    review: $<HTMLSelectElement>('review').value as Config['review'],
     pressEnter: $<HTMLInputElement>('pressEnter').checked,
     restoreClipboard: $<HTMLInputElement>('restoreClipboard').checked,
     lang: $<HTMLSelectElement>('lang').value as Config['lang']
@@ -217,7 +214,7 @@ async function main(): Promise<void> {
   void loadHistory()
 
   await listMicrophones()
-  for (const id of ['key', 'mode', 'review', 'lang', 'microphone', 'autoPaste', 'pressEnter', 'restoreClipboard']) {
+  for (const id of ['key', 'mode', 'lang', 'microphone', 'autoPaste', 'pressEnter', 'restoreClipboard']) {
     $(id).addEventListener('change', () => void save())
   }
   $('clear-history').addEventListener('click', async () => {

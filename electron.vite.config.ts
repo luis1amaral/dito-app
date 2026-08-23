@@ -1,7 +1,7 @@
 import { defineConfig } from 'electron-vite'
 import { resolve } from 'node:path'
 
-// Three renderer entries: the settings window, the overlay pill and the review card.
+// Two renderer entries: the settings window and the overlay pill.
 export default defineConfig({
   main: {
     build: {
@@ -26,8 +26,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           settings: resolve(__dirname, 'src/renderer/settings.html'),
-          pill: resolve(__dirname, 'src/renderer/pill.html'),
-          review: resolve(__dirname, 'src/renderer/review.html')
+          pill: resolve(__dirname, 'src/renderer/pill.html')
         }
       }
     }

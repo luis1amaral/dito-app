@@ -15,6 +15,7 @@ type Addon = {
   hookStatus(): HookStatus
   rememberTarget(): void
   currentTarget(): TargetInfo
+  targetIsForeground(): boolean
   paste(text: string): boolean
   typeText(text: string): boolean
 }
@@ -50,6 +51,10 @@ export function hookStatus(): HookStatus {
 
 export function currentTarget(): TargetInfo {
   return addon ? addon.currentTarget() : { hwnd: 0, className: '', title: '', kind: 'gui' }
+}
+
+export function targetIsForeground(): boolean {
+  return addon ? addon.targetIsForeground() : false
 }
 
 export function paste(text: string): boolean {

@@ -142,6 +142,12 @@ Napi::Value CurrentTarget(const Napi::CallbackInfo& info) {
   return obj;
 }
 
+// Incremental typing must never land in a window the person moved to mid-sentence.
+Napi::Value TargetIsForeground(const Napi::CallbackInfo& info) {
+  const HWND target = dito::RememberedTarget();
+  return Napi::Boolean::New(info.Env(), target != nullptr && GetForegroundWindow() == target);
+}
+
 Napi::Value Paste(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   if (info.Length() < 1 || !info[0].IsString()) {
@@ -165,6 +171,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("hookStatus", Napi::Function::New(env, HookStatus));
   exports.Set("rememberTarget", Napi::Function::New(env, RememberTargetJs));
   exports.Set("currentTarget", Napi::Function::New(env, CurrentTarget));
+  exports.Set("targetIsForeground", Napi::Function::New(env, TargetIsForeground));
   exports.Set("paste", Napi::Function::New(env, Paste));
   exports.Set("typeText", Napi::Function::New(env, TypeText));
   return exports;

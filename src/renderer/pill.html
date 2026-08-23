@@ -30,6 +30,7 @@
   body[data-phase="recording"] .card::before { background: var(--red); opacity: .9; }
   body[data-phase="transcribing"] .card::before { background: var(--purple); opacity: .9; }
   body[data-phase="pasted"] .card::before,
+  body[data-phase="copied"] .card::before,
   body[data-phase="done"] .card::before { background: var(--green); opacity: .9; }
   body[data-phase="error"] .card::before,
   body[data-silent="1"] .card::before { background: var(--red); opacity: 1; }
@@ -50,8 +51,10 @@
   }
   body[data-phase="transcribing"] .mic .glyph { color: var(--purple); }
   body[data-phase="pasted"] .mic .disc,
+  body[data-phase="copied"] .mic .disc,
   body[data-phase="done"] .mic .disc { border-color: rgba(74,222,128,.45); background: rgba(74,222,128,.08); }
   body[data-phase="pasted"] .mic .glyph,
+  body[data-phase="copied"] .mic .glyph,
   body[data-phase="done"] .mic .glyph { color: var(--green); }
   body[data-phase="error"] .mic .disc { border-color: rgba(255,107,107,.45); }
   body[data-phase="error"] .mic .glyph { color: var(--red); }
@@ -74,7 +77,7 @@
   .title { font-weight: 600; letter-spacing: -.01em; font-size: 14.5px; }
   body[data-silent="1"] .title, body[data-phase="error"] .title { color: var(--red); }
   .phrase {
-    color: var(--muted); font-size: 12.5px; margin-top: 2px;
+    color: var(--text); font-size: 12.5px; margin-top: 2px;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
   .phrase:empty { display: none; }
