@@ -5,7 +5,7 @@
 #
 set -euo pipefail
 
-export PATH="/opt/flutter/bin:$PATH"
+[ -d "/opt/flutter/bin" ] && export PATH="/opt/flutter/bin:$PATH"
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$RAIZ"
@@ -16,7 +16,7 @@ echo "Dito $VERSAO (Linux x64 Nativo)"
 
 echo "== Portao: analyze e test"
 flutter analyze lib test
-flutter test
+flutter test --exclude-tags live
 
 echo "== Compilando binarios Linux"
 flutter build linux --release
