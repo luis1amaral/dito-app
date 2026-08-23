@@ -5,10 +5,10 @@ import 'package:dito_win32/dito_win32.dart';
 
 import '../app/boot.dart';
 import '../l10n/app_strings.dart';
-import 'hud/hud_pill.dart';
 import 'hud/hud_state.dart';
 import 'main/main_window.dart';
-import 'review/review_card.dart';
+import 'overlay_policy.dart';
+import 'overlay_stack.dart';
 import 'theme.dart';
 import 'tokens.dart';
 import 'window_orchestrator.dart';
@@ -25,6 +25,7 @@ class DitoRootApp extends StatefulWidget {
 class _DitoRootAppState extends State<DitoRootApp> {
   final GlobalKey _pill = GlobalKey();
   final GlobalKey _canvas = GlobalKey();
+  final OverlayPolicy _policy = const OverlayPolicy();
   Rect? _hit;
 
   @override
@@ -47,17 +48,22 @@ class _DitoRootAppState extends State<DitoRootApp> {
     if (mounted) setState(() {});
   }
 
+  OverlayDecision _decide() => _policy.decide(
+        hudOnScreen: widget.app.hudState.isOnScreen,
+        reviewActive: widget.app.reviewEvent.value != null,
+        mode: widget.app.orchestrator.mode,
+      );
+
   void _onHudChanged() {
     if (!mounted) return;
-    final hud = widget.app.hudState;
-    final review = widget.app.reviewEvent.value;
+    final decision = _decide();
     final orchestrator = widget.app.orchestrator;
 
-    if (hud.isOnScreen || review != null) {
+    if (decision.showOverlay) {
       final dpr = View.of(context).devicePixelRatio;
       orchestrator.showOverlay(dpr: dpr);
       WidgetsBinding.instance.addPostFrameCallback((_) => _clipToPill());
-    } else if (orchestrator.mode == AppWindowMode.overlay) {
+    } else if (decision.hideOverlay) {
       orchestrator.hideOverlay();
     }
     setState(() {});
@@ -65,16 +71,17 @@ class _DitoRootAppState extends State<DitoRootApp> {
 
   void _onReviewChanged() {
     if (!mounted) return;
-    final review = widget.app.reviewEvent.value;
+    final decision = _decide();
     final orchestrator = widget.app.orchestrator;
 
-    if (review != null) {
+    // Only the review path steals or gives back OS focus; the hud alone never types.
+    if (decision.takeFocus) {
       final dpr = View.of(context).devicePixelRatio;
       orchestrator.showOverlay(dpr: dpr);
       DitoWin32.setFocusable(true);
       DitoWin32.focusWindow();
       WidgetsBinding.instance.addPostFrameCallback((_) => _clipToPill());
-    } else if (!widget.app.hudState.isOnScreen && orchestrator.mode == AppWindowMode.overlay) {
+    } else if (decision.giveFocus) {
       DitoWin32.setFocusable(false);
       DitoWin32.giveBackFocus();
       orchestrator.hideOverlay();
@@ -141,59 +148,30 @@ class _DitoRootAppState extends State<DitoRootApp> {
                 : Colors.transparent,
             body: orchestrator.mode == AppWindowMode.mainWindow
                 ? MainWindow(app: widget.app)
-                : _buildOverlayContent(context),
+                : OverlayStack(
+                    canvasKey: _canvas,
+                    pillKey: _pill,
+                    hudState: widget.app.hudState,
+                    review: widget.app.reviewEvent.value,
+                    onHudAction: _onHudAction,
+                    onReviewSend: (text, {required toVault}) async {
+                      final review = widget.app.reviewEvent.value!;
+                      await widget.app.controller.onReviewSend(
+                        text,
+                        toVault: toVault,
+                        sessionId: review.sessionId,
+                      );
+                      widget.app.reviewEvent.value = null;
+                    },
+                    onReviewDiscard: () {
+                      final review = widget.app.reviewEvent.value!;
+                      widget.app.controller.onReviewDiscard(sessionId: review.sessionId);
+                      widget.app.reviewEvent.value = null;
+                    },
+                    onReviewContentChanged: () => WidgetsBinding.instance
+                        .addPostFrameCallback((_) => _clipToPill()),
+                  ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOverlayContent(BuildContext context) {
-    final review = widget.app.reviewEvent.value;
-    final hudState = widget.app.hudState;
-
-    if (!hudState.isOnScreen && review == null) {
-      return const SizedBox.shrink();
-    }
-
-    return RepaintBoundary(
-      key: _canvas,
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Column(
-          key: _pill,
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: <Widget>[
-            if (review != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: ReviewCard(
-                  key: ValueKey<String>(review.sessionId),
-                  text: review.text,
-                  meeting: review.isMeeting,
-                  onSend: (text, {required toVault}) async {
-                    await widget.app.controller.onReviewSend(
-                      text,
-                      toVault: toVault,
-                      sessionId: review.sessionId,
-                    );
-                    widget.app.reviewEvent.value = null;
-                  },
-                  onDiscard: () {
-                    widget.app.controller.onReviewDiscard(sessionId: review.sessionId);
-                    widget.app.reviewEvent.value = null;
-                  },
-                  onContentChanged: () => WidgetsBinding.instance
-                      .addPostFrameCallback((_) => _clipToPill()),
-                ),
-              ),
-            if (hudState.isOnScreen)
-              HudPill(
-                state: hudState,
-                onAction: _onHudAction,
-              ),
-          ],
         ),
       ),
     );

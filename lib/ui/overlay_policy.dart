@@ -1,8 +1,6 @@
 import 'window_orchestrator.dart';
 
-/// Decides what the single native window should do about the overlay and OS focus.
-///
-/// Pure: takes the combined signal, hands back what to do, touches nothing itself.
+/// Pure decision for the single window: takes the signals, hands back what to do.
 class OverlayPolicy {
   const OverlayPolicy();
 
