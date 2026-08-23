@@ -4,6 +4,68 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-23 — 1.7.0: o texto volta a cair na janela certa, e a faxina depois do single-engine
+
+**Sintoma do dono:** *"às vezes não manda no terminal certo porque ele não estava selecionado"*.
+Intermitente, sem erro na tela, sem exceção no log.
+
+**Causa raiz, provada e não suposta.** A migração single-engine (entrada abaixo) apagou
+`lib/ui/hud/hud_window.dart` e levou junto o **único** `DitoWin32.takeFocus` que o app tinha — ele
+morava em `_mostrarCartao()`. O substituto ficou com `setFocusable(true)` + `focusWindow()` e sem a
+captura que vinha antes deles. No nativo, `focus.take` é o único lugar que escreve
+`previous_foreground_` e `last_paste_target_` (`dito_win32_plugin.cpp:742-750`), então os dois
+ficaram `nullptr` para sempre. Duas consequências caladas:
+
+1. `focus.giveBack` devolvia `false` sem restaurar nada — o texto caía em quem estivesse em foco,
+   que no caminho do cartão é o próprio Dito.
+2. `ClassifyTarget(nullptr)` nunca reconhecia um conhost em modo cru, então o `SendInput` UNICODE
+   da 1.6.9 — a única coisa que cola no Claude Code/Gemini CLI dentro do `cmd.exe` — **nunca mais
+   era escolhido**. O conserto da versão anterior estava desligado sem ninguém saber.
+
+**O conserto.** A captura passou para `DitoController.onHotkeyStart`, no início da gravação: a
+janela certa é a que estava em foco **quando a tecla desceu**, não quando o cartão apareceu — nessa
+hora o foreground já é o Dito e o guard `current != mine` descartaria a captura. O lugar novo cobre
+também o caminho `output.confirm = false`, que a posição antiga nunca cobriu. Registrado como
+armadilha 6.11.
+
+### O resto
+
+- **A `master` estava vermelha e ninguém sabia.** `(_, _)` exige linguagem Dart 3.7 e o `pubspec`
+  pedia `>=3.5.0`: quatro erros de `duplicate_definition`. Pior: `dito_whisper` e `dito_win32`
+  exigem `^3.12.2`, que o CI fixado em Flutter 3.29 (Dart 3.7) **nunca conseguiria resolver** — o
+  `pub get` da release falharia. Piso alinhado em `^3.12.2` e CI no mesmo Flutter da máquina.
+- **Auto-update passou a ser automático.** `UpdateController.checkQuiet()` existia com trava de 6 h
+  e engolindo o próprio erro, mas **ninguém o chamava**: só o botão "Verificar agora" funcionava.
+  Agora roda no fim do boot.
+- **A biblioteca mudou para a pasta do usuário** (`~/Dito`), com migração de uma vez só que move
+  `Documentos/Dito` — inclusive de quem nunca escolheu pasta e seguia o default implícito. Nunca
+  sobrescreve, nunca funde, e falha ao mover não derruba o boot.
+- **Faxina do que a migração deixou:** `window_sizer`, `review_sizing`, `window_shot`, `monotonic`,
+  `DitoMainApp` e `LinuxHotkeyService`, mais 16 ferramentas Python do motor aposentado. F6/F7/F8
+  saíram da lista de teclas escolhíveis (Dart e o espelho C++). −3.000 linhas.
+- **`GEMINI.md` e `.agents/rules/` eram cópias idênticas do `CLAUDE.md`** e tinham envelhecido
+  errado: as duas ainda afirmavam que o motor Python roda como sidecar. Viraram ponteiros.
+- **Goldens.** 16 imagens de referência (pílula, cartão de revisão, histórico, ajustes) travam a
+  aparência. É o que permitiu extrair a decisão de janela do `DitoRootApp` para `OverlayPolicy`
+  provando que nada mudou visualmente. Golden é portão **local**: fonte renderiza diferente entre
+  Windows e Linux, e comparar cross-OS é falso positivo garantido.
+- **`native_transcription_test` foi para trás da tag `live`.** Ele carrega o DLL real e lista
+  dispositivos de áudio reais; nunca poderia passar no CI, onde o teste roda antes de o build
+  existir. Ver armadilha 6.9.
+- **`docs/RELEASE.md`**: o build é local e o upload é à mão. O workflow virou manual, para nunca
+  correr junto com um upload e sobrescrever asset publicado. E fica escrito o passo que ninguém
+  pode esquecer: subir o `.deb` para a release **não** atualiza Linux nenhum — o updater lê o
+  repositório APT, e nada aqui publica lá.
+
+**Como foi verificado:**
+- `flutter analyze`: **No issues found**.
+- `flutter test --exclude-tags "live,golden"`: **220 testes, todos passando**.
+- `flutter test --tags golden`: **16 goldens, todos passando** — prova de zero mudança visual.
+- O conserto do foco tem teste que **pega a regressão**: removida a chamada, 3 casos de
+  `test/focus_target_test.dart` ficam vermelhos; reposta, os 5 passam.
+
+---
+
 ## 2026-08-23 — Arquitetura Single-Engine (fim da tela preta fantasma) e instalador limpo no Defender (branch loucura)
 
 **Sintoma:** Janelas pretas congeladas e perda de contexto de GPU quando o HUD da pílula F9 e cartões F10 abriam/fechavam com frequência, além de falso-positivo `Bearfoos.B!ml` no instalador Inno Setup gerado.
