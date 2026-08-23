@@ -48,8 +48,12 @@ export function createPill(): void {
   })
 }
 
+// Re-assert on every show: inside the topmost band, whoever set it last wins.
 export function showPill(): void {
-  pill?.showInactive()
+  if (!pill) return
+  pill.setAlwaysOnTop(true, 'screen-saver')
+  pill.showInactive()
+  pill.moveTop()
 }
 
 export function hidePill(): void {
@@ -118,7 +122,9 @@ export function showReview(payload: ReviewPayload): void {
   const win = openReview()
   const deliver = (): void => {
     win.webContents.send('review:show', payload)
+    win.setAlwaysOnTop(true, 'screen-saver')
     win.show()
+    win.moveTop()
     win.focus()
   }
   if (win.webContents.isLoading()) win.webContents.once('did-finish-load', deliver)

@@ -1,4 +1,4 @@
-# dito-desktop
+# Dito
 
 ## Language rule (hard)
 
@@ -16,3 +16,12 @@ No agent, no chat, no browser.
 
 `npm run verify` is the single entry point. Exit 0 PASS, 1 FAIL, 2 INCOMPLETE.
 INCOMPLETE is never green. See `quality/PARIDADE.md`.
+
+Every new gate must be proven **both ways**: put the defect back and require it to fail.
+A gate that has never failed is not a gate.
+
+## Windows on screen
+
+The pill and the review card re-assert `alwaysOnTop('screen-saver')` every time they show.
+Inside the topmost band the last window to set it wins, so an app that goes always-on-top after
+us (a Meet call, a game overlay) would cover them otherwise.
