@@ -109,37 +109,22 @@ class AudioConfig {
 }
 
 class AlertConfig {
-  // Off by default: the red pill already says it, and a popup per drop trains people to ignore it.
-  const AlertConfig({
-    this.deadMs = 700,
-    this.quietMs = 2500,
-    this.sound = false,
-    this.notify = false,
-  });
+  const AlertConfig({this.deadMs = 700, this.quietMs = 2500});
 
   final int deadMs;
   final int quietMs;
-  final bool sound;
-  final bool notify;
 
-  AlertConfig copyWith({int? deadMs, int? quietMs, bool? sound, bool? notify}) =>
-      AlertConfig(
+  AlertConfig copyWith({int? deadMs, int? quietMs}) => AlertConfig(
         deadMs: deadMs ?? this.deadMs,
         quietMs: quietMs ?? this.quietMs,
-        sound: sound ?? this.sound,
-        notify: notify ?? this.notify,
       );
 
   @override
   bool operator ==(Object other) =>
-      other is AlertConfig &&
-      other.deadMs == deadMs &&
-      other.quietMs == quietMs &&
-      other.sound == sound &&
-      other.notify == notify;
+      other is AlertConfig && other.deadMs == deadMs && other.quietMs == quietMs;
 
   @override
-  int get hashCode => Object.hash(deadMs, quietMs, sound, notify);
+  int get hashCode => Object.hash(deadMs, quietMs);
 }
 
 /// The one model the product ships with; there is no chooser and no second option.

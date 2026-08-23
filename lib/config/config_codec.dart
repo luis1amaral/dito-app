@@ -46,8 +46,6 @@ class ConfigCodec {
         alerts: AlertConfig(
           deadMs: _int(alerts['dead_ms'], d.audio.alerts.deadMs),
           quietMs: _int(alerts['quiet_ms'], d.audio.alerts.quietMs),
-          sound: _bool(alerts['sound'], d.audio.alerts.sound),
-          notify: _bool(alerts['notify'], d.audio.alerts.notify),
         ),
       ),
       stt: SttConfig(
@@ -95,8 +93,6 @@ class ConfigCodec {
     _into(audio, 'alerts', {
       'dead_ms': config.audio.alerts.deadMs,
       'quiet_ms': config.audio.alerts.quietMs,
-      'sound': config.audio.alerts.sound,
-      'notify': config.audio.alerts.notify,
     });
 
     _into(out, 'stt', {

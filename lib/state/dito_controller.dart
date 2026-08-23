@@ -13,7 +13,6 @@ import '../engine/engine_client.dart';
 import '../engine/engine_protocol.dart';
 import '../engine/engine_supervisor.dart';
 import '../output/paste_service.dart';
-import 'alarm_policy.dart';
 import 'app_snapshot.dart';
 import 'hud_commands.dart';
 
@@ -26,16 +25,13 @@ class DitoController {
     required this.paste,
     required this.hud,
     required this.review,
-    this.notify,
-    this.playSound,
     this.takeFocus,
     this.now = _defaultNow,
     this.startTimeout = const Duration(seconds: 5),
     this.transcribeTimeout = const Duration(seconds: 120),
     this.aliveTimeout = const Duration(seconds: 3),
     Logbook? log,
-  })  : _log = log ?? Logbook('controller'),
-        alarms = AlarmPolicy(now: now) {
+  }) : _log = log ?? Logbook('controller') {
     _events = client.events.listen(_onEvent);
     supervisor.addListener(_onHealth);
     supervisor.onDiedRecording = _onEngineDiedRecording;
@@ -47,7 +43,6 @@ class DitoController {
   final EngineSupervisor supervisor;
   final ConfigService config;
   final PasteService paste;
-  final AlarmPolicy alarms;
   final int Function() now;
 
   /// Injectable so the stuck-phase tests do not wait on wall time.
@@ -62,12 +57,6 @@ class DitoController {
 
   /// Asks the review window to show the text; null when the card is not used.
   final void Function(FinishedEvent event) review;
-
-  /// Shows a desktop notification; only the FIRST alarm of each episode gets one.
-  final void Function({required String title, required String body})? notify;
-
-  /// Plays the alarm sound; throttled to once every ten seconds.
-  final void Function()? playSound;
 
   /// Remembers the window that had focus, so the text lands where the key was pressed.
   final void Function()? takeFocus;
@@ -114,12 +103,6 @@ class DitoController {
   void _onEngineDiedRecording(String reason) {
     _set(state.copyWith(phase: AppPhase.idle));
     hud(HudMessage.dead(reason, canFix: false));
-    // The WAV survived: guarantee 1 holds even when the engine does not.
-    notify?.call(
-      title: _s.notifyEngineDied,
-      body: _s.notifyEngineDiedWhy,
-    );
-    if (_cfg.audio.alerts.sound) playSound?.call();
   }
 
   // ---- key actions ----
@@ -269,7 +252,6 @@ class DitoController {
         _commandTimeout?.cancel();
         _activeSessionId = sessionId;
         supervisor.markHealthy();
-        alarms.reset();
         _set(state.copyWith(
           phase: isMeeting ? AppPhase.meeting : AppPhase.recording,
           deviceName: deviceName,
@@ -331,22 +313,10 @@ class DitoController {
       case AudioState.dead:
         _set(state.copyWith(alarm: audio, alarmReason: reason, fixHint: fixHint));
         hud(HudMessage.dead(reason, canFix: fixHint != null));
-        final action = alarms.evaluate(
-          AlarmEvent(state: audio, reason: reason, fixHint: fixHint),
-          _cfg.audio.alerts,
-        );
-        if (action.sound) playSound?.call();
-        if (action.notify) {
-          notify?.call(
-            title: '${_s.appTitle} - ${_s.hudNoAudio}',
-            body: reason ?? _s.notifyNoAudio,
-          );
-        }
       case AudioState.quiet:
         _set(state.copyWith(alarm: audio, alarmReason: reason));
         hud(HudMessage.quiet(reason));
       case AudioState.ok:
-        alarms.reset();
         _set(state.copyWith(clearAlarm: true));
         if (state.isRecording) {
           hud(HudMessage.recording(meeting: state.phase == AppPhase.meeting));

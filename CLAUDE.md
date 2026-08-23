@@ -45,7 +45,16 @@ preta fantasma. **Não crie sub-janela** — o preço disso já foi pago uma vez
 - **Tecla suprimida some do `GetAsyncKeyState`** — o hook é a autoridade, `GetAsyncKeyState` é só
   resgate para tecla que nunca passou pelo hook.
 - **A janela do HUD só não rouba foco se nascer com `WS_EX_NOACTIVATE`** — aplicar depois não
-  retroage. Hoje quem aplica é `window.adoptAsHud` em `packages/dito_win32/windows/`.
+  retroage. `window.adoptAsHud`, que fazia isso, está **morto**: declarado na fachada Dart
+  (`packages/dito_win32/lib/dito_win32.dart`) e chamado por ninguém desde a migração single-engine.
+  Armadilha 4.14 em `docs/armadilhas.md`.
+- **Janela escondida que é redimensionada precisa de `DitoWin32.forceRepaint()` antes de mostrar** —
+  senão o swapchain do Flutter deixa uma faixa preta parada. E `SetWindowRgn` conta a partir da
+  **janela**, não do **cliente**: converter com `ClientToScreen` + `GetWindowRect` antes de montar
+  a região, senão o recorte (pílula, cartão) fica uma barra de título alto. Armadilhas 4.13 e 4.14.
+- **Janela `HWND_MESSAGE` não recebe broadcast do Explorer** — se o host precisa reagir a
+  `TaskbarCreated` (reconstruir o ícone da bandeja após o Explorer reiniciar), tem de ser uma janela
+  top-level oculta (`WS_POPUP` + `WS_EX_TOOLWINDOW`), nunca `HWND_MESSAGE`. Armadilha 4.15.
 - **Refatoração que apaga um arquivo leva junto as chamadas nativas dele.** A migração
   single-engine apagou `lib/ui/hud/hud_window.dart` e com ele o único `DitoWin32.takeFocus` do app;
   sem ele o foco nunca voltava e a colagem no conhost morria calada. Ao apagar um arquivo, procure

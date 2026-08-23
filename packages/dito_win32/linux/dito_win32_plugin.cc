@@ -1135,37 +1135,6 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     return;
   }
 
-  if (g_strcmp0(method, "notify.balloon") == 0) {
-    std::string title = "Dito", body;
-    if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
-      FlValue* t_val = fl_value_lookup_string(args, "title");
-      if (t_val && fl_value_get_type(t_val) == FL_VALUE_TYPE_STRING) title = fl_value_get_string(t_val);
-      FlValue* b_val = fl_value_lookup_string(args, "body");
-      if (b_val && fl_value_get_type(b_val) == FL_VALUE_TYPE_STRING) body = fl_value_get_string(b_val);
-    }
-    const gchar* argv[] = {"notify-send", "--app-name=Dito", title.c_str(), body.c_str(), nullptr};
-    g_autoptr(GError) error = nullptr;
-    bool ok = g_spawn_async(nullptr, const_cast<gchar**>(argv), nullptr, G_SPAWN_SEARCH_PATH,
-                             nullptr, nullptr, nullptr, &error);
-    if (!ok) g_warning("notify-send falhou: %s", error->message);
-    g_autoptr(FlValue) result = fl_value_new_bool(ok);
-    fl_method_call_respond_success(method_call, result, nullptr);
-    return;
-  }
-
-  if (g_strcmp0(method, "notify.alarmSound") == 0) {
-    // paplay ignores the desktop "event sounds" toggle, unlike canberra-gtk-play which silently no-ops when it's off.
-    const gchar* argv[] = {"paplay", "/usr/share/sounds/freedesktop/stereo/dialog-warning.oga",
-                            nullptr};
-    g_autoptr(GError) error = nullptr;
-    bool ok = g_spawn_async(nullptr, const_cast<gchar**>(argv), nullptr, G_SPAWN_SEARCH_PATH,
-                             nullptr, nullptr, nullptr, &error);
-    if (!ok) g_warning("paplay falhou: %s", error->message);
-    g_autoptr(FlValue) result = fl_value_new_bool(ok);
-    fl_method_call_respond_success(method_call, result, nullptr);
-    return;
-  }
-
   if (g_strcmp0(method, "notify") == 0) {
     g_autoptr(FlValue) result = fl_value_new_bool(TRUE);
     fl_method_call_respond_success(method_call, result, nullptr);

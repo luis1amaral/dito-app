@@ -18,9 +18,6 @@ void main() {
       expect(d.audio.device, '');
       expect(d.audio.alerts.deadMs, 700);
       expect(d.audio.alerts.quietMs, 2500);
-      // Both channels ship off: the red pill carries the alarm, a popup per drop only annoys.
-      expect(d.audio.alerts.sound, isFalse);
-      expect(d.audio.alerts.notify, isFalse);
     });
 
     test('stt model is small, not base — the installer only pre-downloads small', () {

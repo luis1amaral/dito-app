@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dito_app/config/config_model.dart';
 import 'package:dito_app/config/config_service.dart';
 import 'package:dito_app/core/logbook.dart';
 import 'package:dito_app/engine/engine_client.dart';
@@ -47,8 +46,6 @@ void main() {
   late DitoController controller;
   late List<HudMessage> hudLog;
   late List<FinishedEvent> reviewed;
-  late List<String> notified;
-  late List<int> sounds;
   late int clock;
 
   /// The client is never started, so nothing spawns; we feed events by hand.
@@ -71,8 +68,6 @@ void main() {
     backend = FakePasteBackend();
     hudLog = <HudMessage>[];
     reviewed = <FinishedEvent>[];
-    notified = <String>[];
-    sounds = <int>[];
 
     controller = DitoController(
       client: client,
@@ -86,8 +81,6 @@ void main() {
       ),
       hud: hudLog.add,
       review: reviewed.add,
-      notify: ({required title, required body}) => notified.add(title),
-      playSound: () => sounds.add(clock),
       now: () => clock,
       log: Logbook('t3', directory: '.dart_tool'),
     );
@@ -147,26 +140,10 @@ void main() {
       expect(hudLog.last.kind, HudKind.quiet);
     });
 
-    test('dead notifies once, then stays quiet for ten seconds', () async {
-      // Both channels ship off; this case is about the throttle, so turn them on explicitly.
-      await config.update(config.config.copyWith(
-          audio: config.config.audio
-              .copyWith(alerts: const AlertConfig(sound: true, notify: true))));
-
+    test('dead reaches the HUD as its own state', () async {
       emit(<String, Object?>{'event': 'alarm', 'state': 'dead', 'reason': 'mudo'});
       await settle();
-      expect(notified, hasLength(1));
-
-      emit(<String, Object?>{'event': 'alarm', 'state': 'dead', 'reason': 'mudo'});
-      await settle();
-      expect(notified, hasLength(1), reason: 'repetir treina o usuario a ignorar');
-
-      clock += 11 * 1000000;
-      emit(<String, Object?>{'event': 'alarm', 'state': 'dead', 'reason': 'mudo'});
-      await settle();
-      // The sound rings again after the throttle, but only the first alarm notifies.
-      expect(notified, hasLength(1));
-      expect(sounds, hasLength(2));
+      expect(hudLog.last.kind, HudKind.dead);
     });
   });
 

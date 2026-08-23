@@ -15,7 +15,6 @@ import '../engine/model_manager.dart';
 import '../engine/engine_protocol.dart';
 import '../keys/hotkey_service.dart';
 import '../library/library_reader.dart';
-import '../output/alert_service.dart';
 import '../output/native_paste_backend.dart';
 import '../output/paste_service.dart';
 import '../state/dito_controller.dart';
@@ -40,7 +39,6 @@ class DitoApp {
       EngineSupervisor(client: client, localeCode: () => config.config.ui.language);
   final HotkeyService hotkeys = createHotkeyService();
   final TrayController tray = TrayController();
-  final AlertService alerts = createAlertService();
   late final DefaltUpdater updater = buildDitoUpdater();
   late final UpdateController updateController = UpdateController(updater: updater);
   late final DitoController controller = DitoController(
@@ -50,8 +48,6 @@ class DitoApp {
     paste: PasteService(backend: const NativePasteBackend(), log: log),
     hud: _toHud,
     review: _toReview,
-    notify: _notify,
-    playSound: _playAlarm,
     takeFocus: _takeFocus,
   );
 
@@ -105,13 +101,6 @@ class DitoApp {
     reviewEvent.value = event;
   }
 
-  void _notify({required String title, required String body}) {
-    if (!config.config.audio.alerts.notify) return;
-    alerts.notify(title: title, body: body);
-  }
-
-  void _playAlarm() => alerts.playAlarm();
-
   /// Never throws: a failed prefetch just means the engine downloads it at first use instead.
   Future<void> _prefetchModel() async {
     final model = config.config.stt.model;
@@ -131,7 +120,7 @@ class DitoApp {
   /// Fire-and-forget: the recording must not wait on a window call.
   void _takeFocus() => unawaited(DitoWin32.takeFocus());
 
-  /// The catalogue for everything outside a widget: the tray and the balloons.
+  /// The catalogue for everything outside a widget: the tray.
   AppStrings get strings => stringsFor(config.config.ui.language);
 
   void _onSnapshot() {

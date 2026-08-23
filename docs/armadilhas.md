@@ -458,3 +458,39 @@ substituiu **não chamava**, e o primeiro `setSkipTaskbar(true)` do boot desrefe
 em `0xC0000005` antes da primeira linha de log — `flutter test` nunca sobe o executável. Foi por isso
 que nasceu `tool/fumaca.ps1`, hoje portão obrigatório dentro de `packaging/windows/construir.ps1`:
 ele sobe o app compilado nos dois modos (bandeja e janela) e exige `boot completo` no log.
+
+### 4.13 Faixa preta no topo da janela principal
+**Sintoma:** ao abrir a janela de Configurações havia uma tira preta morta no topo, ~130px.
+**Causa:** `WindowOrchestrator.showMainWindow()` (`lib/ui/window_orchestrator.dart`) redimensiona e
+centraliza a janela **enquanto ela está escondida** e só então chama `show()`. O swapchain do
+Flutter só apresenta depois de um resize real com a janela **visível** — o próprio
+`window.showNoActivate` no `packages/dito_win32/windows/dito_win32_plugin.cpp` já documentava isso e
+tinha um "jiggle" de 1px para contornar; o caminho da janela principal nunca teve.
+**Regra:** todo caminho que dimensiona a janela escondida termina com `DitoWin32.forceRepaint()`
+(`window.forceRepaint` no mesmo `dito_win32_plugin.cpp`). E o portão `tool/fumaca.ps1` agora tira
+screenshot da área cliente e reprova o build se mais de 3% dos pixels forem **preto puro** — o tema
+nunca pinta preto puro (o fundo escuro é `#0E0E13`, `lib/ui/palette.dart:133`), então preto puro é
+área que o swapchain não apresentou.
+
+### 4.14 O recorte da pílula vinha uma barra de título alto
+**Sintoma:** faixa preta de 28px **acima** da pílula do F9, e a pílula cortada embaixo — só 25px
+visíveis dos 56px. O mesmo no cartão de revisão.
+**Causa:** `window.setHitRect` (`dito_win32_plugin.cpp`) recebe o retângulo que o Flutter mediu, que
+é relativo à **área cliente**, e passava direto para `SetWindowRgn`, que conta a partir da **origem
+da janela**. Na sub-janela antiga (`WS_POPUP`, sem moldura) cliente e janela coincidiam e
+funcionava; a janela única do single-engine mantém a barra de título, então toda região ficava uma
+barra de título acima do lugar.
+**Detalhe que vale registrar:** `window.adoptAsHud`, que era quem tirava a moldura, está declarado
+na fachada Dart (`packages/dito_win32/lib/dito_win32.dart:134`) e **não é chamado por ninguém** desde
+a migração single-engine — exatamente o mesmo tipo de perda da armadilha 6.11 (o `takeFocus`).
+**Regra:** o nativo converte cliente→janela com `ClientToScreen` + `GetWindowRect` antes de montar a
+região. Medido antes: 28px de preto puro e 25px de pílula. Depois: zero preto e os 56px inteiros.
+
+### 4.15 O ícone da bandeja sumia sozinho
+**Sintoma:** o Dito desaparecia da bandeja e só voltava reabrindo o app.
+**Causa:** `packages/dito_win32/windows/tray.cpp` nunca tratava a mensagem `TaskbarCreated`, que o
+Explorer transmite depois de reiniciar — e **não poderia**, porque o host era uma janela
+`HWND_MESSAGE`, e janela message-only **não recebe broadcast**.
+**Regra:** o host da bandeja é uma janela top-level oculta (`WS_POPUP` + `WS_EX_TOOLWINDOW`, nunca
+mostrada), registra `RegisterWindowMessage(L"TaskbarCreated")` e re-adiciona o ícone com o estado que
+já guarda.

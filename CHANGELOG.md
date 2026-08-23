@@ -4,6 +4,69 @@ Mais recente no topo. Cada entrada diz **o quê**, **por quê** e **como foi ver
 
 ---
 
+## 2026-08-23 — 1.7.4: só bandeja no boot, modelo único obrigatório, e dois portões novos que sobem o instalador de verdade
+
+Quatro defeitos de instalação/uso real, apanhados testando o instalador em vez do bundle solto, mais
+a limpeza que eles trouxeram.
+
+**Faixa preta no topo da janela principal.** `WindowOrchestrator.showMainWindow()`
+(`lib/ui/window_orchestrator.dart`) redimensiona e centraliza a janela **enquanto ela está
+escondida** e só então mostra: o swapchain do Flutter só apresenta depois de um resize com a janela
+**visível**, e esse caminho nunca chamava o `forceRepaint` que o `showNoActivate` já usava para o
+mesmo problema. Corrigido chamando `DitoWin32.forceRepaint()` no fim de `showMainWindow()`.
+Armadilha 4.13.
+
+**A pílula do F9 e o cartão de revisão vinham com 28px de preto acima e só 25px dos 56px visíveis.**
+`window.setHitRect` recebia o retângulo relativo à **área cliente** que o Flutter mede e passava
+direto para `SetWindowRgn`, que conta a partir da **origem da janela** — certo na sub-janela antiga
+sem moldura, errado na janela única do single-engine, que mantém a barra de título. Corrigido
+convertendo cliente→janela com `ClientToScreen` + `GetWindowRect` antes de montar a região
+(`dito_win32_plugin.cpp`). De passagem: `window.adoptAsHud`, que tirava a moldura, está declarado na
+fachada Dart e não é chamado por ninguém desde a migração single-engine — mesma classe de perda da
+6.11. Armadilha 4.14.
+
+**O ícone da bandeja sumia sozinho e só voltava reabrindo o app.** `tray.cpp` nunca tratava
+`TaskbarCreated` (o aviso que o Explorer transmite ao reiniciar) e não podia: o host era uma janela
+`HWND_MESSAGE`, e janela message-only não recebe broadcast. Virou uma janela top-level oculta
+(`WS_POPUP` + `WS_EX_TOOLWINDOW`), que registra `RegisterWindowMessage(L"TaskbarCreated")` e
+re-adiciona o ícone com o estado já guardado. Armadilha 4.15.
+
+**O app passa a abrir só na bandeja.** O pós-instalação (`[Run]`) e os dois atalhos
+(`{autoprograms}` e `{autodesktop}`) do Inno Setup (`packaging/windows/dito.iss`) agora rodam sempre
+com `--startup`; a janela principal só abre pelo menu do ícone da bandeja (`tray.onOpen` →
+`orchestrator.showMainWindow()`), nunca sozinha ao ligar ou ao instalar.
+
+**Modelo único e obrigatório.** `kDitoModel = 'small'` (`lib/config/config_model.dart`) é o único
+modelo que o app oferece: o seletor saiu dos Ajustes, um `config.toml` antigo apontando para um dos
+cinco modelos aposentados migra sozinho no carregamento (`config_service.dart`), e o boot baixa o
+arquivo antecipadamente (`_prefetchModel` em `lib/app/boot.dart`) em vez de esperar o primeiro
+ditado — falha no prefetch não trava o boot, só empurra o download de volta para o primeiro uso.
+
+**O instalador parou de deixar `desktop_multi_window_plugin.dll` para trás.** O Inno Setup não apaga
+arquivo que saiu do pacote entre versões; a seção `[InstallDelete]` de `dito.iss` agora apaga esse
+DLL da arquitetura multi-janela antiga (e outros órfãos) explicitamente a cada atualização.
+
+**Dois portões novos, e o `construir.ps1` não empacota sem os dois passarem.**
+`tool/fumaca.ps1` sobe o executável compilado nos modos bandeja e janela, exige `boot completo` no
+log e, no modo janela, tira um screenshot da área cliente e reprova se mais de 3% dos pixels forem
+preto puro (o tema nunca pinta preto puro — o fundo é `#0E0E13`). `tool/fumaca_instalador.ps1` roda
+o `setup.exe` de verdade em modo silencioso, confere que nenhum DLL órfão sobrou, e sobe o app
+**instalado** com o mesmo critério do `fumaca.ps1` — o portão anterior media só o bundle solto, e foi
+por essa fresta que a 1.7.0 chegou ao dono sem abrir.
+
+**Como foi verificado:**
+- `tool/fumaca.ps1`: PASSA nos dois modos, área morta (preto puro) medida e reportada em log.
+- `tool/fumaca_instalador.ps1`: instala em silêncio, confirma ausência dos DLLs órfãos
+  (`desktop_multi_window_plugin.dll`, `hotkey_manager_windows_plugin.dll`,
+  `system_tray_plugin.dll`) e exige que o app instalado suba com o mesmo critério do `fumaca.ps1`.
+- `packaging/windows/construir.ps1` chama os dois portões em sequência e lança exceção se qualquer
+  um sair com código diferente de zero — não gera instalador sem os dois verdes.
+- Recorte da pílula: medido em tela, 28px de preto puro + 25px de pílula antes, zero preto e os
+  56px inteiros depois.
+- `flutter analyze` e `flutter test --exclude-tags live`: portão de código, verde antes de compilar.
+
+---
+
 ## 2026-08-23 — 1.7.1: a 1.7.0 nao abria, e agora existe portao que impede isso de sair de novo
 
 **Sintoma do dono:** *"eu abri o Dito mas ele nao abriu"*. Sem janela, sem bandeja, **sem uma linha

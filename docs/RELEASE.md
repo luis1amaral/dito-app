@@ -23,8 +23,19 @@ sobrescreveria asset já publicado.
 powershell -ExecutionPolicy Bypass -File packaging\windows\construir.ps1
 ```
 
-Faz o portão (`analyze` + `test`), compila, gera o instalador Inno Setup, o `.zip` e o
-`SHA256SUMS.txt` em `build\windows\installer\`.
+Faz o portão (`analyze` + `test`), compila, roda **dois** testes de fumaça e só então gera o
+instalador Inno Setup, o `.zip` e o `SHA256SUMS.txt` em `build\windows\installer\`:
+
+1. `tool/fumaca.ps1` sobe o **bundle recém-compilado** nos dois modos (bandeja e janela), exige
+   `boot completo` no log e, no modo janela, reprova se mais de 3% dos pixels da área cliente forem
+   preto puro (faixa que o swapchain não chegou a apresentar — armadilha 4.13).
+2. Depois de gerado o instalador, `tool/fumaca_instalador.ps1` roda o `setup.exe` **de verdade** em
+   modo silencioso, confere que nenhum DLL órfão de arquitetura antiga sobrou (ex.:
+   `desktop_multi_window_plugin.dll`) e exige que o app **instalado** suba com o mesmo critério do
+   passo 1. Ele fica com o app instalado na máquina ao final (não desinstala sozinho).
+
+Se qualquer um dos dois falhar, `construir.ps1` lança exceção e não gera o instalador — o portão
+anterior só media o bundle solto, e foi por essa fresta que a 1.7.0 chegou ao dono sem abrir.
 
 Antes de publicar, escanear — o instalador já caiu em falso-positivo `Bearfoos.B!ml` uma vez, por
 causa de PowerShell oculto na seção `[Run]`:
@@ -63,7 +74,7 @@ que é publicada, mas o `.deb` só passa a existir *para o apt* depois que o rep
 reconstruído e subido. Enquanto isso não acontece, o app Linux continua vendo a versão antiga.
 
 Nada neste repositório publica no APT. Esse passo é manual, feito na máquina Linux, e a release
-não está terminada sem ele.
+não está terminada sem ele. Detalhe e status atual: `PENDENCIAS.md` na raiz do repositório.
 
 ## Windows: como a atualização chega no usuário
 

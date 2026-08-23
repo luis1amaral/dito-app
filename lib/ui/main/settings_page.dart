@@ -133,22 +133,6 @@ class SettingsPage extends StatelessWidget {
                       cfg.copyWith(output: cfg.output.copyWith(restoreClipboard: v))),
                 ),
               ]),
-              _Section(title: s.sectionAlerts, children: <Widget>[
-                SwitchListTile(
-                  title: Text(s.muteAlertTitle),
-                  value: cfg.audio.alerts.sound,
-                  onChanged: (v) => _update(cfg.copyWith(
-                      audio: cfg.audio
-                          .copyWith(alerts: cfg.audio.alerts.copyWith(sound: v)))),
-                ),
-                SwitchListTile(
-                  title: Text(s.notifyAlertTitle),
-                  value: cfg.audio.alerts.notify,
-                  onChanged: (v) => _update(cfg.copyWith(
-                      audio: cfg.audio
-                          .copyWith(alerts: cfg.audio.alerts.copyWith(notify: v)))),
-                ),
-              ]),
               _Section(title: s.sectionTranscription, children: <Widget>[
                 _Options(
                   label: s.transcriptionLanguage,
