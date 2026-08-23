@@ -284,11 +284,17 @@
   },
   "errKeyTaken": "A tecla {key} está tomada por outro programa: {action} não responde",
   "@errKeyTaken": {
-    "placeholders": { "key": {}, "action": {} }
+    "placeholders": {
+      "key": { "type": "String" },
+      "action": { "type": "String" }
+    }
   },
   "errKeyBack": "Tecla {key} liberada: {action} voltou a funcionar",
   "@errKeyBack": {
-    "placeholders": { "key": {}, "action": {} }
+    "placeholders": {
+      "key": { "type": "String" },
+      "action": { "type": "String" }
+    }
   },
   "toastNoVoiceHeard": "O microfone não captou sua voz",
   "@toastNoVoiceHeard": {},

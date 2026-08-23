@@ -284,11 +284,17 @@
   },
   "errKeyTaken": "The {key} key is held by another program: {action} does not respond",
   "@errKeyTaken": {
-    "placeholders": { "key": {}, "action": {} }
+    "placeholders": {
+      "key": { "type": "String" },
+      "action": { "type": "String" }
+    }
   },
   "errKeyBack": "Key {key} released: {action} works again",
   "@errKeyBack": {
-    "placeholders": { "key": {}, "action": {} }
+    "placeholders": {
+      "key": { "type": "String" },
+      "action": { "type": "String" }
+    }
   },
   "toastNoVoiceHeard": "The microphone did not pick up your voice",
   "@toastNoVoiceHeard": {},

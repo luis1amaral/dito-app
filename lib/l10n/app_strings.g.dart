@@ -786,13 +786,13 @@ abstract class AppStrings {
   ///
   /// In en, this message translates to:
   /// **'The {key} key is held by another program: {action} does not respond'**
-  String errKeyTaken(Object key, Object action);
+  String errKeyTaken(String key, String action);
 
   /// No description provided for @errKeyBack.
   ///
   /// In en, this message translates to:
   /// **'Key {key} released: {action} works again'**
-  String errKeyBack(Object key, Object action);
+  String errKeyBack(String key, String action);
 
   /// No description provided for @toastNoVoiceHeard.
   ///

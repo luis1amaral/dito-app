@@ -375,12 +375,12 @@ class AppStringsPt extends AppStrings {
   }
 
   @override
-  String errKeyTaken(Object key, Object action) {
+  String errKeyTaken(String key, String action) {
     return 'A tecla $key está tomada por outro programa: $action não responde';
   }
 
   @override
-  String errKeyBack(Object key, Object action) {
+  String errKeyBack(String key, String action) {
     return 'Tecla $key liberada: $action voltou a funcionar';
   }
 

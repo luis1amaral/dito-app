@@ -375,12 +375,12 @@ class AppStringsEn extends AppStrings {
   }
 
   @override
-  String errKeyTaken(Object key, Object action) {
+  String errKeyTaken(String key, String action) {
     return 'The $key key is held by another program: $action does not respond';
   }
 
   @override
-  String errKeyBack(Object key, Object action) {
+  String errKeyBack(String key, String action) {
     return 'Key $key released: $action works again';
   }
 
