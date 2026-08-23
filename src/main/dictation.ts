@@ -86,21 +86,9 @@ function remember(text: string): void {
   }
 }
 
-/** No remembered window, or one that died, means there is nowhere to type. */
-function hasTarget(): boolean {
-  const target = native.currentTarget()
-  return target.hwnd !== 0 && target.className !== ''
-}
-
 function typeInto(text: string, pressEnter: boolean): boolean {
-  const cfg = config.get()
-  const previous = cfg.restoreClipboard ? clipboard.readText() : null
   const typed = native.paste(text)
   if (typed && pressEnter) native.typeText('\r')
-  if (previous !== null) {
-    // After the target consumed it; doing this sooner would race the paste.
-    setTimeout(() => clipboard.writeText(previous), 400)
-  }
   return typed
 }
 
@@ -135,29 +123,16 @@ export function onText(m: Extract<EngineMessage, { kind: 'text' }>): void {
   remember(spoken)
 
   const cfg = config.get()
-  if (!cfg.autoPaste) {
-    flash('done', spoken, 2000)
-    return
+  let typed = false
+  if (cfg.autoPaste) {
+    const target = native.currentTarget()
+    typed = rest ? typeInto(rest, cfg.pressEnter) : true
+    log('type: ' + typed + ' into ' + target.kind + ' "' + target.title + '"')
   }
 
-  // Nowhere to type: hand the whole take to the clipboard instead of throwing it away.
-  if (!hasTarget()) {
-    clipboard.writeText(spoken)
-    log('clipboard: sem alvo, texto copiado')
-    flash('copied', spoken, 2600)
-    return
-  }
-
-  const target = native.currentTarget()
-  const typed = rest ? typeInto(rest, cfg.pressEnter) : true
-  log('type: ' + typed + ' into ' + target.kind + ' "' + target.title + '"')
-  if (!typed) {
-    clipboard.writeText(spoken)
-    log('clipboard: nao consegui digitar, texto copiado')
-    flash('copied', spoken, 2600)
-    return
-  }
-  flash('pasted', spoken, 2000)
+  // Always last and always done: a window is always there, so Ctrl+V is the only guarantee.
+  clipboard.writeText(spoken)
+  flash(typed ? 'pasted' : 'copied', spoken, typed ? 2000 : 2600)
 }
 
 export function bindKey(): void {

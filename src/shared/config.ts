@@ -21,8 +21,6 @@ export type Config = {
   autoPaste: boolean
   /** Presses Enter after pasting, so a typed command actually runs. */
   pressEnter: boolean
-  /** Puts back whatever was on the clipboard before we used it. */
-  restoreClipboard: boolean
   model: string
   lang: 'auto' | Lang
 }
@@ -33,7 +31,6 @@ export const DEFAULT_CONFIG: Config = {
   microphone: null,
   autoPaste: true,
   pressEnter: false,
-  restoreClipboard: true,
   model: 'parakeet-tdt-0.6b-v3-int8',
   lang: 'auto'
 }

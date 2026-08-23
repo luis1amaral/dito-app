@@ -61,7 +61,7 @@ aconteceu de verdade (`plano/referencia/armadilhas.md`).
 | C5 | Alvo capturado na **descida** da tecla | `focus_target_test` | `addon.cc`: `RememberTarget()` no `edge.down` | **OK** |
 | C6 | Multilinha não vira N execuções no CLI | sonda já mede | mesma sonda | reusável |
 
-## D. Janela — pílula, cartão, ajustes
+## D. Janela — pílula, ajustes
 
 | # | Comportamento | Vem de | Quem prova | Estado |
 |---|---|---|---|---|
@@ -82,8 +82,6 @@ aconteceu de verdade (`plano/referencia/armadilhas.md`).
 |---|---|---|---|---|
 | E1 | Máquina de estado do ditado | `controller_test`, `hud_state_test` | teste unitário | PENDENTE |
 | E2 | Fase travada é detectada e sai sozinha | `stuck_phase_test` | teste unitário | PENDENTE |
-| E3 | Fila de revisão não perde item | `review_queue_test` | teste unitário | PENDENTE |
-| E4 | Cartão de revisão (Enter envia, Tab descarta) | `review_card_test` | implementado; falta portão próprio | PENDENTE |
 | E5 | Histórico lê e escreve | `library_reader_test` | teste unitário | PENDENTE |
 
 ## F. Config, dados e idioma

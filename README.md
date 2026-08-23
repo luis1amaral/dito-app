@@ -46,7 +46,7 @@ npm run verify     # o portão de qualidade inteiro
 src/shared/     o contrato: config, IPC e modelos, num lugar só
 src/main/       15 módulos de um assunto cada; index.ts só dá a partida
 src/preload/    a única ponte para as telas, com contextIsolation
-src/renderer/   pílula, ajustes e cartão de revisão, em TypeScript
+src/renderer/   pílula e ajustes, em TypeScript
 native/         addon N-API: atalho global e colagem (importado e congelado)
 quality/        os portões; entrada única em verify.ps1
 docs/           os porquês que não cabem num comentário de uma linha

@@ -22,6 +22,6 @@ A gate that has never failed is not a gate.
 
 ## Windows on screen
 
-The pill and the review card re-assert `alwaysOnTop('screen-saver')` every time they show.
-Inside the topmost band the last window to set it wins, so an app that goes always-on-top after
-us (a Meet call, a game overlay) would cover them otherwise.
+The pill re-asserts `alwaysOnTop('screen-saver')` every time it shows. Inside the topmost band
+the last window to set it wins, so an app that goes always-on-top after us (a Meet call, a game
+overlay) would cover it otherwise.

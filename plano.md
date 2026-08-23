@@ -59,12 +59,8 @@ provado nos dois sentidos) — não refaça.
 
 | Portão | O que provar | Situação |
 |---|---|---|
-| `review` | o cartão abre **com o texto**, `Enter` cola no alvo, `Tab` não cola nada | não existe |
 | `i18n` | nenhum texto fixo sobrou nos `.ts` das telas | parcial: `code-quality.ts` já conta o HTML (dá 0), e `Record<MessageKey, string>` já barra chave faltando em tempo de compilação; falta cobrir os `.ts` |
 | ditado longo | 3 minutos falando sem estourar memória (issue #7925 do Orca) | manual, com o app aberto |
-
-Para o `review`, o caminho mais direto é uma flag de teste que peça ao app para abrir o cartão com
-um texto conhecido, como `--capture` já faz com a janela de ajustes.
 
 ## 4. Linux — o trabalho de verdade
 

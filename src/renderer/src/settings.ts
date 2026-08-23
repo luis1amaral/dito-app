@@ -180,7 +180,6 @@ function paintStaticText(): void {
   $<HTMLSelectElement>('lang').value = config.lang
   $<HTMLInputElement>('autoPaste').checked = config.autoPaste
   $<HTMLInputElement>('pressEnter').checked = config.pressEnter
-  $<HTMLInputElement>('restoreClipboard').checked = config.restoreClipboard
   for (const k of all<HTMLElement>('kbd.t')) k.textContent = config.key
 }
 
@@ -192,7 +191,6 @@ async function save(): Promise<void> {
     microphone: $<HTMLSelectElement>('microphone').value || null,
     autoPaste: $<HTMLInputElement>('autoPaste').checked,
     pressEnter: $<HTMLInputElement>('pressEnter').checked,
-    restoreClipboard: $<HTMLInputElement>('restoreClipboard').checked,
     lang: $<HTMLSelectElement>('lang').value as Config['lang']
   })
   lang = await window.api.invoke('i18n:lang')
@@ -214,7 +212,7 @@ async function main(): Promise<void> {
   void loadHistory()
 
   await listMicrophones()
-  for (const id of ['key', 'mode', 'lang', 'microphone', 'autoPaste', 'pressEnter', 'restoreClipboard']) {
+  for (const id of ['key', 'mode', 'lang', 'microphone', 'autoPaste', 'pressEnter']) {
     $(id).addEventListener('change', () => void save())
   }
   $('clear-history').addEventListener('click', async () => {
