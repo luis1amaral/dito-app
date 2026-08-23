@@ -35,7 +35,7 @@ void main() {
           body: Center(
             child: ListenableBuilder(
               listenable: state,
-              builder: (_, _) => HudPill(state: state, onAction: () {}),
+              builder: (context, child) => HudPill(state: state, onAction: () {}),
             ),
           ),
         ),

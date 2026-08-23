@@ -119,7 +119,7 @@ class HudPill extends StatelessWidget {
     // dead strip: the entry reads just as well as a fade.
     return ValueListenableBuilder<int>(
       valueListenable: state.frame,
-      builder: (_, _, child) => AnimatedOpacity(
+      builder: (context, frame, child) => AnimatedOpacity(
         opacity: state.isOnScreen ? 1 : 0,
         duration: AppMotion.fade,
         curve: Curves.easeOut,
@@ -177,7 +177,7 @@ class HudPill extends StatelessWidget {
                       const SizedBox(width: AppSpacing.lg),
                       ValueListenableBuilder<String>(
                         valueListenable: state.clock,
-                        builder: (_, text, _) => Text(
+                        builder: (context, text, child) => Text(
                           text,
                           style: TextStyle(
                             color: onRed ? c.hudOnDangerMuted : c.hudMuted,
