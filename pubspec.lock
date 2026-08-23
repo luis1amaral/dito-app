@@ -68,7 +68,7 @@ packages:
   defalt_updater:
     dependency: "direct main"
     description:
-      path: "../../defalt_updater"
+      path: "packages/defalt_updater"
       relative: true
     source: path
     version: "1.0.0"
