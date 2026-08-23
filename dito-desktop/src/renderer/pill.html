@@ -1,0 +1,180 @@
+<meta charset="utf-8">
+<title>Dito</title>
+<style>
+  :root {
+    --panel:  #15151C;
+    --border: #2A2A38;
+    --text:   #ECECF2;
+    --muted:  #8C8C9E;
+    --purple: #8B7CFF;
+    --green:  #4ADE80;
+    --red:    #FF6B6B;
+  }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  body {
+    display: grid; place-items: center;
+    font: 14px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--text);
+    -webkit-user-select: none; user-select: none;
+  }
+
+  .card {
+    display: flex; align-items: center; gap: 18px;
+    padding: 18px 26px; border-radius: 20px;
+    background: var(--panel); border: 1px solid var(--border);
+    box-shadow: 0 18px 48px rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.4);
+    min-width: 300px; max-width: 392px;
+    transform: translateY(14px) scale(.97); opacity: 0;
+    transition: transform .26s cubic-bezier(.22,1,.36,1), opacity .2s ease;
+  }
+  body[data-visible="1"] .card { transform: translateY(0) scale(1); opacity: 1; }
+
+  .badge { position: relative; width: 42px; height: 42px; flex: none; display: grid; place-items: center; }
+  .badge .ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid var(--border); transition: border-color .2s ease;
+  }
+  .badge .core {
+    width: 13px; height: 13px; border-radius: 50%;
+    background: var(--muted); transition: background .2s ease, transform .2s ease;
+  }
+  body[data-phase="recording"] .badge .ring { border-color: rgba(255,107,107,.35); }
+  body[data-phase="recording"] .badge .core { background: var(--red); animation: beat 1.25s ease-in-out infinite; }
+  body[data-phase="recording"] .badge::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid var(--red); animation: ripple 1.6s ease-out infinite;
+  }
+  body[data-phase="transcribing"] .badge .ring {
+    border-color: var(--border); border-top-color: var(--purple); animation: spin .85s linear infinite;
+  }
+  body[data-phase="transcribing"] .badge .core { background: var(--purple); transform: scale(.62); }
+  body[data-phase="pasted"] .badge .ring,
+  body[data-phase="done"] .badge .ring { border-color: rgba(74,222,128,.4); }
+  body[data-phase="pasted"] .badge .core,
+  body[data-phase="done"] .badge .core { background: var(--green); }
+  body[data-phase="error"] .badge .ring { border-color: rgba(255,107,107,.4); }
+  body[data-phase="error"] .badge .core { background: var(--red); }
+
+  @keyframes beat { 0%,100% { transform: scale(1) } 50% { transform: scale(.68) } }
+  @keyframes ripple { 0% { transform: scale(.85); opacity: .55 } 100% { transform: scale(1.35); opacity: 0 } }
+  @keyframes spin { to { transform: rotate(360deg) } }
+
+  .body { min-width: 0; flex: 1; }
+  .title { font-weight: 500; letter-spacing: -.01em; }
+  .phrase {
+    color: var(--muted); font-size: 13px; margin-top: 3px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .phrase:empty { display: none; }
+
+  .wave { display: none; align-items: center; gap: 3px; height: 26px; margin-top: 8px; }
+  body[data-phase="recording"] .wave { display: flex; }
+  .wave i {
+    width: 3px; min-height: 3px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--purple), #6F5FE8);
+    transition: height .08s ease-out;
+  }
+</style>
+
+<div class="card">
+  <div class="badge"><span class="ring"></span><span class="core"></span></div>
+  <div class="body">
+    <div class="title" id="title">Dito</div>
+    <div class="phrase" id="phrase"></div>
+    <div class="wave" id="wave"></div>
+  </div>
+</div>
+
+<script>
+  const { ipcRenderer } = require('electron')
+  const root = document.body
+  const title = document.getElementById('title')
+  const phrase = document.getElementById('phrase')
+  const wave = document.getElementById('wave')
+
+  const BAR_COUNT = 28
+  for (let i = 0; i < BAR_COUNT; i += 1) wave.appendChild(document.createElement('i'))
+  const bars = [...wave.children]
+
+  const LABELS = {
+    idle: 'Dito',
+    recording: 'Ouvindo',
+    transcribing: 'Transcrevendo',
+    pasted: 'Pronto',
+    done: 'Transcrito',
+    error: 'Não deu'
+  }
+
+  ipcRenderer.on('state', (_e, { phase, detail }) => {
+    root.dataset.phase = phase
+    root.dataset.visible = phase === 'idle' ? '0' : '1'
+    title.textContent = LABELS[phase] || phase
+    phrase.textContent = detail || ''
+    if (phase !== 'recording') bars.forEach((b) => { b.style.height = '3px' })
+  })
+
+  // Audio capture: same path as Orca (getUserMedia -> ScriptProcessor -> IPC).
+  let ctx = null, source = null, processor = null, stream = null
+  let chunks = []
+  let sampleRate = 0
+  const MAX_SECONDS = 180
+
+  // The wave scrolls left: every block pushes one new level at the end.
+  const levels = new Array(BAR_COUNT).fill(0)
+
+  async function record({ microphone }) {
+    try {
+      const audio = { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      if (microphone) audio.deviceId = { exact: microphone }
+      stream = await navigator.mediaDevices.getUserMedia({ audio })
+    } catch (err) {
+      ipcRenderer.send('renderer-log', 'getUserMedia failed: ' + err.message)
+      return
+    }
+    ctx = new AudioContext()
+    sampleRate = ctx.sampleRate
+    source = ctx.createMediaStreamSource(stream)
+    processor = ctx.createScriptProcessor(4096, 1, 1)
+    chunks = []
+    levels.fill(0)
+    let totalSamples = 0
+
+    processor.onaudioprocess = (e) => {
+      const block = e.inputBuffer.getChannelData(0)
+      // Safety cap: an unbounded buffer grows until the process dies.
+      if (totalSamples < sampleRate * MAX_SECONDS) {
+        chunks.push(new Float32Array(block))
+        totalSamples += block.length
+      }
+      let sum = 0
+      for (let i = 0; i < block.length; i += 8) sum += block[i] * block[i]
+      const rms = Math.sqrt(sum / (block.length / 8))
+      levels.shift()
+      levels.push(Math.min(1, rms * 7))
+      for (let i = 0; i < BAR_COUNT; i += 1) bars[i].style.height = (3 + levels[i] * 23) + 'px'
+    }
+    source.connect(processor)
+    processor.connect(ctx.destination)
+
+    const track = stream.getAudioTracks()[0]
+    // Losing the track mid-capture is real (headset unplugged): log it instead of faking a recording.
+    if (track) track.addEventListener('ended', () => ipcRenderer.send('renderer-log', 'audio track ended on its own'))
+  }
+
+  function stop() {
+    try { processor && processor.disconnect() } catch {}
+    try { source && source.disconnect() } catch {}
+    try { stream && stream.getTracks().forEach((t) => t.stop()) } catch {}
+    try { ctx && ctx.close() } catch {}
+    processor = source = stream = ctx = null
+
+    const total = chunks.reduce((s, c) => s + c.length, 0)
+    const all = new Float32Array(total)
+    let offset = 0
+    for (const c of chunks) { all.set(c, offset); offset += c.length }
+    chunks = []
+    ipcRenderer.send('audio', { samples: Array.from(all), sampleRate })
+  }
+
+  ipcRenderer.on('record', (_e, options) => record(options))
+  ipcRenderer.on('stop', stop)
+</script>

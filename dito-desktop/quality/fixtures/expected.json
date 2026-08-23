@@ -1,0 +1,22 @@
+{
+  "_": "Cada fixture e uma frase gravada com o texto que o motor TEM de devolver. Gravar com `npm run gravar`.",
+  "fixtures": [
+    {
+      "arquivo": "fala.wav",
+      "esperado": "Testando, testando.",
+      "werMax": 0.1,
+      "exigePontuacao": true,
+      "exigeDigitos": false,
+      "minTempoReal": 3.0
+    },
+    {
+      "arquivo": "fala-48k.wav",
+      "_por_que": "o getUserMedia entrega 48 kHz; sem esta fixture o resample nunca e exercitado",
+      "esperado": "Testando, testando.",
+      "werMax": 0.1,
+      "exigePontuacao": true,
+      "exigeDigitos": false,
+      "minTempoReal": 3.0
+    }
+  ]
+}

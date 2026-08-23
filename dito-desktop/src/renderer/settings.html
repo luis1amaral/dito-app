@@ -1,0 +1,385 @@
+<meta charset="utf-8">
+<title>Dito</title>
+<style>
+  :root {
+    --bg:    #0E0E13;
+    --panel:   #15151C;
+    --panel2:  #1B1B24;
+    --border:    #262633;
+    --text:    #ECECF2;
+    --muted:    #8C8C9E;
+    --purple:     #8B7CFF;
+    --purple-dark: #4B3BD4;
+    --green:    #4ADE80;
+    --amber:  #FBBF24;
+    --red: #FF6B6B;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid; grid-template-columns: 232px 1fr;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  /* ---------------------------------------------------------------- sidebar */
+  aside {
+    background: var(--panel); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 22px 14px;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; padding: 0 8px 22px; }
+  .brand img { width: 30px; height: 30px; }
+  .brand b { font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+  .brand span { display: block; font-size: 11px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  nav button {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border: 0; border-radius: 8px; cursor: pointer;
+    background: transparent; color: var(--muted); font: inherit; text-align: left; width: 100%;
+    transition: background .12s ease, color .12s ease;
+  }
+  nav button:hover { background: var(--panel2); color: var(--text); }
+  nav button[aria-selected="true"] { background: var(--purple); color: #12121A; font-weight: 600; }
+  nav button svg { width: 17px; height: 17px; flex: none; }
+
+  .footer { margin-top: auto; padding: 12px 12px 0; font-size: 11px; color: var(--muted); }
+  .footer .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
+  .footer.ok .dot { background: var(--green); }
+  .footer.bad .dot { background: var(--red); }
+
+  /* ---------------------------------------------------------------- content */
+  main { overflow-y: auto; padding: 32px 40px 48px; }
+  main > section { display: none; max-width: 720px; }
+  main > section[data-ativa] { display: block; }
+  h1 { font-size: 23px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.02em; }
+  .subtitle { color: var(--muted); margin: 0 0 28px; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-bottom: 16px; }
+  .card h2 { font-size: 13px; font-weight: 600; margin: 0 0 16px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+
+  .field { margin-bottom: 20px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > label { display: block; margin-bottom: 7px; font-weight: 500; }
+  .field .help { display: block; color: var(--muted); font-size: 12.5px; margin-top: 7px; }
+
+  select {
+    width: 100%; max-width: 420px; padding: 10px 12px; border-radius: 9px;
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border); font: inherit;
+  }
+  select:hover { border-color: #34344a; }
+  select:focus-visible { outline: 2px solid var(--purple); outline-offset: 1px; }
+
+  .toggle { display: flex; align-items: flex-start; gap: 12px; }
+  .toggle input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--purple); flex: none; }
+
+  button.action {
+    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font: inherit; font-weight: 500; cursor: pointer;
+  }
+  button.action:hover:not(:disabled) { border-color: var(--purple); color: var(--purple); }
+  button.action.primary { background: var(--purple); border-color: var(--purple); color: #12121A; }
+  button.action.primary:hover:not(:disabled) { background: #9d90ff; color: #12121A; }
+  button.action.danger:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+  button.action:disabled { opacity: .38; cursor: not-allowed; }
+
+  /* ----------------------------------------------------------------- status */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .status { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .status .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .status .value { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .status.ok .dot { background: var(--green); }
+  .status.warn .dot { background: var(--amber); }
+  .status.bad .dot { background: var(--red); }
+  .status.bad .value { color: var(--red); }
+
+  .steps { counter-reset: p; display: flex; flex-direction: column; gap: 14px; }
+  .step { display: flex; gap: 14px; align-items: flex-start; }
+  .step .n {
+    counter-increment: p; flex: none;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--panel2); border: 1px solid var(--border); color: var(--purple);
+    display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  }
+  .step .n::before { content: counter(p); }
+  kbd {
+    background: var(--panel2); border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 6px; padding: 1px 7px; font: 12px/1.6 "Cascadia Mono", Consolas, monospace; color: var(--purple);
+  }
+
+  /* ----------------------------------------------------------------- models */
+  .model { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .model:last-child { border-bottom: 0; padding-bottom: 0; }
+  .model:first-child { padding-top: 0; }
+  .model .info { flex: 1; min-width: 0; }
+  .model .title { display: flex; align-items: center; gap: 9px; font-weight: 500; }
+  .model .meta { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .badge { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; }
+  .badge.in-use { background: rgba(139,124,255,.16); color: var(--purple); }
+  .badge.is-default { background: var(--panel2); color: var(--muted); }
+  .model .buttons { display: flex; gap: 8px; flex: none; }
+
+  .bar { height: 5px; border-radius: 3px; background: var(--panel2); overflow: hidden; margin-top: 10px; }
+  .bar i { display: block; height: 100%; background: var(--purple); width: 0; transition: width .25s ease; }
+
+  .notice { display: flex; gap: 10px; padding: 12px 14px; border-radius: 9px; background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.28); color: #F5D68A; font-size: 13px; margin-bottom: 16px; }
+
+  /* ---------------------------------------------------------------- history */
+  .history-row { padding: 13px 0; border-bottom: 1px solid var(--border); }
+  .history-row:last-child { border-bottom: 0; }
+  .history-row .when { color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+  .history-row p { margin: 0; -webkit-user-select: text; user-select: text; }
+  .empty { color: var(--muted); }
+  .section-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+</style>
+
+<aside>
+  <div class="brand">
+    <img src="../../assets/icon.svg" alt="">
+    <div><b>Dito</b><span id="version">ditado por voz</span></div>
+  </div>
+  <nav>
+    <button data-pane="inicio" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg>Início</button>
+    <button data-pane="atalho"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>Atalho</button>
+    <button data-pane="audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12v-1M7 16V8M11 20V4M15 16V8M19 12v-1M23 14v-4"/></svg>Áudio</button>
+    <button data-pane="modelos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2 3 7l9 5 9-5-9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg>Modelos</button>
+    <button data-pane="historico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Histórico</button>
+  </nav>
+  <div class="footer" id="footer"><span class="dot"></span><span id="footer-text">conferindo…</span></div>
+</aside>
+
+<main>
+  <section data-pane="inicio" data-ativa>
+    <h1>Início</h1>
+    <p class="subtitle">Aperte a tecla, fale, e o texto aparece onde o cursor estiver.</p>
+
+    <div class="grid" id="status"></div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Como usar</h2>
+      <div class="steps">
+        <div class="step"><span class="n"></span><div>Clique onde você quer o texto — terminal, navegador, qualquer campo de escrita.</div></div>
+        <div class="step"><span class="n"></span><div>Aperte <kbd class="t">F9</kbd> e fale.</div></div>
+        <div class="step"><span class="n"></span><div>Aperte <kbd class="t">F9</kbd> de novo. O texto é digitado ali, com pontuação.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-pane="atalho">
+    <h1>Atalho</h1>
+    <p class="subtitle">A tecla funciona em qualquer janela, mesmo com o Dito fechado na bandeja.</p>
+    <div class="card">
+      <div class="field">
+        <label for="key">Tecla</label>
+        <select id="key">
+          <option>F9</option><option>F8</option><option>F10</option>
+          <option>F11</option><option>F12</option><option>ScrollLock</option><option>Pause</option>
+        </select>
+        <span class="help">A tecla é capturada só pelo Dito — ela não chega ao programa embaixo.</span>
+      </div>
+      <div class="field">
+        <label for="mode">Modo</label>
+        <select id="mode">
+          <option value="alternar">Alternar — aperta para gravar, aperta de novo para parar</option>
+          <option value="segurar">Segurar — grava enquanto a tecla estiver pressionada</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section data-pane="audio">
+    <h1>Áudio</h1>
+    <p class="subtitle">De onde o Dito ouve, e o que ele faz com o texto pronto.</p>
+    <div class="card">
+      <div class="field">
+        <label for="microphone">Microfone</label>
+        <select id="microphone"><option value="">Padrão do sistema</option></select>
+        <span class="help">Evite entradas com “monitor” ou “mixagem estéreo” no nome: elas gravam o som que sai do computador, não a sua voz.</span>
+      </div>
+      <div class="field">
+        <div class="toggle">
+          <input type="checkbox" id="autoPaste">
+          <div>
+            <label for="autoPaste" style="margin:0">Digitar o texto automaticamente</label>
+            <span class="help">Desligado, o texto só vai para o histórico.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-pane="modelos">
+    <h1>Modelos</h1>
+    <p class="subtitle">O modelo padrão vem junto. Os outros você baixa só se quiser.</p>
+    <div class="notice" id="delete-warning">
+      Para não deixar você sem transcrição, só é possível apagar um modelo quando existe outro instalado.
+    </div>
+    <div class="card"><div id="models"><span class="empty">carregando…</span></div></div>
+  </section>
+
+  <section data-pane="historico">
+    <h1>Histórico</h1>
+    <p class="subtitle">Os últimos ditados desta máquina. Nada sai do computador.</p>
+    <div class="section-top">
+      <span class="empty" id="history-count"></span>
+      <button class="action danger" id="clear-history">Limpar histórico</button>
+    </div>
+    <div class="card"><div id="history"><span class="empty">nada ainda</span></div></div>
+  </section>
+</main>
+
+<script>
+  const { ipcRenderer } = require('electron')
+  const $ = (s) => document.querySelector(s)
+  const $$ = (s) => [...document.querySelectorAll(s)]
+  let config = {}
+
+  const escape_ = (t) => t.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))
+  const mb = (b) => (b / 1024 / 1024).toFixed(0) + ' MB'
+
+  // ------------------------------------------------------------ navigation --
+  $$('nav button').forEach((b) => {
+    b.addEventListener('click', () => {
+      $$('nav button').forEach((o) => o.setAttribute('aria-selected', String(o === b)))
+      $$('main > section').forEach((s) => s.toggleAttribute('data-ativa', s.dataset.pane === b.dataset.pane))
+    })
+  })
+
+  // ---------------------------------------------------------------- status --
+  function paintStatus(e) {
+    $('#version').textContent = 'versão ' + e.version
+    const cards = [
+      { label: 'Motor', ok: e.engineReady, warn: !e.engineReady,
+        text: e.engineReady ? 'Pronto' : 'Carregando…' },
+      { label: 'Atalho global', ok: e.hook.installed, bad: !e.hook.installed,
+        text: e.hook.installed ? config.key + ' ativo' : 'Não instalou (erro ' + e.hook.error + ')' },
+      { label: 'Modelo', ok: !!e.modelDir, bad: !e.modelDir,
+        text: e.modelDir ? e.modelDir.split(/[\\/]/).pop() : 'Nenhum instalado' }
+    ]
+    $('#status').innerHTML = cards.map((c) => {
+      const cls = c.ok ? 'ok' : c.bad ? 'bad' : 'warn'
+      return '<div class="status ' + cls + '"><div class="label">' + c.label +
+        '</div><div class="value"><span class="dot"></span>' + c.text + '</div></div>'
+    }).join('')
+
+    const allGood = e.engineReady && e.hook.installed && !!e.modelDir
+    const foot = $('#footer')
+    foot.className = 'footer ' + (allGood ? 'ok' : 'bad')
+    $('#footer-text').textContent = allGood ? 'Pronto para ditar' : 'Ainda não está pronto'
+  }
+
+  // ---------------------------------------------------------------- models --
+  let progress = null
+
+  function paintModels(list) {
+    $('#models').innerHTML = list.map((m) => {
+      const badges = (m.active ? '<span class="badge in-use">em uso</span>' : '') +
+                    (m.isDefault ? '<span class="badge is-default">padrão</span>' : '')
+      const meta = m.description + ' · ' + mb(m.bytes) + (m.installed ? ' · instalado' : '')
+      const busy = progress && progress.id === m.id
+      let buttons = ''
+      if (busy) {
+        buttons = '<button class="action" disabled>Baixando…</button>'
+      } else if (!m.installed) {
+        buttons = '<button class="action primary" data-download="' + m.id + '">Baixar</button>'
+      } else {
+        if (!m.active) buttons += '<button class="action" data-use="' + m.id + '">Usar</button>'
+        buttons += '<button class="action danger" data-delete="' + m.id + '"' +
+          (m.canDelete ? '' : ' disabled title="baixe outro modelo antes de apagar este"') + '>Apagar</button>'
+      }
+      const bar = busy
+        ? '<div class="bar"><i style="width:' + Math.round(100 * progress.done / (progress.total || 1)) + '%"></i></div>'
+        : ''
+      return '<div class="model"><div class="info"><div class="title">' + m.label + badges +
+        '</div><div class="meta">' + meta + '</div>' + bar +
+        '</div><div class="buttons">' + buttons + '</div></div>'
+    }).join('')
+
+    $$('[data-download]').forEach((b) => b.addEventListener('click', async () => {
+      b.disabled = true
+      try { paintModels(await ipcRenderer.invoke('models:download', b.dataset.download)) }
+      catch (err) { alert('Não deu para baixar: ' + err.message) }
+      reloadModels()
+    }))
+    $$('[data-use]').forEach((b) => b.addEventListener('click', async () => {
+      paintModels(await ipcRenderer.invoke('models:use', b.dataset.use))
+    }))
+    $$('[data-delete]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('Apagar este modelo do disco?')) return
+      try { paintModels(await ipcRenderer.invoke('models:delete', b.dataset.delete)) }
+      catch (err) { alert(err.message) }
+    }))
+  }
+
+  async function reloadModels() {
+    paintModels(await ipcRenderer.invoke('models:list'))
+  }
+
+  ipcRenderer.on('models:progress', (_e, p) => {
+    progress = p
+    reloadModels()
+  })
+
+  // ---------------------------------------------------------------- audio --
+  async function listMicrophones() {
+    try { await navigator.mediaDevices.getUserMedia({ audio: true }) } catch {}
+    const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput')
+    const sel = $('#microphone')
+    for (const d of devices) {
+      if (d.deviceId === 'default' || d.deviceId === 'communications') continue
+      const o = document.createElement('option')
+      o.value = d.deviceId
+      o.textContent = d.label || 'Entrada ' + d.deviceId.slice(0, 6)
+      sel.appendChild(o)
+    }
+    sel.value = config.microphone || ''
+  }
+
+  function saveConfig() {
+    ipcRenderer.invoke('config:write', {
+      key: $('#key').value,
+      mode: $('#mode').value,
+      microphone: $('#microphone').value || null,
+      autoPaste: $('#autoPaste').checked
+    }).then((c) => {
+      config = c
+      $$('kbd.t').forEach((k) => { k.textContent = c.key })
+    })
+  }
+
+  // --------------------------------------------------------------- history --
+  async function loadHistory() {
+    const items = await ipcRenderer.invoke('history:read')
+    $('#history-count').textContent = items.length ? items.length + ' ditado(s)' : ''
+    if (!items.length) { $('#history').innerHTML = '<span class="empty">nada ainda</span>'; return }
+    $('#history').innerHTML = items.map((i) =>
+      '<div class="history-row"><p>' + escape_(i.text) + '</p><div class="when">' +
+      new Date(i.at).toLocaleString('pt-BR') + '</div></div>').join('')
+  }
+
+  $('#clear-history').addEventListener('click', async () => {
+    if (!confirm('Apagar todo o histórico?')) return
+    await ipcRenderer.invoke('history:clear')
+    loadHistory()
+  })
+
+  // --------------------------------------------------------------- startup --
+  ;(async () => {
+    config = await ipcRenderer.invoke('config:read')
+    $('#key').value = config.key
+    $('#mode').value = config.mode
+    $('#autoPaste').checked = config.autoPaste !== false
+    $$('kbd.t').forEach((k) => { k.textContent = config.key })
+    await listMicrophones()
+    for (const s of ['#key', '#mode', '#microphone', '#autoPaste']) $(s).addEventListener('change', saveConfig)
+
+    paintStatus(await ipcRenderer.invoke('status:read'))
+    setInterval(async () => paintStatus(await ipcRenderer.invoke('status:read')), 1500)
+    reloadModels()
+    loadHistory()
+    setInterval(loadHistory, 5000)
+  })()
+</script>
