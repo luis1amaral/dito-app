@@ -106,6 +106,8 @@ class WindowOrchestrator extends ChangeNotifier {
       await windowManager.center();
       await windowManager.show();
       await windowManager.focus();
+      // Sized and centred while hidden above, so without this the top of the window stays black.
+      await DitoWin32.forceRepaint();
     } catch (e) {
       _log('showMainWindow error: $e');
     }

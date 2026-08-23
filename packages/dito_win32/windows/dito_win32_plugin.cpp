@@ -403,6 +403,23 @@ void DitoWin32Plugin::HandleMethod(
     return;
   }
 
+  if (method == "window.forceRepaint") {
+    // Same jiggle as showNoActivate: a window resized while hidden keeps a dead black band
+    // until a real resize happens while it is visible.
+    const HWND hwnd = RootWindow();
+    RECT rect{};
+    if (hwnd != nullptr && GetWindowRect(hwnd, &rect)) {
+      const int width = rect.right - rect.left;
+      const int height = rect.bottom - rect.top;
+      SetWindowPos(hwnd, nullptr, rect.left, rect.top, width + 1, height,
+                   SWP_NOACTIVATE | SWP_NOZORDER);
+      SetWindowPos(hwnd, nullptr, rect.left, rect.top, width, height,
+                   SWP_NOACTIVATE | SWP_NOZORDER);
+    }
+    result->Success();
+    return;
+  }
+
   if (method == "clipboard.get") {
     if (!OpenClipboardWithRetry(RootWindow())) {
       result->Success();

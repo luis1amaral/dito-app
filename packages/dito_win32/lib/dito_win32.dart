@@ -123,6 +123,9 @@ class DitoWin32 {
     );
   }
 
+  /// Forces the swapchain to present; a window resized while hidden stays partly black.
+  static Future<void> forceRepaint() => _methods.invokeMethod<void>('window.forceRepaint');
+
   /// Brings this window to the foreground; SendInput is refused to a background process.
   static Future<bool> focusWindow() async =>
       await _methods.invokeMethod<bool>('window.focus') ?? false;
