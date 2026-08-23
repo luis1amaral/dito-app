@@ -28,6 +28,7 @@ class DitoController {
     required this.review,
     this.notify,
     this.playSound,
+    this.takeFocus,
     this.now = _defaultNow,
     this.startTimeout = const Duration(seconds: 5),
     this.transcribeTimeout = const Duration(seconds: 120),
@@ -67,6 +68,9 @@ class DitoController {
 
   /// Plays the alarm sound; throttled to once every ten seconds.
   final void Function()? playSound;
+
+  /// Remembers the window that had focus, so the text lands where the key was pressed.
+  final void Function()? takeFocus;
 
   final ValueNotifier<AppSnapshot> snapshot =
       ValueNotifier<AppSnapshot>(const AppSnapshot());
@@ -140,6 +144,9 @@ class DitoController {
       hud(HudMessage.toast(HudToast.engineStarting));
       return false;
     }
+
+    // Captured on key-down, not when the card shows: by then Dito itself owns the foreground.
+    takeFocus?.call();
 
     final meeting = action == 'meeting';
     _stopPending = false;

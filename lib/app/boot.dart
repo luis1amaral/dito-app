@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dito_win32/dito_win32.dart';
 import 'package:flutter/foundation.dart';
 
 import '../app_updater.dart';
@@ -50,6 +51,7 @@ class DitoApp {
     review: _toReview,
     notify: _notify,
     playSound: _playAlarm,
+    takeFocus: _takeFocus,
   );
 
   final ValueNotifier<bool> paused = ValueNotifier<bool>(false);
@@ -87,6 +89,8 @@ class DitoApp {
 
     await supervisor.start();
     isReady.value = true;
+    // Throttled to 6h inside and swallows its own errors; without this call nothing ever checks.
+    unawaited(updateController.checkQuiet());
     log('boot completo (Single-Engine)');
   }
 
@@ -104,6 +108,9 @@ class DitoApp {
   }
 
   void _playAlarm() => alerts.playAlarm();
+
+  /// Fire-and-forget: the recording must not wait on a window call.
+  void _takeFocus() => unawaited(DitoWin32.takeFocus());
 
   /// The catalogue for everything outside a widget: the tray and the balloons.
   AppStrings get strings => stringsFor(config.config.ui.language);
