@@ -1,70 +1,67 @@
 # Pendências
 
-Sem enfeite: o que ficou faltando depois da 1.7.4, e por quê importa.
+Escrito em 2026-08-23, na 2.0.1. O que **não** foi feito e por que importa.
 
-## Linux: publicar no APT
+---
 
-Subir o `.deb` numa release do GitHub **não atualiza Linux nenhum**. O updater do Linux lê
-`https://apt.defaltm.com/dists/stable/main/binary-amd64/Packages`
-(`packages/defalt_updater/lib/src/linux_apt.dart`), e **nada neste repositório publica lá** —
-confirmado por grep em `.github/` e `packaging/` (zero ocorrências de `apt.defaltm`,
-`apt-ftparchive`, `reprepro` ou `dists/stable`). Conferido ao vivo agora: o repositório APT está
-parado na **1.6.8**. Esse passo é manual, feito na máquina Linux, e a release não está terminada
-sem ele. Ver `docs/RELEASE.md`.
+## 1. Linux — medido, não presumido
 
-## Linux: as correções da 1.7.4 ainda não foram exercitadas em Linux
+O que atravessa de graça, porque é Chromium ou Node:
 
-O conserto de coordenadas do recorte (armadilha 4.14) foi feito no plugin Windows
-(`packages/dito_win32/windows/dito_win32_plugin.cpp`). O lado GTK
-(`packages/dito_win32/linux/dito_win32_plugin.cc`, `gtk_widget_shape_combine_region`) não foi
-tocado e precisa ser conferido numa máquina Linux X11 — ele pode ter o mesmo problema de origem
-cliente-vs-janela, ou pode não ter, mas ninguém mediu. Idem o comportamento de abrir só na bandeja
-(armadilha 4.15 e o `--startup` nos atalhos): isso hoje só está garantido no instalador Windows
-(`packaging/windows/dito.iss`); o empacotamento Linux não foi revisado com o mesmo critério.
+| Peça | Situação |
+|---|---|
+| Interface (pílula, ajustes, cartão) | funciona: o Chromium vai embutido |
+| Captura de áudio | funciona: `getUserMedia` é igual nos dois |
+| Motor Parakeet/ONNX | funciona: `sherpa-onnx-linux-x64` existe no mesmo pacote |
+| Download, sha256, histórico, config | funciona: Node puro |
 
-## Linux: `windowManager.hide()` viola a armadilha 4.3
+**O que NÃO atravessa — e é o produto inteiro:**
 
-`lib/ui/window_orchestrator.dart` chama `windowManager.hide()` nas linhas **47, 90 e 124**, sem
-nenhum desvio por plataforma. No Windows isso é correto. No **X11 é a armadilha 4.3**, paga em
-2026-08-21: desmapear a janela faz o `FlView` perder o contexto GL e **não voltar** — o HUD some
-para sempre até reabrir o app. A regra que o projeto aprendeu é: esconder é recortar para uma
-região **vazia**, nunca desmapear.
+`native/src/input.cc` usa API do Win32 em **8 pontos** e `key_hook.cpp` é Win32. Sem o irmão X11,
+o app no Linux **não tem atalho global e não cola em lugar nenhum**. Ele abriria, mostraria a tela e
+transcreveria só dentro de si mesmo.
 
-Isso já foi feito no Windows (`window.setHitRect` com retângulo vazio agora aplica
-`CreateRectRgn(0,0,0,0)` em vez de remover a região). Falta o equivalente no caminho Linux, e falta
-o `hide()` deixar de ser chamado lá.
+**Por isso o `.deb` não foi publicado.** Publicar seria entregar um app que não faz o que promete.
 
-## Linux: dois métodos nativos novos só existem no Windows
+**O que já está pronto para quando for feito no Linux:**
+- `native/binding.gyp` tem o bloco `OS=='linux'` apontando para `src/input_x11.cc` e
+  `src/key_hook_x11.cpp` — os dois arquivos que faltam escrever.
+- `npm run pack:linux` gera o `.deb` numa linha, assim que o addon existir.
+- A referência de porte é `dito-app/packages/dito_win32/linux/dito_win32_plugin.cc` (1.687 linhas,
+  já funciona): é **trocar a casca** (method channel → N-API), não reescrever a lógica.
 
-`window.clearHitRect` e `window.forceRepaint` foram criados hoje em
-`packages/dito_win32/windows/dito_win32_plugin.cpp` e **não têm par** em
-`packages/dito_win32/linux/dito_win32_plugin.cc` (grep: zero ocorrências). No Linux as chamadas
-levantam `MissingPluginException` — engolida pelo `try/catch` do `WindowOrchestrator`, então não
-quebra, mas o comportamento simplesmente não acontece:
+| Peça | Windows (feito) | Linux (a fazer) | Armadilha |
+|---|---|---|---|
+| Atalho global | `WH_KEYBOARD_LL` em thread própria | `XGrabKey` | exclusivo por processo; falha **em silêncio** com `BadAccess` |
+| Digitar | `SendInput` UNICODE | `XTestFakeKeyEvent` | precisa remapear keysym por caractere |
+| Alvo da colagem | foreground na descida da tecla | `_NET_ACTIVE_WINDOW` | capturar na descida, nunca depois |
+| Trazer para frente | `SetForegroundWindow` + **esperar a troca** | `_NET_ACTIVE_WINDOW` com timestamp | sem timestamp o WM ignora calado |
+| Bandeja | `Shell_NotifyIcon` | `StatusNotifierItem` | GNOME puro não tem bandeja sem extensão |
 
-- `clearHitRect` é quem devolve a janela à forma retangular ao abrir o painel de Configurações. Sem
-  ele, o painel pode herdar o recorte da pílula.
-- `forceRepaint` é o *jiggle* que evita a faixa preta quando a janela é dimensionada escondida.
+Pendências antigas que continuam: **APT parado na 1.6.8** (subir `.deb` no GitHub não atualiza
+Linux nenhum — o updater lê `apt.defaltm.com`), e janela transparente no X11 depende de compositor
+ativo, senão a pílula vem com fundo preto.
 
-No GTK o equivalente de limpar o recorte é `gtk_widget_shape_combine_region(widget, NULL)`; o
-`forceRepaint` provavelmente é desnecessário fora do swapchain do Windows, mas isso **precisa ser
-medido numa máquina X11**, não presumido.
+## 2. Windows — aberto
 
-## `stt.device` é botão morto
+| # | Pendência | Por quê importa |
+|---|---|---|
+| W1 | **Auto-update nunca exercitado.** `electron-updater` está ligado e aponta para `luis1amaral/dito-app`, mas nunca houve duas versões para comparar | A 1.7.0 foi despublicada por update ruim |
+| W2 | **Ditado de 3 minutos nunca gravado.** O corte em janelas de 8 s existe e é testado por unidade, mas ninguém falou 3 minutos seguidos | É o caminho que derruba o app se estiver errado |
+| W3 | **9 dos 10 modelos nunca rodaram.** URL, tamanho e sha256 conferidos; o motor tem o ramo de cada tipo; falta baixar e transcrever | `resolveFile` pode não achar o arquivo de um tipo diferente |
+| W4 | **Modelo streaming nunca rodou.** Nomes da API conferidos contra o pacote, mas nenhum foi baixado | Nome certo não é execução certa |
+| W5 | **Sem a voz do dono nas fixtures.** Falta número por extenso e termo em inglês | Critério A5/A6 da paridade |
+| W6 | **Iniciar com o Windows** não implementado | O 1.7 tinha; o atalho com `--startup` existe, falta a entrada de inicialização |
+| W7 | **Sem assinatura de código** — o SmartScreen avisa | Atrito para quem não é o dono |
+| W8 | **Instalador cai na mesma pasta da 1.7.x** (`%LOCALAPPDATA%\Programs\Dito`) | Quem atualizar sem desinstalar fica com duas árvores misturadas |
+| W9 | **Histórico antigo não migra** (`historico.jsonl` → `history.jsonl`) | Quem tinha histórico vê lista vazia |
 
-O campo existe na config (`lib/config/config_model.dart`), aparece nos Ajustes
-(`lib/ui/main/settings_page.dart`) e trafega no protocolo do motor
-(`devicePref` em `lib/engine/native_engine.dart:174`) — mas **não decide nada**: dentro de
-`_handleStart`, `devicePref` é recebido e nunca lido de novo; `_ensureModelLoaded` chama
-`worker.loadModel(path, useGpu: true, ...)` com `useGpu: true` fixo, e quem escolhe CPU ou GPU de
-fato é o whisper.cpp por baixo. Ou o campo vira decisão de verdade (passar `devicePref` adiante e
-honrar `cpu`), ou sai da config e da tela de Ajustes.
+## 3. Provado nesta versão (não reabrir por engano)
 
-## CUDA no Windows
-
-`packages/dito_whisper/windows/CMakeLists.txt` não tem nenhuma referência a CUDA — hoje o Windows
-compila e roda **só em CPU**. `docs/WINDOWS.md` já documenta o pré-requisito opcional (CUDA Toolkit
-12.x) e a armadilha das arquiteturas reais (`CUDA_ARCHITECTURES="61;75;86;89"`, nunca só `-virtual`),
-mas o CMake do Windows ainda não usa nada disso. Se outro agente estiver portando isso agora, esta
-pendência sai quando o build Windows ganhar a opção de GPU; se não, falta ligar o `GGML_CUDA` no
-CMake do Windows do mesmo jeito que já existe em `packages/dito_whisper/src/ggml/src/ggml-cuda/`.
+- Addon carrega no Electron 43 / Node 24; `ACTION` vem do addon, não é literal repetido.
+- A tecla **começa e termina** um ditado de verdade; modo segurar provado em 5 ciclos seguidos.
+- Modo segurar tem teto de duração: key-up perdido não deixa mais o ditado preso para sempre.
+- Colagem chega inteira, com acento, **nas duas vias**: console cru e janela Chromium.
+- A colagem **espera o foco trocar** antes de digitar — sem isso o texto ia para a janela errada.
+- App sobe nos dois modos, não abre janela na bandeja, 0% de preto puro, sem erro de JS.
+- Download em máquina limpa funciona: 640 MB em 39 s, sha256 conferido, com retomada.

@@ -1,0 +1,35 @@
+/* One palette for the three screens. A colour defined twice drifts; this file is the only source. */
+:root {
+  --bg:        #0E0E13;
+  --panel:     #15151C;
+  --panel-2:   #1B1B25;
+  --border:    #2A2A38;
+  --border-2:  #2E2E3D;
+  --text:      #ECECF2;
+  --muted:     #8C8C9E;
+  --purple:    #8B7CFF;
+  --purple-2:  #6F5FE8;
+  --green:     #4ADE80;
+  --amber:     #FBBF24;
+  --red:       #FF6B6B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button.action {
+  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text); font: inherit; font-weight: 500; cursor: pointer;
+}
+button.action:hover:not(:disabled) { border-color: var(--purple); color: var(--purple); }
+button.action.primary { background: var(--purple); border-color: var(--purple); color: #12121A; }
+button.action.primary:hover:not(:disabled) { background: #9d90ff; color: #12121A; }
+button.action.danger:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+button.action:disabled { opacity: .38; cursor: not-allowed; }

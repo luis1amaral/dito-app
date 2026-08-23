@@ -1,0 +1,34 @@
+# Avisos de terceiros
+
+## stablyai/orca — MIT
+
+Partes deste projeto foram adaptadas de https://github.com/stablyai/orca:
+
+- `src/main/models.ts` — formato do download com retomada e verificação por sha256
+  (de `src/main/speech/model-manager.ts`)
+- `src/main/catalog.ts` — catálogo de modelos com revisão fixada
+  (de `src/main/speech/model-download-catalog.ts` e `model-catalog.ts`)
+- `src/main/engine-worker.ts` — configuração dos recognizers por tipo de modelo
+  (de `src/main/speech/stt-worker.ts`) e o resample linear
+  (de `src/main/speech/stt-audio-resample.ts`)
+- `src/main/audio-chunker.ts` — corte do áudio em janelas no ponto de menor energia
+  (de `src/main/speech/stt-offline-audio-chunker.ts`)
+- `src/shared/join-segments.ts` — regras de espaçamento ao emendar segmentos
+  (de `src/renderer/src/components/dictation/dictation-final-segments.ts`)
+- `src/main/updater.ts` — recuo exponencial quando o feed de atualização falha
+
+Copyright (c) Stably AI. Licença MIT.
+
+## NVIDIA Parakeet TDT 0.6B v3 — CC-BY-4.0
+
+Modelo de reconhecimento de fala, baixado em tempo de execução do Hugging Face.
+https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+
+## sherpa-onnx — Apache-2.0
+
+Motor de inferência. https://github.com/k2-fsa/sherpa-onnx
+
+## Código nativo
+
+`native/src/key_hook.cpp`, `key_table.cpp` e `input.cc` vieram do próprio Dito 1.x
+(Flutter), do mesmo autor.

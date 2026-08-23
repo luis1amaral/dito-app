@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title data-i18n="appName"></title>
+<link rel="stylesheet" href="./src/theme.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; grid-template-columns: 232px 1fr; background: var(--bg); }
+
+  aside { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 22px 14px; }
+  .brand { display: flex; align-items: center; gap: 11px; padding: 0 8px 22px; }
+  .brand img { width: 30px; height: 30px; }
+  .brand b { font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+  .brand span { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  nav button {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border: 0; border-radius: 8px; cursor: pointer;
+    background: transparent; color: var(--muted); font: inherit; text-align: left; width: 100%;
+    transition: background .12s ease, color .12s ease;
+  }
+  nav button:hover { background: var(--panel-2); color: var(--text); }
+  nav button[aria-selected="true"] { background: var(--purple); color: #12121A; font-weight: 600; }
+  nav button svg { width: 17px; height: 17px; flex: none; }
+
+  .footer { margin-top: auto; padding: 12px; font-size: 11px; color: var(--muted); }
+  .footer .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
+  .footer.ok .dot { background: var(--green); }
+  .footer.bad .dot { background: var(--red); }
+
+  main { overflow-y: auto; padding: 32px 40px 48px; }
+  main > section { display: none; max-width: 720px; }
+  main > section[data-active] { display: block; }
+  h1 { font-size: 23px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.02em; }
+  .subtitle { color: var(--muted); margin: 0 0 28px; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-bottom: 16px; }
+  .card h2 { font-size: 13px; font-weight: 600; margin: 0 0 16px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+
+  .field { margin-bottom: 20px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > label { display: block; margin-bottom: 7px; font-weight: 500; }
+  .help { display: block; color: var(--muted); font-size: 12.5px; margin-top: 7px; }
+
+  select, input[type="text"] {
+    width: 100%; max-width: 420px; padding: 10px 12px; border-radius: 9px;
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border); font: inherit;
+  }
+  select:hover, input[type="text"]:hover { border-color: #34344a; }
+  select:focus-visible, input:focus-visible { outline: 2px solid var(--purple); outline-offset: 1px; border-color: transparent; }
+
+  .toggle { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .toggle:last-child { margin-bottom: 0; }
+  .toggle input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--purple); flex: none; }
+  .toggle label { margin: 0; font-weight: 500; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .status { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .status .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .status .value { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .status.ok .dot { background: var(--green); }
+  .status.warn .dot { background: var(--amber); }
+  .status.bad .dot { background: var(--red); }
+  .status.bad .value { color: var(--red); }
+
+  .steps { display: flex; flex-direction: column; gap: 14px; }
+  .step { display: flex; gap: 14px; align-items: flex-start; }
+  .step .n {
+    flex: none; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--purple);
+    display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  }
+  kbd {
+    background: var(--panel-2); border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 6px; padding: 1px 7px; font: 12px/1.6 "Cascadia Mono", Consolas, monospace; color: var(--purple);
+  }
+
+  .model { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .model:last-child { border-bottom: 0; padding-bottom: 0; }
+  .model:first-child { padding-top: 0; }
+  .model .info { flex: 1; min-width: 0; }
+  .model .title { display: flex; align-items: center; gap: 9px; font-weight: 500; }
+  .model .meta { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .badge { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; }
+  .badge.in-use { background: rgba(139,124,255,.16); color: var(--purple); }
+  .badge.is-default { background: var(--panel-2); color: var(--muted); }
+  .model .buttons { display: flex; gap: 8px; flex: none; }
+  .bar { height: 5px; border-radius: 3px; background: var(--panel-2); overflow: hidden; margin-top: 10px; }
+  .bar i { display: block; height: 100%; background: var(--purple); width: 0; transition: width .25s ease; }
+
+  .notice { display: flex; gap: 10px; padding: 12px 14px; border-radius: 9px; font-size: 13px; margin-bottom: 16px;
+            background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.28); color: #F5D68A; }
+  .notice.bad { background: rgba(255,107,107,.1); border-color: rgba(255,107,107,.3); color: #FFB4B4; }
+  /* A class with display beats the [hidden] attribute; without this the empty box shows. */
+  .notice[hidden] { display: none; }
+
+  .history-row { padding: 13px 0; border-bottom: 1px solid var(--border); }
+  .history-row:last-child { border-bottom: 0; }
+  .history-row p { margin: 0; -webkit-user-select: text; user-select: text; }
+  .history-row .when { color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+  .empty { color: var(--muted); }
+  .section-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand">
+    <img src="../../assets/icon.svg" alt="">
+    <div><b data-i18n="appName"></b><span id="version" data-i18n="brandTagline"></span></div>
+  </div>
+  <nav>
+    <button data-pane="home" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg><span data-i18n="navHome"></span></button>
+    <button data-pane="shortcut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg><span data-i18n="navShortcut"></span></button>
+    <button data-pane="audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12v-1M7 16V8M11 20V4M15 16V8M19 12v-1M23 14v-4"/></svg><span data-i18n="navAudio"></span></button>
+    <button data-pane="models"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2 3 7l9 5 9-5-9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg><span data-i18n="navModels"></span></button>
+    <button data-pane="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="navHistory"></span></button>
+    <button data-pane="update"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg><span data-i18n="navUpdate"></span></button>
+  </nav>
+  <div class="footer" id="footer"><span class="dot"></span><span id="footer-text" data-i18n="statusChecking"></span></div>
+</aside>
+
+<main>
+  <section data-pane="home" data-active>
+    <h1 data-i18n="navHome"></h1>
+    <p class="subtitle" data-i18n="homeSubtitle"></p>
+    <div class="notice bad" id="model-error" hidden></div>
+    <div class="grid" id="status"></div>
+    <div class="card" style="margin-top:16px">
+      <h2 data-i18n="howToUseTitle"></h2>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><div data-i18n="stepClickWhere"></div></div>
+        <div class="step"><span class="n">2</span><div><span data-i18n="stepPressWord"></span> <kbd class="t">F10</kbd> <span data-i18n="stepListenAfter"></span></div></div>
+        <div class="step"><span class="n">3</span><div><span data-i18n="stepPressWord"></span> <kbd class="t">F10</kbd> <span data-i18n="stepPasteAfter"></span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-pane="shortcut">
+    <h1 data-i18n="navShortcut"></h1>
+    <p class="subtitle" data-i18n="shortcutSubtitle"></p>
+    <div class="card">
+      <div class="field">
+        <label for="key" data-i18n="keyLabel"></label>
+        <select id="key"></select>
+        <span class="help" data-i18n="keyHelp"></span>
+      </div>
+      <div class="field">
+        <label for="mode" data-i18n="modeLabel"></label>
+        <select id="mode"></select>
+      </div>
+      <div class="field">
+        <label for="lang" data-i18n="languageLabel"></label>
+        <select id="lang"></select>
+      </div>
+    </div>
+  </section>
+
+  <section data-pane="audio">
+    <h1 data-i18n="navAudio"></h1>
+    <p class="subtitle" data-i18n="audioSubtitle"></p>
+    <div class="card">
+      <div class="field">
+        <label for="microphone" data-i18n="microphoneLabel"></label>
+        <select id="microphone"><option value="" data-i18n="microphoneDefaultOption"></option></select>
+        <span class="help" data-i18n="microphoneHelp"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="afterTranscribeTitle"></h2>
+      <div class="field">
+        <label for="review" data-i18n="reviewCardLabel"></label>
+        <select id="review"></select>
+        <span class="help" data-i18n="reviewCardHelp"></span>
+      </div>
+      <div class="toggle">
+        <input type="checkbox" id="autoPaste">
+        <div><label for="autoPaste" data-i18n="autoPasteLabel"></label><span class="help" data-i18n="autoPasteHelp"></span></div>
+      </div>
+      <div class="toggle">
+        <input type="checkbox" id="pressEnter">
+        <div><label for="pressEnter" data-i18n="pressEnterLabel"></label><span class="help" data-i18n="pressEnterHelp"></span></div>
+      </div>
+      <div class="toggle">
+        <input type="checkbox" id="restoreClipboard">
+        <div><label for="restoreClipboard" data-i18n="restoreClipboardLabel"></label><span class="help" data-i18n="restoreClipboardHelp"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-pane="models">
+    <h1 data-i18n="navModels"></h1>
+    <p class="subtitle" data-i18n="modelsSubtitle"></p>
+    <div class="notice" data-i18n="modelsNotice"></div>
+    <div class="card"><div id="models"><span class="empty" data-i18n="modelsLoading"></span></div></div>
+  </section>
+
+  <section data-pane="history">
+    <h1 data-i18n="navHistory"></h1>
+    <p class="subtitle" data-i18n="historySubtitle"></p>
+    <div class="section-top">
+      <span class="empty" id="history-count"></span>
+      <button class="action danger" id="clear-history" data-i18n="clearHistoryButton"></button>
+    </div>
+    <div class="card"><div id="history"><span class="empty" data-i18n="historyEmpty"></span></div></div>
+  </section>
+
+  <section data-pane="update">
+    <h1 data-i18n="navUpdate"></h1>
+    <p class="subtitle" data-i18n="updateSubtitle"></p>
+    <div class="card">
+      <div class="field"><label data-i18n="installedVersionLabel"></label><div id="update-version" class="empty">—</div></div>
+      <div class="field"><label data-i18n="statusLabel"></label><div id="update-status" class="empty">—</div></div>
+      <button class="action primary" id="check-update" data-i18n="checkUpdateButton"></button>
+    </div>
+  </section>
+</main>
+<script type="module" src="./src/settings.ts"></script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+{
+  "name": "dito",
+  "version": "2.0.1",
+  "private": true,
+  "description": "Ditado por voz - aperte F9, fale, o texto aparece onde o cursor esta",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "typecheck": "tsc --noEmit",
+    "addon": "node -e \"require('fs').rmSync('native/build',{recursive:true,force:true})\" && node-gyp configure build --directory=native",
+    "build": "npm run typecheck && electron-vite build",
+    "pack": "npm run addon && npm run build && electron-builder --win --publish never",
+    "engine": "node quality/engine.mjs",
+    "mutation": "node quality/mutation.mjs",
+    "models": "node -e \"process.env.DITO_APPDATA=require('os').tmpdir();require('child_process').execFileSync(process.execPath,[require.resolve('tsx/cli'),'quality/models.mts'],{stdio:'inherit',env:process.env})\"",
+    "native": "node quality/native.mjs",
+    "hotkey": "node quality/hotkey.mjs",
+    "verify": "pwsh -NoProfile -File quality/verify.ps1",
+    "lint": "oxlint",
+    "quality": "tsx quality/code-quality.ts",
+    "hold": "node quality/hold.mjs",
+    "targets": "node quality/paste-targets.mjs",
+    "pack:linux": "npm run build && electron-builder --linux deb --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "node-addon-api": "^8.9.2",
+    "sherpa-onnx-node": "^1.13.6"
+  },
+  "productName": "Dito",
+  "author": "Luis Amaral",
+  "license": "MIT",
+  "build": {
+    "appId": "com.luisamaral.dito",
+    "productName": "Dito",
+    "artifactName": "dito-${version}-setup.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "out/**/*",
+      "assets/**/*",
+      "native/build/Release/dito_win32.node",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "native/build/Release/dito_win32.node",
+      "node_modules/sherpa-onnx-node/**/*",
+      "node_modules/sherpa-onnx-win-x64/**/*"
+    ],
+    "win": {
+      "icon": "assets/dito.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Dito",
+      "deleteAppDataOnUninstall": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "luis1amaral",
+        "repo": "dito-app"
+      }
+    ],
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Utility",
+      "maintainer": "Luis Amaral",
+      "icon": "assets/dito.ico"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "node-gyp": "^12.4.0",
+    "oxlint": "^1.79.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6"
+  }
+}

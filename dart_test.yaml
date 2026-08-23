@@ -1,5 +1,0 @@
-tags:
-  live:
-    # Needs the real native library on PATH; excluded from the default gate. See armadilha 6.9.
-  golden:
-    # Font rendering differs Windows vs Linux; local-only gate, excluded from CI.

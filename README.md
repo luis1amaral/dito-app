@@ -1,48 +1,76 @@
-# Dito 🎙️
+# Dito
 
-Ditado por voz **100% offline**, ultrarrápido e nativo com Whisper C++ para **Windows e Linux**.
+**Aperte a tecla, fale, e o texto é digitado onde o cursor estiver.** Em qualquer janela — terminal,
+navegador, WhatsApp, campo de busca. Nada sai do seu computador.
+
+Só transcrição. Sem agente, sem chat, sem nuvem.
 
 ---
 
-## 📥 Como Instalar
+## Como funciona
 
-### No Linux (Debian, Ubuntu, Linux Mint, LMDE)
+| | |
+|---|---|
+| **Motor** | NVIDIA Parakeet TDT 0.6B v3 int8, em ONNX, rodando na **CPU** a 5–8× tempo real |
+| **Pontuação** | vem do modelo, com maiúsculas |
+| **Idiomas** | 25, inclusive português; mais 9 modelos opcionais no catálogo |
+| **Atalho** | uma tecla (padrão **F10**), no modo alternar ou segurar |
+| **Privacidade** | 100% local: o áudio nunca sai da máquina |
 
-Copie e cole no seu terminal:
+O modelo padrão (640 MB) é baixado na primeira execução, com sha256 conferido por arquivo e
+retomada se a rede cair. Dá para baixar outros, escolher qual usar e apagar — menos o último, para
+você nunca ficar sem transcrição.
+
+## Instalar
+
+Baixe o `dito-*-setup.exe` da [última release](https://github.com/luis1amaral/dito-app/releases) e
+execute. O app vive na **bandeja**; a janela abre no clique do ícone.
+
+> Se você tem a 1.7.x instalada, **desinstale antes** — o instalador usa a mesma pasta.
+
+Linux ainda não: o addon nativo é Win32. Ver `PENDENCIAS.md`.
+
+## Desenvolver
 
 ```bash
-# 1. Adicionar a chave de segurança
-sudo curl -fsSL -o /usr/share/keyrings/defaltm-archive-keyring.gpg https://apt.defaltm.com/defaltm-archive-keyring.gpg
-
-# 2. Adicionar o repositório
-echo "deb [signed-by=/usr/share/keyrings/defaltm-archive-keyring.gpg] https://apt.defaltm.com stable main" | sudo tee /etc/apt/sources.list.d/defaltm.list
-
-# 3. Instalar o Dito
-sudo apt update && sudo apt install dito
+npm install
+npm run addon      # compila o addon nativo (precisa de MSVC + Windows SDK)
+npm run dev        # sobe com recarga
+npm run pack       # gera o instalador
+npm run verify     # o portão de qualidade inteiro
 ```
 
----
+### Estrutura
 
-### No Windows
+```
+src/shared/     o contrato: config, IPC e modelos, num lugar só
+src/main/       15 módulos de um assunto cada; index.ts só dá a partida
+src/preload/    a única ponte para as telas, com contextIsolation
+src/renderer/   pílula, ajustes e cartão de revisão, em TypeScript
+native/         addon N-API: atalho global e colagem (importado e congelado)
+quality/        os portões; entrada única em verify.ps1
+docs/           os porquês que não cabem num comentário de uma linha
+```
 
-👉 **[Clique aqui para baixar o Instalador do Windows (.exe)](https://github.com/luis1amaral/dito-app/releases/latest)**
+## O portão de qualidade
 
-Baixe o arquivo `dito-<versao>-setup.exe` e instale normalmente.
+Nada é dado por pronto sem o binário ter subido — a 1.7.0 saiu com 220 testes verdes e morria antes
+da primeira linha de log. `npm run verify` roda 12 camadas e devolve **exit 0 PASSA, 1 FALHA,
+2 INCOMPLETO**; INCOMPLETO nunca é verde.
 
----
+```
+typecheck · lint · regras do projeto · motor · mutação · modelos ·
+nativo · tecla · segurar · fumaça · colagem console · colagem gui
+```
 
-## 🚀 Como Usar
+Todo portão é provado **nos dois sentidos**: recoloca-se o defeito e exige-se que ele reprove.
+`quality/PARIDADE.md` lista comportamento por comportamento o que já está provado e o que não.
 
-* **`F9` (Segurar para Falar):** Segure o F9, fale o seu texto e solte. O texto é digitado automaticamente onde o cursor estiver (WhatsApp, Word, Discord, VS Code ou Terminal).
-* **`F10` (Modo Alternar / Falar sem Segurar):** Dê um toque no F10 para iniciar a gravação (ideal para ditar em pé ou longe do teclado) e outro toque para encerrar e abrir o cartão de revisão para envio.
+## Créditos e licença
 
----
+- Modelo **Parakeet TDT** da NVIDIA — CC-BY-4.0
+- Motor **sherpa-onnx** — Apache-2.0
+- Resample, catálogo de modelos, formato do gerenciador de download, corte de áudio em janelas e
+  configuração dos recognizers adaptados de [stablyai/orca](https://github.com/stablyai/orca) — MIT
 
-## 📚 Documentação Técnica
-
-Para desenvolvedores e manutenção do projeto:
-
-* 🪟 **[Plano de Porte e Build do Windows](docs/plano-windows.md)** — Roteiro passo a passo para compilar e gerar a release no Windows sem quebrar o Linux.
-* ⚠️ **[Armadilhas e Aprendizados](docs/armadilhas.md)** — Histórico de problemas já resolvidos e regras de ouro de plataforma.
-* 🐧 **[Guia do Linux](docs/LINUX.md)** — Arquitetura X11, GTK, XTEST e empacotamento APT.
-* 🪟 **[Guia do Windows](docs/WINDOWS.md)** — Arquitetura Win32, WASAPI e Inno Setup.
+O Dito é MIT.
