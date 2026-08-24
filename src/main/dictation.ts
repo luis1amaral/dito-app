@@ -8,7 +8,7 @@ import * as engine from './engine'
 import * as native from './native'
 import * as tray from './tray'
 import * as windows from './windows'
-import { joinSegment, segmentDelta } from '../shared/join-segments'
+import { segmentDelta } from '../shared/join-segments'
 import { HISTORY_FILE } from './paths'
 import { log } from './logger'
 
@@ -112,9 +112,10 @@ export function onSegment(text: string): void {
 }
 
 export function onText(m: Extract<EngineMessage, { kind: 'text' }>): void {
-  const tail = (m.text ?? '').trim()
-  spoken = joinSegment(spoken, tail)
-  const rest = joinSegment(unsent, tail)
+  // Same rule as onSegment: the tail carries its own separator, and joinSegment would eat it.
+  const tail = segmentDelta(spoken, m.text ?? '')
+  spoken += tail
+  const rest = unsent + tail
   unsent = ''
   const speed = m.seconds ? (m.seconds / (m.ms / 1000)).toFixed(1) : '?'
   log('transcribed: ' + m.ms + ' ms (' + speed + 'x) "' + spoken + '"')

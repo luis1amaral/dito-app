@@ -1,5 +1,13 @@
 # CHANGELOG — Dito
 
+## 2.0.10 — 2026-08-24
+
+### Correções
+
+- **O último trecho ainda saía colado no anterior** — `"tá ficando.Tá show"` em vez de
+  `"tá ficando. Tá show"`. A 2.0.9 corrigiu a emenda dos trechos do meio e deixou passar a do fim,
+  que é justamente a que todo ditado tem.
+
 ## 2.0.9 — 2026-08-24
 
 ### Correções

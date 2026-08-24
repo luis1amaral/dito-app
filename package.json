@@ -1,6 +1,6 @@
 {
   "name": "dito",
-  "version": "2.0.9",
+  "version": "2.0.10",
   "private": true,
   "description": "Ditado por voz - aperte F9, fale, o texto aparece onde o cursor esta",
   "main": "out/main/index.js",

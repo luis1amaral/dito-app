@@ -96,8 +96,15 @@ console.log('-- nada e digitado duas vezes')
   for (const segmentos of takes) {
     let spoken = ''
     let digitado = ''
-    for (const trecho of segmentos) {
+    // O ULTIMO trecho e a cauda que o onText entrega; a 2.0.9 corrigiu so o laco e deixou ela colada.
+    const cauda = segmentos[segmentos.length - 1]!
+    for (const trecho of segmentos.slice(0, -1)) {
       const delta = segmentDelta(spoken, trecho)
+      spoken += delta
+      digitado += delta
+    }
+    {
+      const delta = segmentDelta(spoken, cauda)
       spoken += delta
       digitado += delta
     }
