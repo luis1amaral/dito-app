@@ -1,5 +1,10 @@
 # CHANGELOG — Dito
 
+## 2.0.7 — 2026-08-24
+
+Nenhuma mudança de comportamento em relação à 2.0.6. Publicada para exercitar o fluxo novo de
+atualização — baixar em segundo plano, mostrar o progresso, e o app fechar e reabrir sozinho.
+
 ## 2.0.6 — 2026-08-24
 
 ### Mudou
