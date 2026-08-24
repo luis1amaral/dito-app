@@ -57,22 +57,25 @@ function build(sherpa: Sherpa, manifest: Manifest, dir: string): unknown {
   const base = { tokens: resolveTokens(names, dir), numThreads: 2, provider: 'cpu', debug: 0 }
   const feat = { featConfig: { sampleRate: SAMPLE_RATE, featureDim: 80 } }
   const greedy = { decodingMethod: 'greedy_search' }
-  const transducer = {
+  const encoderDecoder = (): { encoder: string; decoder: string } => ({
     encoder: resolveFile(names, 'encoder', dir),
-    decoder: resolveFile(names, 'decoder', dir),
+    decoder: resolveFile(names, 'decoder', dir)
+  })
+  // Lazy on purpose: resolving the joiner eagerly threw before whisper/ctc reached their own branch.
+  const transducer = (): Record<string, string> => ({
+    ...encoderDecoder(),
     joiner: resolveFile(names, 'joiner', dir)
-  }
+  })
 
   if (manifest.streaming) {
     const modelConfig =
       manifest.type === 'paraformer'
-        ? { paraformer: { encoder: transducer.encoder, decoder: transducer.decoder }, ...base }
-        : { transducer, ...base }
+        ? { paraformer: encoderDecoder(), ...base }
+        : { transducer: transducer(), ...base }
     return new sherpa.OnlineRecognizer({ ...feat, modelConfig, ...greedy, enableEndpoint: 0 })
   }
   if (manifest.type === 'whisper') {
-    const whisper = { encoder: resolveFile(names, 'encoder', dir), decoder: resolveFile(names, 'decoder', dir) }
-    return new sherpa.OfflineRecognizer({ ...feat, modelConfig: { whisper, ...base }, ...greedy })
+    return new sherpa.OfflineRecognizer({ ...feat, modelConfig: { whisper: encoderDecoder(), ...base }, ...greedy })
   }
   if (manifest.type === 'nemo-ctc') {
     const nemoCtc = { model: resolveFile(names, 'model', dir) }
@@ -83,7 +86,7 @@ function build(sherpa: Sherpa, manifest: Manifest, dir: string): unknown {
     const senseVoice = { model: resolveFile(names, 'model', dir), language: '', useInverseTextNormalization: 1 }
     return new sherpa.OfflineRecognizer({ ...feat, modelConfig: { senseVoice, ...base }, ...greedy })
   }
-  return new sherpa.OfflineRecognizer({ ...feat, modelConfig: { transducer, ...base }, ...greedy })
+  return new sherpa.OfflineRecognizer({ ...feat, modelConfig: { transducer: transducer(), ...base }, ...greedy })
 }
 
 try {

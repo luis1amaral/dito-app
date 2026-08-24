@@ -1,5 +1,21 @@
 # CHANGELOG — Dito
 
+## 2.0.5 — 2026-08-24
+
+### Correções
+
+- **Trocar o modo não fazia nada até reiniciar o app.** A escolha era gravada, mas a tecla continuava
+  com o modo que valia quando o app subiu — daí a sensação de que o "alternar" voltava sozinho para
+  "segurar". A tecla passou a consultar o modo a cada toque.
+- **Trocar para um modelo que não é do tipo Parakeet derrubava o motor.** Escolher o Whisper deixava
+  o app sem transcrever nada até voltar ao modelo anterior. O caminho de cada família de modelo já
+  existia, mas o app procurava um arquivo que só o Parakeet tem antes de chegar nele.
+
+### Mudou
+
+- **O modo virou um botão**, em vez de uma lista para abrir: são dois estados, então um clique
+  alterna entre "alternar" e "segurar".
+
 ## 2.0.4 — 2026-08-23
 
 Nenhuma mudança de comportamento em relação à 2.0.3. Publicada para exercitar a atualização pelo

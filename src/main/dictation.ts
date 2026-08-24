@@ -137,12 +137,13 @@ export function onText(m: Extract<EngineMessage, { kind: 'text' }>): void {
 
 export function bindKey(): void {
   if (!native.available()) return
-  const cfg = config.get()
+  const key = config.get().key
   let lastDown = 0
-  const bound = native.startHook(cfg.key, (e) => {
+  const bound = native.startHook(key, (e) => {
     // The action name comes from the addon, never repeated as a literal on this side.
     if (e.action !== native.action()) return
-    if (cfg.mode === 'hold') {
+    // Read fresh: capturing the mode here once meant changing it in settings did nothing until restart.
+    if (config.get().mode === 'hold') {
       if (e.kind === 'tick') {
         if (phase !== 'recording') return
         const held = Date.now() - recordingSince
@@ -169,7 +170,7 @@ export function bindKey(): void {
   })
   const st = native.hookStatus()
   log(
-    'key: ' + cfg.key + ' mode=' + cfg.mode + ' bound=' + bound +
+    'key: ' + key + ' mode=' + config.get().mode + ' bound=' + bound +
       ' installed=' + st.installed + ' error=' + st.error
   )
 }

@@ -48,6 +48,8 @@
     width: 100%; max-width: 420px; padding: 10px 12px; border-radius: 9px;
     background: var(--panel-2); color: var(--text); border: 1px solid var(--border); font: inherit;
   }
+  /* Two states only, so the mode flips on click instead of asking the user to open a list. */
+  #mode { width: 100%; max-width: 420px; padding: 10px 12px; border-radius: 9px; text-align: left; }
   select:hover, input[type="text"]:hover { border-color: #34344a; }
   select:focus-visible, input:focus-visible { outline: 2px solid var(--purple); outline-offset: 1px; border-color: transparent; }
 
@@ -149,7 +151,8 @@
       </div>
       <div class="field">
         <label for="mode" data-i18n="modeLabel"></label>
-        <select id="mode"></select>
+        <button type="button" id="mode" class="action"></button>
+        <span class="help" data-i18n="modeHelp"></span>
       </div>
       <div class="field">
         <label for="lang" data-i18n="languageLabel"></label>

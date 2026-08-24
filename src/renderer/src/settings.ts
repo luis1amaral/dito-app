@@ -173,10 +173,9 @@ function paintStaticText(): void {
   document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en'
 
   $('key').innerHTML = HOTKEYS.map((k) => '<option value="' + k + '">' + k + '</option>').join('')
-  $('mode').innerHTML = MODES.map((m) => '<option value="' + m + '">' + t(lang, MODE_LABEL_KEYS[m]) + '</option>').join('')
   $('lang').innerHTML = LANG_CHOICES.map((l) => '<option value="' + l + '">' + t(lang, LANG_LABEL_KEYS[l]) + '</option>').join('')
   $<HTMLSelectElement>('key').value = config.key
-  $<HTMLSelectElement>('mode').value = config.mode
+  $('mode').textContent = t(lang, MODE_LABEL_KEYS[config.mode])
   $<HTMLSelectElement>('lang').value = config.lang
   $<HTMLInputElement>('autoPaste').checked = config.autoPaste
   $<HTMLInputElement>('pressEnter').checked = config.pressEnter
@@ -187,7 +186,7 @@ function paintStaticText(): void {
 async function save(): Promise<void> {
   config = await window.api.invoke('config:write', {
     key: $<HTMLSelectElement>('key').value as Config['key'],
-    mode: $<HTMLSelectElement>('mode').value as Config['mode'],
+    mode: config.mode,
     microphone: $<HTMLSelectElement>('microphone').value || null,
     autoPaste: $<HTMLInputElement>('autoPaste').checked,
     pressEnter: $<HTMLInputElement>('pressEnter').checked,
@@ -212,9 +211,14 @@ async function main(): Promise<void> {
   void loadHistory()
 
   await listMicrophones()
-  for (const id of ['key', 'mode', 'lang', 'microphone', 'autoPaste', 'pressEnter']) {
+  for (const id of ['key', 'lang', 'microphone', 'autoPaste', 'pressEnter']) {
     $(id).addEventListener('change', () => void save())
   }
+  // Cycles instead of flipping a pair, so a third mode would work without touching this.
+  $('mode').addEventListener('click', () => {
+    config = { ...config, mode: MODES[(MODES.indexOf(config.mode) + 1) % MODES.length]! }
+    void save()
+  })
   $('clear-history').addEventListener('click', async () => {
     if (!confirm(t(lang, 'confirmClearHistory'))) return
     await window.api.invoke('history:clear')
