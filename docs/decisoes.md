@@ -77,6 +77,32 @@ pacote. As builds 2.0.1 e 2.0.2 apontam para o GitHub público e **nunca** vão 
 a 2.0.3 é a primeira que fala com o Worker, e precisa ser instalada à mão uma vez. Custou zero porque
 `downloadCount` das duas era 0.
 
+## Instalar a atualização — por que NÃO no fechamento
+
+A 2.0.5 usava `autoInstallOnAppQuit`. O efeito medido: o usuário fechava o Dito, o instalador rodava
+em silêncio, trocava a versão — e **não relançava o app**. Da cadeira dele o Dito simplesmente
+sumiu, e ele concluiu que "apagou e não instalou nada", quando na verdade a 2.0.5 estava instalada.
+
+A regra vem do `defalt_updater`, o pacote que o Slime Animes usa, escrita lá em
+`lib/src/windows_installer.dart:38`:
+
+> *só encerra o app depois que o updater PROVAR que subiu … fechar sozinho e não atualizar nada é o
+> pior resultado possível.*
+
+Então o Dito passou ao mesmo desenho:
+
+- `autoDownload = true` — baixa em segundo plano, sem perguntar. Ninguém é interrompido no meio de
+  um ditado.
+- `autoInstallOnAppQuit = false` — **sair é só sair**. Fechar o app nunca mexe na instalação.
+- `installNow()` chama `quitAndInstall(true, true)`. O segundo `true` é `isForceRunAfter`: é ele que
+  faz o app **voltar sozinho**. Sem ele, o comportamento é o da 2.0.5.
+- `checkNow()` devolve cedo quando o estado é `ready`: uma verificação nova não pode descartar um
+  download que já terminou e está a um clique de instalar.
+- O estado carrega `percent`, porque uma frase congelada durante 109 MB é lida como travamento.
+
+A chamada de `quitAndInstall` é adiada em 400 ms de propósito: ela mata o processo, e sem o atraso a
+resposta do IPC morreria antes de chegar na tela.
+
 ## Contrato compartilhado — `src/shared/config.ts` e `src/shared/ipc.ts`
 
 **Por que existe:** a 2.0.0 saiu com um `<select>` de modo cujos valores (`alternar`/`segurar`) não

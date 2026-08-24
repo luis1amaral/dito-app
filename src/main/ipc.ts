@@ -157,6 +157,7 @@ export function register(): void {
   handle('models:retry', () => ensureModel())
 
   handle('update:check', () => updater.checkNow())
+  handle('update:install', () => updater.installNow())
 
   handle('i18n:lang', () => resolveLang())
 

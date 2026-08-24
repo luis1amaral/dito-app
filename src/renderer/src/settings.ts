@@ -1,6 +1,7 @@
 // Settings; every option comes from the shared config types (docs/decisoes.md).
 import { HOTKEYS, MODE_LABEL_KEYS, MODES, type Config } from '../../shared/config'
 import { applyI18n, LANG_CHOICES, LANG_LABEL_KEYS, t, type Lang } from '../../shared/i18n'
+import { bindUpdate, paintUpdate } from './update-pane'
 import type { AppStatus, DownloadProgress } from '../../shared/ipc'
 import type { ModelRow } from '../../shared/models'
 
@@ -27,10 +28,12 @@ for (const button of all<HTMLButtonElement>('nav button')) {
 }
 
 // ----------------------------------------------------------------------- status --
+
 function paintStatus(s: AppStatus): void {
   $('version').textContent = t(lang, 'versionPrefix') + s.version
   $('update-version').textContent = s.version
   $('update-status').textContent = s.update.text
+  paintUpdate(s.update, lang)
 
   const box = $('model-error')
   box.hidden = !s.modelError
@@ -224,15 +227,7 @@ async function main(): Promise<void> {
     await window.api.invoke('history:clear')
     void loadHistory()
   })
-  $('check-update').addEventListener('click', async (e) => {
-    const b = e.currentTarget as HTMLButtonElement
-    b.disabled = true
-    b.textContent = t(lang, 'checkingEllipsis')
-    const r = await window.api.invoke('update:check')
-    $('update-status').textContent = r.text
-    b.disabled = false
-    b.textContent = t(lang, 'checkUpdateButton')
-  })
+  bindUpdate(() => lang)
 
   setInterval(async () => paintStatus(await window.api.invoke('status:read')), 1500)
   setInterval(() => void loadHistory(), 5000)

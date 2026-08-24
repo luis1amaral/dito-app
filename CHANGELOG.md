@@ -1,5 +1,18 @@
 # CHANGELOG — Dito
 
+## 2.0.6 — 2026-08-24
+
+### Mudou
+
+- **Atualizar virou um clique, e o app volta sozinho.** Antes ele instalava escondido quando você
+  fechava o Dito — e não reabria: da sua cadeira, o app simplesmente sumia. Agora a versão nova baixa
+  em segundo plano, a tela mostra **quanto já baixou**, e o botão vira **"Reiniciar e atualizar"**.
+  Ao clicar, o Dito fecha, instala e **abre de novo sozinho**.
+- **Fechar o Dito não mexe mais na instalação.** Sair é só sair.
+
+Mesmo comportamento do Slime Animes, de onde a regra veio: *só encerra depois que o atualizador
+provar que subiu — fechar sozinho e não atualizar nada é o pior resultado possível.*
+
 ## 2.0.5 — 2026-08-24
 
 ### Correções

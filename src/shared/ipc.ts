@@ -12,8 +12,12 @@ export type DownloadProgress = { id: string; file: string; done: number; total: 
 export type HookStatus = { installed: boolean; error: number; seen: number; pumps: number }
 
 export type UpdateState = {
-  state: 'idle' | 'checking' | 'downloading' | 'ready' | 'ok' | 'error'
+  state: 'idle' | 'checking' | 'downloading' | 'ready' | 'installing' | 'ok' | 'error'
   text: string
+  /** 0..100 while downloading; the screen shows a real bar instead of a frozen sentence. */
+  percent: number
+  /** Set from 'downloading' on, so the button can name the version it is about to install. */
+  version: string | null
 }
 
 export type AppStatus = {
@@ -43,6 +47,7 @@ export type InvokeMap = {
   'models:delete': { arg: string; ret: ModelRow[] }
   'models:retry': { arg: void; ret: { error: string | null } }
   'update:check': { arg: void; ret: UpdateState }
+  'update:install': { arg: void; ret: UpdateState }
   'i18n:lang': { arg: void; ret: Lang }
 }
 

@@ -92,6 +92,8 @@
   .model .buttons { display: flex; gap: 8px; flex: none; }
   .bar { height: 5px; border-radius: 3px; background: var(--panel-2); overflow: hidden; margin-top: 10px; }
   .bar i { display: block; height: 100%; background: var(--purple); width: 0; transition: width .25s ease; }
+  /* Same bar as the model download; a frozen sentence during 109 MB reads as a hang. */
+  #update-bar { max-width: 420px; margin: 0 0 16px; }
 
   .notice { display: flex; gap: 10px; padding: 12px 14px; border-radius: 9px; font-size: 13px; margin-bottom: 16px;
             background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.28); color: #F5D68A; }
@@ -207,6 +209,7 @@
     <div class="card">
       <div class="field"><label data-i18n="installedVersionLabel"></label><div id="update-version" class="empty">—</div></div>
       <div class="field"><label data-i18n="statusLabel"></label><div id="update-status" class="empty">—</div></div>
+      <div class="bar" id="update-bar" hidden><i id="update-fill"></i></div>
       <button class="action primary" id="check-update" data-i18n="checkUpdateButton"></button>
     </div>
   </section>
