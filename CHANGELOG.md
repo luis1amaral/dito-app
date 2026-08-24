@@ -1,5 +1,17 @@
 # CHANGELOG — Dito
 
+## 2.0.9 — 2026-08-24
+
+### Correções
+
+- **O texto chegava duas vezes.** O que já tinha sido digitado enquanto você falava era digitado de
+  novo, inteiro, quando o ditado terminava. Agora o fim do ditado manda **só o que faltou**.
+- **Os trechos saíam colados** na emenda — `"quando eu.Tô falando"` em vez de `"quando eu. Tô
+  falando"`. O espaço que separa um trecho do outro estava sendo descartado.
+
+O ditado inteiro continua indo para o `Ctrl+V`, sempre: se a colagem der errado em qualquer ponto,
+está tudo lá para colar à mão.
+
 ## 2.0.8 — 2026-08-24
 
 Nenhuma mudança de comportamento em relação à 2.0.6. Publicada, como a 2.0.7, só para exercitar o

@@ -8,7 +8,7 @@ import * as engine from './engine'
 import * as native from './native'
 import * as tray from './tray'
 import * as windows from './windows'
-import { joinSegment } from '../shared/join-segments'
+import { joinSegment, segmentDelta } from '../shared/join-segments'
 import { HISTORY_FILE } from './paths'
 import { log } from './logger'
 
@@ -21,6 +21,9 @@ let unsent = ''
 
 // Last resort for a lost key-up; matches the renderer buffer cap (docs/decisoes.md).
 const MAX_HOLD_MS = Number(process.env['DITO_MAX_HOLD_MS'] ?? 180_000)
+
+// Above the 1400 ms window quality/paste-targets.mjs proves a paste lands in (docs/decisoes.md).
+const CLIPBOARD_HANDOVER_MS = 1500
 
 function setPhase(next: DictationPhase, detail = ''): void {
   phase = next
@@ -94,16 +97,16 @@ function typeInto(text: string, pressEnter: boolean): boolean {
 
 // Typed mid-take only while the target still has focus; otherwise it waits for the end.
 export function onSegment(text: string): void {
-  const joined = joinSegment(spoken, text)
-  const delta = joined.slice(spoken.length)
-  spoken = joined
+  const delta = segmentDelta(spoken, text)
+  spoken += delta
   windows.sendTo('pill', 'partial', { text: spoken })
   if (!delta) return
+  // Concatenated raw: joinSegment trims, and the delta's own leading space is the word separator.
   if (!config.get().autoPaste || !native.available() || !native.targetIsForeground()) {
-    unsent = joinSegment(unsent, delta)
+    unsent += delta
     return
   }
-  const pending = joinSegment(unsent, delta)
+  const pending = unsent + delta
   unsent = ''
   if (!typeInto(pending, false)) unsent = pending
 }
@@ -130,8 +133,9 @@ export function onText(m: Extract<EngineMessage, { kind: 'text' }>): void {
     log('type: ' + typed + ' into ' + target.kind + ' "' + target.title + '"')
   }
 
-  // Always last and always done: a window is always there, so Ctrl+V is the only guarantee.
-  clipboard.writeText(spoken)
+  // Ctrl+V is the only guarantee; why it waits after a real paste is in docs/decisoes.md.
+  if (typed) setTimeout(() => clipboard.writeText(spoken), CLIPBOARD_HANDOVER_MS)
+  else clipboard.writeText(spoken)
   flash(typed ? 'pasted' : 'copied', spoken, typed ? 2000 : 2600)
 }
 

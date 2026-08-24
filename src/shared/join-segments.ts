@@ -14,3 +14,8 @@ export function joinSegment(soFar: string, next: string): string {
   if (NO_SPACE_AFTER.includes(last)) return soFar + piece
   return soFar + ' ' + piece
 }
+
+/** What `next` adds to `soFar`, separator included: typing only this keeps the two in step. */
+export function segmentDelta(soFar: string, next: string): string {
+  return joinSegment(soFar, next).slice(soFar.length)
+}

@@ -1,7 +1,7 @@
 // Proves the audio is cut into windows and that the cut lands on silence, not in the middle of a
 // word. Without this the live text would arrive chopped and nobody would notice until using it.
 import { AudioChunker } from '../src/main/audio-chunker'
-import { joinSegment } from '../src/shared/join-segments'
+import { joinSegment, segmentDelta } from '../src/shared/join-segments'
 
 const SAMPLE_RATE = 16000
 const WINDOW_SECONDS = 8
@@ -81,6 +81,31 @@ console.log('-- emenda dos segmentos')
     if (got !== expected) fail('joinSegment("' + a + '","' + b + '") deu "' + got + '"')
   }
   if (!failures.length) console.log('   ' + cases.length + ' casos de espaco e pontuacao: OK')
+}
+
+// A 2.0.8 digitou o trecho ao vivo E a mensagem inteira no fim. A invariante que impede isso:
+// a soma do que foi digitado tem que dar exatamente o que vai para a area de transferencia.
+console.log('-- nada e digitado duas vezes')
+{
+  const takes: string[][] = [
+    ['Cara, so uma correcao.', 'Eu nao pensei nisso.', 'Ele fica transcrevendo, e e certo.'],
+    ['Bom dia', ', tudo bem', '? Otimo.'],
+    ['abre (', 'parenteses', ' e fecha)'],
+    ['unico trecho']
+  ]
+  for (const segmentos of takes) {
+    let spoken = ''
+    let digitado = ''
+    for (const trecho of segmentos) {
+      const delta = segmentDelta(spoken, trecho)
+      spoken += delta
+      digitado += delta
+    }
+    if (digitado !== spoken) fail('digitado "' + digitado + '" != area de transferencia "' + spoken + '"')
+    // Sem isto o defeito volta na forma "quando eu.To falando" -- palavras coladas.
+    if (/\w[.?!]\w/.test(digitado)) fail('trechos colados sem espaco: "' + digitado + '"')
+  }
+  if (!failures.length) console.log('   ' + takes.length + ' ditados: o digitado bate com o Ctrl+V')
 }
 
 console.log('')

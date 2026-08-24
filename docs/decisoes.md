@@ -103,6 +103,35 @@ Então o Dito passou ao mesmo desenho:
 A chamada de `quitAndInstall` é adiada em 400 ms de propósito: ela mata o processo, e sem o atraso a
 resposta do IPC morreria antes de chegar na tela.
 
+## Entrega do texto — por que a área de transferência espera
+
+A 2.0.8 digitava o trecho ao vivo **e**, no fim do ditado, a mensagem inteira de novo. Duas causas
+independentes, as duas achadas na mensagem duplicada que o próprio usuário ditou.
+
+**1. A corrida com a área de transferência.** `native/src/input.cc:138` põe o texto na área de
+transferência e dispara `Ctrl+V` com `SendInput` — que é **assíncrono**: a função volta assim que o
+evento é postado, sem esperar o app de destino ler. Na linha seguinte o `dictation.ts` fazia
+`clipboard.writeText(spoken)`, trocando o conteúdo pela mensagem inteira **antes** do destino ler.
+O `Ctrl+V` chegava depois e colava tudo.
+
+A escrita do texto completo passou a ser adiada em `CLIPBOARD_HANDOVER_MS = 1500`. O número não é
+chute: `quality/paste-targets.mjs:91` prova que uma colagem chega dentro de 1400 ms, então o repasse
+tem que ficar acima dessa janela. A garantia para o usuário continua a mesma — o ditado inteiro
+sempre acaba no `Ctrl+V` —, só que 1,5 s depois, o que ninguém percebe.
+
+**2. O separador aparado.** `onSegment` calculava `delta` (que já vem com o próprio espaço, por
+exemplo `" Tô falando"`) e passava por `joinSegment(unsent, delta)`. Com `unsent` vazio — o caso
+normal, porque ele é limpo a cada segmento digitado — essa função cai em `if (!soFar) return piece`,
+e `piece` é `next.trim()`. O espaço morria ali, e os trechos saíam colados: `"quando eu.Tô falando"`.
+
+Agora o delta é concatenado cru, e o cálculo virou `segmentDelta()` em `src/shared/join-segments.ts`
+para poder ser exercitado. A invariante está no portão `chunker`:
+
+> a soma de tudo que foi digitado tem que dar exatamente o que vai para a área de transferência.
+
+Provada nos dois sentidos: repondo o `joinSegment('', delta)` da 2.0.8, o portão reprova com
+`"correcao.Eu nao pensei"` — o mesmo defeito, reproduzido.
+
 ## Contrato compartilhado — `src/shared/config.ts` e `src/shared/ipc.ts`
 
 **Por que existe:** a 2.0.0 saiu com um `<select>` de modo cujos valores (`alternar`/`segurar`) não
