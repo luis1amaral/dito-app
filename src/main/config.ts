@@ -1,4 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { DEFAULT_CONFIG, migrate, type Config } from '../shared/config'
 import { CONFIG_FILE, DATA_DIR } from './paths'
 import { log } from './logger'
@@ -19,6 +20,8 @@ export function get(): Config {
 
 export function update(patch: Partial<Config>): Config {
   current = migrate({ ...current, ...patch } as Record<string, unknown>)
+  // On Linux the config and the data dir are different places, so both have to exist.
+  mkdirSync(dirname(CONFIG_FILE), { recursive: true })
   mkdirSync(DATA_DIR, { recursive: true })
   writeFileSync(CONFIG_FILE, JSON.stringify(current, null, 2))
   log('config: ' + JSON.stringify(current))

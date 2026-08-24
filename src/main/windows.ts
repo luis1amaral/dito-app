@@ -39,6 +39,8 @@ export function createPill(): void {
     webPreferences: { preload: PRELOAD, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false }
   })
   pill.setAlwaysOnTop(true, 'screen-saver')
+  // The constructor flag doesn't always stick before the WM maps the window on Linux.
+  pill.setSkipTaskbar(true)
   // Click-through: the pill never steals the cursor from whoever is working.
   pill.setIgnoreMouseEvents(true)
   loadScreen(pill, 'pill')
@@ -71,7 +73,7 @@ export function openSettings(capture = false): void {
     minWidth: 880,
     minHeight: 600,
     title: 'Dito',
-    icon: asset('dito.ico'),
+    icon: asset(process.platform === 'linux' ? 'icon.png' : 'dito.ico'),
     backgroundColor: '#0E0E13',
     autoHideMenuBar: true,
     webPreferences: { preload: PRELOAD, contextIsolation: true, nodeIntegration: false }

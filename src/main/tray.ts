@@ -8,9 +8,9 @@ import { openSettings } from './windows'
 let tray: Tray | null = null
 
 function icon(phase: DictationPhase): Electron.NativeImage {
-  const name =
-    phase === 'recording' ? 'tray-recording.ico' : phase === 'error' ? 'tray-alert.ico' : 'tray-idle.ico'
-  const file = asset(name)
+  const state = phase === 'recording' ? 'tray-recording' : phase === 'error' ? 'tray-alert' : 'tray-idle'
+  const ext = process.platform === 'linux' ? '.png' : '.ico'
+  const file = asset(state + ext)
   return existsSync(file) ? nativeImage.createFromPath(file) : nativeImage.createEmpty()
 }
 

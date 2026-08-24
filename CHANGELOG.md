@@ -1,6 +1,54 @@
 # CHANGELOG — Dito
 
-## 2.0.10 — 2026-08-24
+## 2.0.10 — 2026-08-24 · agora também no Linux
+
+### Novidades
+
+- **Port para Linux (X11), empacotado como `.deb`.** Mesma versão do Windows, mesmo comportamento:
+  segurar ou alternar a tecla, gravar, transcrever offline e o texto cair onde o cursor está. O
+  `.deb` é instalado com `apt` e puxa as dependências sozinho.
+
+### Como o Linux resolve o que o Windows resolvia de outro jeito
+
+Não foi tradução linha a linha do Win32 — cada peça usa o que o X11 tem de melhor:
+
+- **Tecla global com supressão** — `XGrabKey` na janela raiz, registrada em todas as combinações de
+  Caps/Num/Scroll Lock. Entrega press e release e a tecla não vaza para o app de baixo, sem precisar
+  de root nem do grupo `input` (era o que o `WH_KEYBOARD_LL` com `suppress` fazia).
+- **`XkbSetDetectableAutoRepeat`** — sem isso o X11 forja um release antes de cada repetição e o
+  modo *segurar* nunca segura. Além disso o addon só emite uma borda quando o estado **muda**: a
+  repetição automática chegava a desligar a gravação sozinha no modo *alternar*.
+- **Estado físico da tecla** — `XQueryKeymap` a cada 100 ms, no lugar da leitura de estado do
+  Windows. É a rede de segurança para um key-up perdido, e é o árbitro que ressincroniza a borda.
+- **Janela alvo** — `_NET_ACTIVE_WINDOW`, `WM_CLASS` e `_NET_WM_NAME` no lugar de
+  `GetForegroundWindow`/`GetClassNameW`.
+- **Roubo de foco: não existe.** O Windows precisa de `SetForegroundWindow` + `AttachThreadInput`
+  porque o sistema não entrega o primeiro plano a quem não o tem. No X11 isso não é problema, e a
+  pill já é `focusable: false` — então esse bloco inteiro simplesmente não foi portado. Se o foco
+  mudou durante o ditado, a colagem é **recusada** em vez de forçada, e o texto vai para a área de
+  transferência.
+- **Terminal cola com Ctrl+Shift+V** — é a mesma armadilha do `conhost` no Windows, com outra cara.
+  `xterm`, `urxvt` e `rxvt`, que não têm esse atalho, recebem o texto **digitado** tecla a tecla.
+- **Acento pt-BR** — `KEYEVENTF_UNICODE` não existe aqui. O addon remapeia temporariamente um
+  keycode livre para o keysym de cada caractere e restaura o mapa no fim (é o que o `xdotool` faz).
+- **Área de transferência** — fica com o Electron, que já é dono da seleção X11. O addon só
+  sintetiza o atalho. Menos C++, menos chance de erro.
+
+### Onde os arquivos ficam no Linux
+
+Modelos e histórico em `~/.local/share/dito`, configuração em `~/.config/dito`, log em
+`~/.local/state/dito` — XDG, como manda o sistema. Deixar 3 GB de modelo dentro de `~/.config`
+seria errado. No Windows nada mudou.
+
+### Como foi verificado
+
+- `npx node-gyp build` gera `dito_linux.node` — exit 0.
+- Gate do hook (`xdotool key F10` passa pelo XTest e é capturado pelo grab): `installed: true`,
+  bordas down/up corretas, `seen` e `pumps` subindo — exit 0.
+- Gate de colagem sob Electron real (`quality/paste-linux.js`): abre o `xed`, lembra o alvo
+  (`Xed`, `kind: gui`, é o ativo), cola `"teste com acentuação, ção e ênfase"` pela área de
+  transferência e digita `" | digitado: ação"` por XTest; salva e o arquivo em disco contém os dois
+  exatos — exit 0.
 
 ### Correções
 

@@ -1,4 +1,5 @@
 // Optional at load time: without it the app still opens and says what is wrong.
+import { clipboard } from 'electron'
 import type { HookStatus } from '../shared/ipc'
 import { addonPath } from './paths'
 import { log } from './logger'
@@ -57,8 +58,11 @@ export function targetIsForeground(): boolean {
   return addon ? addon.targetIsForeground() : false
 }
 
+// X11 has no clipboard API in the addon on purpose: Electron already owns the selection.
 export function paste(text: string): boolean {
-  return addon ? addon.paste(text) : false
+  if (!addon) return false
+  if (process.platform === 'linux') clipboard.writeText(text)
+  return addon.paste(text)
 }
 
 export function typeText(text: string): boolean {

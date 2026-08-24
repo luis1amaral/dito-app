@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "typecheck": "tsc --noEmit",
-    "addon": "node -e \"require('fs').rmSync('native/build',{recursive:true,force:true})\" && node-gyp configure build --directory=native",
+    "addon": "node -e \"require('fs').rmSync('native/build',{recursive:true,force:true})\" && npx node-gyp configure build --directory=native",
     "build": "npm run typecheck && electron-vite build",
     "pack": "npm run addon && npm run build && electron-builder --win --publish never",
     "engine": "node quality/engine.mjs",
@@ -20,7 +20,7 @@
     "quality": "tsx quality/code-quality.ts",
     "hold": "node quality/hold.mjs",
     "targets": "node quality/paste-targets.mjs",
-    "pack:linux": "npm run build && electron-builder --linux deb --publish never",
+    "pack:linux": "npm run addon && npm run build && electron-builder --linux deb --publish never",
     "release": "node quality/release.mjs"
   },
   "dependencies": {
@@ -34,7 +34,6 @@
   "build": {
     "appId": "com.luisamaral.dito",
     "productName": "Dito",
-    "artifactName": "dito-${version}-setup.${ext}",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -42,23 +41,31 @@
     "files": [
       "out/**/*",
       "assets/**/*",
-      "native/build/Release/dito_win32.node",
+      "native/build/Release/*.node",
       "package.json",
       "node_modules/**/*"
     ],
     "asarUnpack": [
-      "native/build/Release/dito_win32.node",
+      "native/build/Release/*.node",
       "node_modules/sherpa-onnx-node/**/*",
-      "node_modules/sherpa-onnx-win-x64/**/*"
+      "node_modules/sherpa-onnx-win-x64/**/*",
+      "node_modules/sherpa-onnx-linux-x64/**/*"
     ],
     "win": {
       "icon": "assets/dito.ico",
+      "artifactName": "dito-${version}-setup.${ext}",
       "target": [
         {
           "target": "nsis",
           "arch": [
             "x64"
           ]
+        }
+      ],
+      "publish": [
+        {
+          "provider": "generic",
+          "url": "https://dito-api.defaltm.com/update/win"
         }
       ]
     },
@@ -71,19 +78,51 @@
       "shortcutName": "Dito",
       "deleteAppDataOnUninstall": true
     },
-    "publish": [
-      {
-        "provider": "generic",
-        "url": "https://dito-api.defaltm.com/update/win"
-      }
-    ],
     "linux": {
       "target": [
-        "deb"
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "category": "Utility",
       "maintainer": "Luis Amaral",
-      "icon": "assets/dito.ico"
+      "icon": "assets/icon.png",
+      "synopsis": "Ditado por voz",
+      "description": "Ditado por voz: aperte uma tecla, fale, o texto aparece onde o cursor estava.",
+      "artifactName": "dito-${version}-amd64.${ext}",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "Dito",
+          "Categories": "Utility;AudioVideo;"
+        }
+      },
+      "publish": [
+        {
+          "provider": "generic",
+          "url": "https://dito-api.defaltm.com/update/linux"
+        }
+      ]
+    },
+    "deb": {
+      "depends": [
+        "libx11-6",
+        "libxtst6",
+        "libxi6",
+        "libgtk-3-0t64",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libasound2t64",
+        "libsecret-1-0",
+        "libayatana-appindicator3-1",
+        "libstdc++6",
+        "libgcc-s1",
+        "libgomp1",
+        "xdg-utils"
+      ]
     }
   },
   "devDependencies": {
