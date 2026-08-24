@@ -116,6 +116,7 @@
         "libnss3",
         "libxss1",
         "libasound2t64",
+        "libatspi2.0-0t64",
         "libsecret-1-0",
         "libayatana-appindicator3-1",
         "libstdc++6",

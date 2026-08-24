@@ -40,6 +40,14 @@ Modelos e histórico em `~/.local/share/dito`, configuração em `~/.config/dito
 `~/.local/state/dito` — XDG, como manda o sistema. Deixar 3 GB de modelo dentro de `~/.config`
 seria errado. No Windows nada mudou.
 
+### Correção no pacote antes de publicar
+
+- **`libatspi2.0-0t64` faltava no `depends`.** O `deb.depends` do electron-builder **substitui** o
+  default inteiro, e a lista montada à mão deixou essa de fora — mas o binário do Electron linka
+  contra `libatspi.so.0`. Numa máquina onde a lib não estivesse presente, o `apt install` passaria e
+  o app não abriria. Derivado agora do próprio binário com `ldd` + `dpkg -S`, não de uma lista
+  copiada.
+
 ### Como foi verificado
 
 - `npx node-gyp build` gera `dito_linux.node` — exit 0.
