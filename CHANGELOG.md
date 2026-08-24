@@ -1,5 +1,10 @@
 # CHANGELOG — Dito
 
+## 2.0.4 — 2026-08-23
+
+Nenhuma mudança de comportamento em relação à 2.0.3. Publicada para exercitar a atualização pelo
+botão **Procurar atualização** com uma versão nova de verdade do outro lado.
+
 ## 2.0.3 — 2026-08-23
 
 ### Correções
