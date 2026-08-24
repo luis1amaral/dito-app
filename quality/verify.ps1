@@ -39,6 +39,7 @@ $camadas = @(
     @{ nome = 'fumaca (o app sobe?)';            cmd = { pwsh -NoProfile -File "$PSScriptRoot\smoke.ps1" } }
     @{ nome = 'colagem (console cru)';           cmd = { node "$PSScriptRoot\paste-wiring.mjs" } }
     @{ nome = 'colagem (via gui)';               cmd = { node "$PSScriptRoot\paste-targets.mjs" } }
+    @{ nome = 'feed (o app acha a versao?)';     cmd = { node "$PSScriptRoot\update-feed.mjs" } }
 )
 
 Push-Location $raiz

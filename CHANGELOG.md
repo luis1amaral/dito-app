@@ -1,5 +1,32 @@
 # CHANGELOG — Dito
 
+## 2.0.3 — 2026-08-23
+
+### Correções
+
+- **A tela de Atualizações não achava versão nenhuma** e mostrava um bloco de erro HTTP cru no lugar
+  da situação. O app procurava a versão direto no GitHub, mas o repositório é privado: sem
+  credencial o GitHub responde 404 e ainda sugere que o token está errado — quando não existia token
+  algum. Agora a busca passa pelo servidor do Dito, que guarda a credencial; o app continua sem
+  segredo nenhum dentro dele.
+- **As versões eram publicadas sem o arquivo que descreve a atualização.** Mesmo com o acesso
+  resolvido, o app pararia no passo seguinte. Publicar agora recusa sair sem esse arquivo.
+- **O erro na tela virou frase de gente.** "não consegui falar com o servidor de atualização" em vez
+  do despejo do protocolo. O detalhe técnico continua inteiro no log.
+
+### Por dentro
+
+- Camada nova no `npm run verify`: **feed** — confere que o app aponta para o servidor certo, que ele
+  responde com a versão e que o instalador anunciado é alcançável.
+- O instalador **não passa mais pelo servidor**: ele devolve um endereço temporário e os 109 MB vêm
+  direto do CDN do GitHub.
+
+### Atenção ao instalar
+
+Quem estiver na **2.0.1 ou 2.0.2 precisa instalar a 2.0.3 à mão** — o endereço de atualização fica
+gravado dentro do pacote, e essas duas nasceram apontando para o lugar errado. Da 2.0.3 em diante a
+atualização é sozinha.
+
 ## 2.0.2 — 2026-08-23
 
 ### Novidades

@@ -12,6 +12,19 @@ let failures = 0
 let timer: NodeJS.Timeout | null = null
 let state: UpdateState = { state: 'idle', text: 'nunca verificado' }
 
+// The lib's raw HTTP dump belongs in the log, never on a settings screen.
+function humanError(err: Error): string {
+  const message = err.message ?? ''
+  // electron-updater puts the HTTP status first, so the code is the only part worth showing.
+  const http = /^\s*(\d{3})\b/.exec(message)
+  if (http) return 'o servidor de atualização não respondeu com a versão (código ' + http[1] + ')'
+  if (/Cannot find channel|CHANNEL_FILE_NOT_FOUND/i.test(message))
+    return 'a versão publicada está sem o manifesto — avise o desenvolvedor'
+  if (/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENETUNREACH|socket hang up/i.test(message))
+    return 'não consegui falar com o servidor de atualização'
+  return 'não consegui verificar agora — o detalhe está no log'
+}
+
 function load(): AppUpdater | null {
   if (updater) return updater
   try {
@@ -37,7 +50,7 @@ function load(): AppUpdater | null {
     log('updater: ' + i.version + ' baixada, instala ao sair')
   })
   updater.on('error', (e: Error) => {
-    state = { state: 'error', text: e.message }
+    state = { state: 'error', text: humanError(e) }
     log('updater: erro - ' + e.message)
   })
   return updater
@@ -56,7 +69,7 @@ export async function checkNow(): Promise<UpdateState> {
     log('updater: checou · feed em ' + (r?.updateInfo?.version ?? '?'))
   } catch (err) {
     failures += 1
-    state = { state: 'error', text: (err as Error).message }
+    state = { state: 'error', text: humanError(err as Error) }
     log('updater: falhou (' + failures + ') - ' + (err as Error).message)
   }
   return state

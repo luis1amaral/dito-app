@@ -46,7 +46,6 @@ ativo, senão a pílula vem com fundo preto.
 
 | # | Pendência | Por quê importa |
 |---|---|---|
-| W1 | **Auto-update nunca exercitado.** `electron-updater` está ligado e aponta para `luis1amaral/dito-app`, mas nunca houve duas versões para comparar | A 1.7.0 foi despublicada por update ruim |
 | W2 | **Ditado de 3 minutos nunca gravado.** O corte em janelas de 8 s existe e é testado por unidade, mas ninguém falou 3 minutos seguidos | É o caminho que derruba o app se estiver errado |
 | W3 | **9 dos 10 modelos nunca rodaram.** URL, tamanho e sha256 conferidos; o motor tem o ramo de cada tipo; falta baixar e transcrever | `resolveFile` pode não achar o arquivo de um tipo diferente |
 | W4 | **Modelo streaming nunca rodou.** Nomes da API conferidos contra o pacote, mas nenhum foi baixado | Nome certo não é execução certa |
@@ -65,3 +64,8 @@ ativo, senão a pílula vem com fundo preto.
 - A colagem **espera o foco trocar** antes de digitar — sem isso o texto ia para a janela errada.
 - App sobe nos dois modos, não abre janela na bandeja, 0% de preto puro, sem erro de JS.
 - Download em máquina limpa funciona: 640 MB em 39 s, sha256 conferido, com retomada.
+- **Causa do auto-update quebrado achada e corrigida** (era a W1, mal diagnosticada: o problema não
+  era faltar duas versões, era o feed apontar para um repositório privado sem credencial — 404 —
+  e as releases saírem sem `latest.yml`). O feed passou a ser o Worker `dito-api`; o portão `feed`
+  do `npm run verify` cobre isso e `npm run release` recusa publicar sem o manifesto. O clique de
+  ponta a ponta na 2.0.3 está registrado no `CHANGELOG.md`. Ver `docs/decisoes.md`.

@@ -1,6 +1,6 @@
 {
   "name": "dito",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "private": true,
   "description": "Ditado por voz - aperte F9, fale, o texto aparece onde o cursor esta",
   "main": "out/main/index.js",
@@ -20,7 +20,8 @@
     "quality": "tsx quality/code-quality.ts",
     "hold": "node quality/hold.mjs",
     "targets": "node quality/paste-targets.mjs",
-    "pack:linux": "npm run build && electron-builder --linux deb --publish never"
+    "pack:linux": "npm run build && electron-builder --linux deb --publish never",
+    "release": "node quality/release.mjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
@@ -72,9 +73,8 @@
     },
     "publish": [
       {
-        "provider": "github",
-        "owner": "luis1amaral",
-        "repo": "dito-app"
+        "provider": "generic",
+        "url": "https://dito-api.defaltm.com/update/win"
       }
     ],
     "linux": {
