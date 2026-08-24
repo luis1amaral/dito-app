@@ -13,7 +13,7 @@ let timer: NodeJS.Timeout | null = null
 let state: UpdateState = { state: 'idle', text: 'nunca verificado' }
 
 // The lib's raw HTTP dump belongs in the log, never on a settings screen.
-function humanError(err: Error): string {
+export function humanError(err: Error): string {
   const message = err.message ?? ''
   // electron-updater puts the HTTP status first, so the code is the only part worth showing.
   const http = /^\s*(\d{3})\b/.exec(message)

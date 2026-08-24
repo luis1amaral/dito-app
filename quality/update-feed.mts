@@ -2,6 +2,7 @@
 // Existe porque a 2.0.1 e a 2.0.2 sairam com o feed quebrado e ninguem percebeu ate abrir a tela.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { humanError } from '../src/main/updater'
 
 const RAIZ = join(import.meta.dirname, '..')
 const TIMEOUT_MS = 15000
@@ -82,5 +83,26 @@ ok(`${arquivo} alcancavel (${bin.status})`)
 const fantasma = await buscar(`${base}/nao-existe-${Date.now()}.exe`)
 if (fantasma.status !== 404) falhou(`asset inexistente devolveu ${fantasma.status}, esperado 404`)
 else ok('asset inexistente devolve 404')
+
+// O defeito que motivou isto: a 2.0.2 mostrava o dump de HTTP inteiro no campo Situacao.
+const CRU = '404 "method: GET url: https://github.com/luis1amaral/dito-app/releases.atom\n\n'
+  + 'Please double check that your authentication token is correct." Headers: { "cache-control": '
+  + '"no-cache", "content-encoding": "gzip", "set-cookie": [ "_gh_sess=4%2FBZgVdxPvSQCEHP2O" ] }'
+
+const casos: Array<[string, string]> = [
+  [CRU, 'código 404'],
+  ['Cannot find channel "latest.yml" update info: HttpError: 404', 'manifesto'],
+  ['getaddrinfo ENOTFOUND dito-api.defaltm.com', 'falar com o servidor'],
+  ['algo que ninguem previu', 'log'],
+]
+
+for (const [entrada, esperado] of casos) {
+  const saida = humanError(new Error(entrada))
+  const rotulo = entrada.slice(0, 34).replace(/\s+/g, ' ')
+  if (!saida.includes(esperado)) falhou(`humanError("${rotulo}...") deu "${saida}", esperava conter "${esperado}"`)
+  // Nenhum pedaco do protocolo pode chegar na tela, seja qual for o erro.
+  else if (/method:|Headers:|url: http|set-cookie|_gh_sess/i.test(saida)) falhou(`humanError vazou protocolo: "${saida}"`)
+  else ok(`erro vira frase: "${saida}"`)
+}
 
 process.exit(falhas ? 1 : 0)
