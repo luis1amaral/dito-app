@@ -1,5 +1,10 @@
 # CHANGELOG — Dito
 
+## 2.0.8 — 2026-08-24
+
+Nenhuma mudança de comportamento em relação à 2.0.6. Publicada, como a 2.0.7, só para exercitar o
+botão de atualizar.
+
 ## 2.0.7 — 2026-08-24
 
 Nenhuma mudança de comportamento em relação à 2.0.6. Publicada para exercitar o fluxo novo de
