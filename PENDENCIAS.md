@@ -47,7 +47,8 @@ ativo, senão a pílula vem com fundo preto.
 | # | Pendência | Por quê importa |
 |---|---|---|
 | W2 | **Ditado de 3 minutos nunca gravado.** O corte em janelas de 8 s existe e é testado por unidade, mas ninguém falou 3 minutos seguidos | É o caminho que derruba o app se estiver errado |
-| W3 | **9 dos 10 modelos nunca rodaram.** URL, tamanho e sha256 conferidos; o motor tem o ramo de cada tipo; falta baixar e transcrever | `resolveFile` pode não achar o arquivo de um tipo diferente |
+| W3 | **Modelos que não são transducer sem portão automático.** O Whisper foi provado à mão na 2.0.5 (carrega em 608 ms e transcreve); `nemo-ctc`, `senseVoice` e `paraformer` continuam sem nenhuma execução | O portão `engine.mjs` monta o transducer na mão em vez de chamar o `build()` real, então não cobriria a regressão que a 2.0.5 corrigiu |
+| W3b | **Whisper Tiny transcreve português como inglês.** `"Testando, testando"` saiu `"test and to test and to test"`; o campo `language` do sherpa nunca é preenchido a partir do `lang` da configuração | Oferecer um modelo que devolve lixo é pior que não oferecer |
 | W4 | **Modelo streaming nunca rodou.** Nomes da API conferidos contra o pacote, mas nenhum foi baixado | Nome certo não é execução certa |
 | W5 | **Sem a voz do dono nas fixtures.** Falta número por extenso e termo em inglês | Critério A5/A6 da paridade |
 | W6 | **Iniciar com o Windows** não implementado | O 1.7 tinha; o atalho com `--startup` existe, falta a entrada de inicialização |
