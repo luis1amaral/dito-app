@@ -1,5 +1,71 @@
 # CHANGELOG — Dito
 
+## 2.0.11 — 2026-08-25 · o microfone parou de "desligar sozinho"
+
+Dois defeitos diferentes davam a mesma sensação: o ditado morria no meio sem avisar. Nenhum dos
+dois era do microfone — os dois eram do app mentindo sobre o que estava fazendo.
+
+### 1. "Sem som" disparava em toda pausa de 2 segundos
+
+A pílula ficava **inteira vermelha** ("Sem som — nada está chegando do microfone") sempre que o RMS
+passava 2 s abaixo de `0.006`. Quem via aquilo desligava o ditado achando que o microfone tinha
+caído — mas o áudio continuava chegando e a transcrição saía inteira. O aviso mentia.
+
+**Medido nesta máquina antes de mexer**, 93 blocos de 4096 quadros a 48 kHz em cada caso:
+
+| microfone | blocos nulos | RMS máximo |
+|---|---|---|
+| funcionando, sala em silêncio | **0 de 93** | 5,8e-3 |
+| mudo | **93 de 93** | 0 |
+
+Os dois casos ficam **inteiros** abaixo de `0.006`: o limiar não separava mic quebrado de pessoa
+calada. No `app.log` real ele disparou em **56 dos 159 ditados** (35%), quase sempre aos 3,3 s
+(apertou a tecla e pensou antes de falar) ou nos últimos segundos (parou de falar e foi apertar a
+tecla). Num único ditado de 317 s disparou 34 vezes.
+
+**Agora** o aviso só aparece quando o sinal chega **digitalmente nulo** por 2 s — que é o que
+"nada está chegando" quer dizer. Pausa deixou de ser falha, e o aviso passou a valer também no meio
+do ditado (mute no botão do headset), coisa que o limiar não conseguia fazer sem gritar sem parar.
+A regra virou `src/shared/mic-signal.ts`, fora do renderer, para poder ter portão.
+
+### 2. O ditado parava de gravar aos 3 minutos e continuava escrito "Ouvindo"
+
+O renderer tinha um teto de 180 s que **parava de enfileirar áudio e não avisava ninguém**: a
+pílula seguia dizendo "Ouvindo", a onda seguia se mexendo, e nada mais era transcrito. É o defeito
+que atinge exatamente o modo *alternar*, que a documentação vende como "reunião sem limite de
+tempo". O log tem um ditado de 317 s que caiu nisso.
+
+O comentário justificava o teto como proteção contra buffer sem limite — **não procedia**:
+`flushPending` despacha a cada segundo e o `AudioChunker` nunca guarda mais que uma janela de 8 s.
+Não havia buffer crescendo.
+
+**Agora** não há teto no renderer. O teto que existe é honesto e mora no processo principal:
+`MAX_TAKE_MS` (1 h, `DITO_MAX_TAKE_MS` para portão) **encerra o ditado de verdade** — transcreve,
+entrega o texto e registra no log. Ele existe porque o modo *alternar* não tem key-up para
+terminar, e uma tecla esquecida gravaria para sempre.
+
+### Como foi verificado
+
+- **Portão novo `quality/mic-signal.ts`**, na camada `sinal` do `npm run verify`. Prova que 5 min de
+  sala silenciosa e um ditado com 80 s de pausa **não** acusam nada, que microfone mudo é acusado em
+  3,3 s, que mute no meio do ditado é pego, e que o aviso some quando o som volta. Tem contraprova
+  embutida: roda a regra antiga contra a mesma fixture e exige que ela dispare.
+- **Provado nos dois sentidos** (`CLAUDE.md`): com o limiar antigo de volta no lugar de "sinal
+  nulo", o portão reprova com exit 1; com a correção, exit 0.
+- **Ditado longo medido no app real**, pílula compilada carregada num Electron com microfone falso
+  do Chromium: 200 s de gravação entregaram **198,1 s de áudio**, sem corte aos 180 s. Com o teto
+  antigo recolocado, a mesma medição trava (registro abaixo, na contraprova).
+- `npx tsc --noEmit` e `npx oxlint`: exit 0. `quality/chunker.ts`: PASSA.
+
+### O que este release **não** provou
+
+`npm run verify` inteiro exige `pwsh`, que não existe nesta máquina Linux — as camadas `nativo`,
+`tecla`, `segurar`, `fumaça`, `colagem` e `mutação` **não rodaram**. O portão `regras do projeto`
+roda e está **vermelho com 5 itens herdados do porte X11** (comentários de mais de uma linha em
+`paths.ts`, `input_x11.h` e `key_hook_x11.h`; `input_x11.cc` com 287 linhas para um teto de 260) —
+nenhum deles tocado aqui. Está registrado em `PENDENCIAS.md`.
+
+
 ## 2.0.10 — 2026-08-24 · agora também no Linux
 
 ### Novidades

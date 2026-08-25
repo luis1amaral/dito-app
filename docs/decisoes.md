@@ -24,6 +24,45 @@ um "p", "t", "k") com pausa de verdade, e o corte cai no meio da palavra.
 **Por que `Math.max(1, ...)` no ponto de corte:** um corte de zero amostra não consome o buffer e o
 laço nunca termina.
 
+## Sinal do microfone — `src/shared/mic-signal.ts`
+
+**Por que o limiar de volume foi embora.** Até a 2.0.10 a pílula gritava "Sem som" quando o RMS
+ficava abaixo de `0.006` por 2 s. Medido nesta máquina em 2026-08-25, 93 blocos de 4096 quadros a
+48 kHz em cada caso:
+
+| microfone | blocos nulos | RMS máximo |
+|---|---|---|
+| funcionando, sala em silêncio | 0 de 93 | 5,8e-3 |
+| mudo | 93 de 93 | 0 |
+
+Os dois casos ficam **inteiros** abaixo de `0.006` — o limiar não separava nada. No log real ele
+disparou em **56 dos 159 ditados**, quase sempre aos 3,3 s (a pessoa apertou a tecla e pensou antes
+de falar) ou nos últimos segundos (parou de falar e foi apertar a tecla). O áudio continuava
+chegando e a transcrição saía inteira: o aviso mentia, e quem via a pílula vermelha desligava o
+ditado achando que o microfone tinha caído.
+
+**O critério que sobrou:** um microfone que funciona nunca entrega bloco **digitalmente nulo** —
+nem numa sala em silêncio, nem com supressão de ruído ligada. Nulo é o que "nada está chegando"
+quer dizer, então é o que a regra mede. Pausa deixou de ser falha, e o aviso passou a valer também
+no meio do ditado (mute no botão do headset), coisa que o limiar não fazia sem gritar sem parar.
+
+**Por que o aquecimento de 1200 ms continua:** o dispositivo pode entregar blocos nulos enquanto
+acorda de `suspend-on-idle`, e isso não é falha.
+
+## Duração de um ditado — `src/renderer/src/pill.ts` e `src/main/dictation.ts`
+
+**Por que o teto de 180 s do renderer foi removido.** Ele parava de enfileirar áudio aos 3 minutos
+e **não avisava ninguém**: a pílula continuava escrita "Ouvindo" e a onda continuava se mexendo,
+enquanto nada mais era transcrito. O log tem um ditado de 317 s que caiu exatamente nisso. O
+comentário dizia proteger contra um buffer sem limite, mas `flushPending` despacha a cada segundo e
+o `AudioChunker` nunca guarda mais que uma janela de 8 s — não havia buffer crescendo para proteger.
+
+**O teto que ficou é honesto.** `MAX_TAKE_MS` (1 h, `DITO_MAX_TAKE_MS` para os portões) vive no
+processo principal e **encerra o ditado de verdade**: transcreve, entrega o texto e registra no log.
+Existe porque o modo *alternar* não tem key-up para terminar — uma tecla esquecida gravaria para
+sempre. O teto de `MAX_HOLD_MS` é outro assunto: aquele é a rede do key-up engolido no modo
+*segurar*.
+
 ## Download de modelo — `src/main/models.ts`
 
 Formato adaptado de `stablyai/orca` (MIT), `src/main/speech/model-manager.ts`. Cada peça está lá por

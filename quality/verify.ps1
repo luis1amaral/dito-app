@@ -33,6 +33,7 @@ $camadas = @(
     @{ nome = 'mutacao (portao reprova?)';       cmd = { node "$PSScriptRoot\mutation.mjs" }; pular = $Rapido }
     @{ nome = 'modelos (baixa e trava?)';        cmd = { RodarIsolado { npx tsx "$PSScriptRoot\models.mts" } @{ DITO_APPDATA = "$env:TEMP\dito-gate" } } }
     @{ nome = 'cortador (corta no silencio?)'; cmd = { npx tsx "$PSScriptRoot\chunker.ts" } }
+    @{ nome = 'sinal (pausa nao vira falha?)'; cmd = { npx tsx "$PSScriptRoot\mic-signal.ts" } }
     @{ nome = 'nativo (hook instala?)';          cmd = { node "$PSScriptRoot\native.mjs" } }
     @{ nome = 'tecla (a tecla dita mesmo?)';     cmd = { node "$PSScriptRoot\hotkey.mjs" } }
     @{ nome = 'segurar (5 ciclos e teto)';       cmd = { node "$PSScriptRoot\hold.mjs" } }

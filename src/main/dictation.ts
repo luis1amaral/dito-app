@@ -19,8 +19,12 @@ let spoken = ''
 /** What is decoded but not yet typed, because the target was not focused at the time. */
 let unsent = ''
 
-// Last resort for a lost key-up; matches the renderer buffer cap (docs/decisoes.md).
+// Last resort for a lost key-up in hold mode (docs/decisoes.md).
 const MAX_HOLD_MS = Number(process.env['DITO_MAX_HOLD_MS'] ?? 180_000)
+
+// Toggle has no key-up to end a take; this ends it out loud instead of recording forever.
+const MAX_TAKE_MS = Number(process.env['DITO_MAX_TAKE_MS'] ?? 3_600_000)
+let ceiling: ReturnType<typeof setTimeout> | null = null
 
 // Above the 1400 ms window quality/paste-targets.mjs proves a paste lands in (docs/decisoes.md).
 const CLIPBOARD_HANDOVER_MS = 1500
@@ -63,11 +67,19 @@ export function start(): void {
   recordingSince = Date.now()
   setPhase('recording')
   windows.sendTo('pill', 'record', { microphone: config.get().microphone })
+  ceiling = setTimeout(() => {
+    log('take: teto de ' + MAX_TAKE_MS + ' ms atingido, encerrando e entregando o texto')
+    stop()
+  }, MAX_TAKE_MS)
   log('dictation: started')
 }
 
 export function stop(): void {
   if (phase !== 'recording') return
+  if (ceiling) {
+    clearTimeout(ceiling)
+    ceiling = null
+  }
   setPhase('transcribing')
   windows.sendTo('pill', 'stop', undefined)
   log('dictation: stopped, transcribing')

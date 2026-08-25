@@ -1,6 +1,7 @@
 // The overlay: shows the phase and captures audio, same path as Orca.
 import { applyI18n, t, type Lang, type MessageKey } from '../../shared/i18n'
 import type { DictationPhase } from '../../shared/ipc'
+import { DEAD_INPUT_MS, MicSignalWatch } from '../../shared/mic-signal'
 
 const root = document.body
 const title = document.getElementById('title') as HTMLElement
@@ -65,15 +66,8 @@ function flushPending(): void {
   window.api.send('audio:chunk', { samples: all, sampleRate })
 }
 
-const MAX_SECONDS = 180
 const levels = Array.from<number>({ length: BAR_COUNT }).fill(0)
-
-// Warm-up is by TIME: a count-based one fires the alarm early on a fast device.
-const WARMUP_MS = 1200
-const SILENCE_MS = 2000
-const SILENCE_RMS = 0.006
-let startedAt = 0
-let quietSince = 0
+const signal = new MicSignalWatch()
 
 // Center-out mapping so the newest level lands in the middle and travels to both edges.
 function paintWave(): void {
@@ -113,20 +107,15 @@ async function record({ microphone }: { microphone: string | null }): Promise<vo
   pending = []
   pendingSamples = 0
   levels.fill(0)
-  startedAt = Date.now()
-  quietSince = 0
+  signal.start(Date.now())
   delete root.dataset.silent
-  let totalSamples = 0
 
   processor.onaudioprocess = (e): void => {
     const block = e.inputBuffer.getChannelData(0)
-    // Safety cap: an unbounded buffer grows until the process dies.
-    if (totalSamples < sampleRate * MAX_SECONDS) {
-      pending.push(new Float32Array(block))
-      pendingSamples += block.length
-      totalSamples += block.length
-      if (pendingSamples >= sampleRate) flushPending()
-    }
+    // No length cap: flushPending ships every second, so nothing accumulates here to cap.
+    pending.push(new Float32Array(block))
+    pendingSamples += block.length
+    if (pendingSamples >= sampleRate) flushPending()
     let sum = 0
     for (let i = 0; i < block.length; i += 8) sum += block[i]! * block[i]!
     const rms = Math.sqrt(sum / (block.length / 8))
@@ -134,21 +123,14 @@ async function record({ microphone }: { microphone: string | null }): Promise<vo
     levels.unshift(Math.min(1, rms * 8))
     paintWave()
 
-    const now = Date.now()
-    if (now - startedAt < WARMUP_MS) return
-    if (rms >= SILENCE_RMS) {
-      quietSince = 0
-      if (root.dataset.silent) {
-        delete root.dataset.silent
-        title.textContent = t(lang, 'pillRecording')
-        phrase.textContent = ''
-      }
-      return
-    }
-    if (!quietSince) quietSince = now
-    if (now - quietSince >= SILENCE_MS && !root.dataset.silent) {
+    const dead = signal.isDead(rms, Date.now())
+    if (dead && !root.dataset.silent) {
       failCapture(t(lang, 'pillNoSoundTitle'), t(lang, 'pillNoSoundDetail'))
-      window.api.send('renderer-log', 'sem sinal do microfone ha ' + SILENCE_MS + ' ms')
+      window.api.send('renderer-log', 'nada chega do microfone ha ' + DEAD_INPUT_MS + ' ms')
+    } else if (!dead && root.dataset.silent) {
+      delete root.dataset.silent
+      title.textContent = t(lang, 'pillRecording')
+      phrase.textContent = ''
     }
   }
   source.connect(processor)
