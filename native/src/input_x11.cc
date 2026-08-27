@@ -48,14 +48,11 @@ Window ActiveWindow(Display* dpy) {
 }
 
 std::string Lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
-                 [](unsigned char c) { return static_cast<char>(::tolower(c)); });
+  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(::tolower(c)); });
   return value;
 }
 
-bool Contains(const std::string& haystack, const char* needle) {
-  return haystack.find(needle) != std::string::npos;
-}
+bool Contains(const std::string& haystack, const char* needle) { return haystack.find(needle) != std::string::npos; }
 
 // Ctrl+Shift+V is not a terminal standard: these are the ones that do not have it.
 bool IsDumbTerminal(const std::string& cls) {
@@ -247,6 +244,8 @@ bool PasteIntoTarget(const std::string& utf8) {
   if (kind == "console") return SendUnicodeText(utf8);
   return SendKeyStroke("v", true, kind == "terminal");
 }
+
+bool SendEnter() { return SendKeyStroke("Return", false, false); }
 
 void CloseInputDisplay() {
   std::lock_guard<std::mutex> lock(g_display_mutex);

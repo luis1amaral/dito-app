@@ -19,6 +19,7 @@ type Addon = {
   targetIsForeground(): boolean
   paste(text: string): boolean
   typeText(text: string): boolean
+  sendEnter(): boolean
 }
 
 let addon: Addon | null = null
@@ -67,4 +68,8 @@ export function paste(text: string): boolean {
 
 export function typeText(text: string): boolean {
   return addon ? addon.typeText(text) : false
+}
+
+export function sendEnter(): boolean {
+  return addon ? addon.sendEnter() : false
 }

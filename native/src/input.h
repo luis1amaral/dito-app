@@ -18,6 +18,7 @@ bool ForceForeground(HWND target);
 bool WaitForForeground(HWND target, int timeout_ms);
 bool SendUnicodeText(const std::wstring& text);
 bool SendKeyStroke(WORD vk, bool ctrl);
+bool SendEnter();
 bool SetClipboardText(const std::wstring& text);
 
 // Pastes into the remembered target, picking the method from the window class.

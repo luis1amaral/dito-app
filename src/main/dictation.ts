@@ -103,7 +103,7 @@ function remember(text: string): void {
 
 function typeInto(text: string, pressEnter: boolean): boolean {
   const typed = native.paste(text)
-  if (typed && pressEnter) native.typeText('\r')
+  if (typed && pressEnter) setTimeout(() => native.sendEnter(), 50)
   return typed
 }
 
@@ -142,7 +142,11 @@ export function onText(m: Extract<EngineMessage, { kind: 'text' }>): void {
   let typed = false
   if (cfg.autoPaste) {
     const target = native.currentTarget()
-    typed = rest ? typeInto(rest, cfg.pressEnter) : true
+    if (rest) typed = typeInto(rest, cfg.pressEnter)
+    else {
+      typed = true
+      if (cfg.pressEnter) setTimeout(() => native.sendEnter(), 50)
+    }
     log('type: ' + typed + ' into ' + target.kind + ' "' + target.title + '"')
   }
 

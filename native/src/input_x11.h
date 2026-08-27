@@ -23,6 +23,7 @@ std::string TargetTitle(Window target);
 // Types the text through XTest, remapping a spare keycode so pt-BR accents survive.
 bool SendUnicodeText(const std::string& utf8);
 bool SendKeyStroke(const char* keysym_name, bool ctrl, bool shift);
+bool SendEnter();
 
 // Pastes into the remembered target; clipboard is filled by Electron before this runs.
 bool PasteIntoTarget(const std::string& utf8);

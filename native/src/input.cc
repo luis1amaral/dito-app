@@ -60,12 +60,17 @@ bool SendUnicodeText(const std::wstring& text) {
   std::vector<INPUT> inputs;
   inputs.reserve(text.size() * 2);
   for (const wchar_t ch : text) {
+    if (ch == L'\n') continue;
     INPUT down{};
     down.type = INPUT_KEYBOARD;
-    down.ki.wScan = ch;
-    down.ki.dwFlags = KEYEVENTF_UNICODE;
+    if (ch == L'\r') {
+      down.ki.wVk = VK_RETURN;
+    } else {
+      down.ki.wScan = ch;
+      down.ki.dwFlags = KEYEVENTF_UNICODE;
+    }
     INPUT up = down;
-    up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+    up.ki.dwFlags |= KEYEVENTF_KEYUP;
     inputs.push_back(down);
     inputs.push_back(up);
   }
@@ -90,6 +95,10 @@ bool SendKeyStroke(WORD vk, bool ctrl) {
     inputs[n++].ki.dwFlags = KEYEVENTF_KEYUP;
   }
   return SendInput(n, inputs, sizeof(INPUT)) == static_cast<UINT>(n);
+}
+
+bool SendEnter() {
+  return SendKeyStroke(VK_RETURN, false);
 }
 
 // OpenClipboard fails while another process holds it; retrying is what fixes it.

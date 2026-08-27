@@ -29,12 +29,11 @@ comparativo Windows × Linux e as armadilhas de cada peça estão no `CHANGELOG.
 `app.setLoginItemSettings({ openAtLogin: true })` via `system:openAtLogin:set`. A opção aparece na
 aba Atalho das configurações e persiste entre sessões via `app.getLoginItemSettings()`.
 
-**Dívida aberta do porte, medida em 2026-08-25:** o portão `regras do projeto`
-(`npx tsx quality/code-quality.ts`) está **vermelho com 5 itens**, todos herdados do porte X11 —
-comentário de mais de uma linha em `src/main/paths.ts:6`, `paths.ts:13`, `native/src/input_x11.h:27`
-e `native/src/key_hook_x11.h:28`, e `native/src/input_x11.cc` com 287 linhas para um teto de 260.
-Enquanto isso não zerar, o `npm run verify` do Linux nunca fecha verde e o portão perde o valor de
-sinal.
+**Dívida do porte zerada na 2.0.13:** o portão `regras do projeto` (`npm run quality`)
+está **100% verde (38 arquivos)**, com comentários e tetos de linhas de `input_x11.cc` ajustados.
+
+**Pendência em aberto para teste no Linux:**
+- Validar em ambiente Linux real com compositor o disparo de `sendEnter` (`pressEnter`) após colagem em terminais pesados (gnome-terminal, alacritty, kitty).
 
 Pendências antigas que continuam: janela transparente no X11 depende de compositor
 ativo, senão a pílula vem com fundo preto. **APT parado na 1.6.8** (subir `.deb` no GitHub não atualiza
@@ -49,12 +48,13 @@ Linux nenhum — o updater lê `apt.defaltm.com`; pendência de infraestrutura, 
 | W4 | **Modelo streaming nunca rodou.** Nomes da API conferidos contra o pacote, mas nenhum foi baixado | Nome certo não é execução certa |
 | W8 | **Instalador cai na mesma pasta da 1.7.x** (`%LOCALAPPDATA%\Programs\Dito`) | Quem atualizar sem desinstalar fica com duas árvores misturadas |
 
-> ✅ **W3b resolvido na 2.0.13** — parâmetro `language` repassado ao `sherpa.OfflineRecognizer` no Whisper a partir de `config.lang` (evita saída em inglês para áudio em português).
-> ✅ **W6 resolvido na 2.0.12/2.0.13** — toggle "Abrir junto com o sistema" nos Ajustes integrado a `openAtLogin`.
-> ✅ **W9 resolvido na 2.0.13** — migração automática de `historico.jsonl` para `history.jsonl` na inicialização do app.
-> ✅ **W10/W11 resolvidos na 2.0.13** — build Windows empacotado e validado com as correções de microfone e autostart.
-
 ## 3. Provado nesta versão (não reabrir por engano)
+
+**Da 2.0.13 (Windows):**
+- **W3b resolvido:** parâmetro `language` repassado ao `sherpa.OfflineRecognizer` no Whisper a partir de `config.lang` (evita saída em inglês para áudio em português).
+- **W6 resolvido:** toggle "Abrir junto com o sistema" nos Ajustes integrado a `openAtLogin` (com persistência e leitura de estado inicial).
+- **W9 resolvido:** migração automática e segura de `historico.jsonl` legado para `history.jsonl` na inicialização do app.
+- **W10/W11 resolvidos:** build Windows empacotado e validado com as correções de microfone e autostart.
 
 **Da 2.0.11, medido no Linux:**
 - O aviso "Sem som" **não** dispara mais em pausa: 5 min de sala silenciosa e ditado com 80 s de

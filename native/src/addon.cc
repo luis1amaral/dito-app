@@ -164,6 +164,10 @@ Napi::Value TypeText(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(env, dito::SendUnicodeText(text));
 }
 
+Napi::Value SendEnter(const Napi::CallbackInfo& info) {
+  return Napi::Boolean::New(info.Env(), dito::SendEnter());
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("ACTION", Napi::String::New(env, kAction));
   exports.Set("startHook", Napi::Function::New(env, StartHook));
@@ -174,6 +178,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("targetIsForeground", Napi::Function::New(env, TargetIsForeground));
   exports.Set("paste", Napi::Function::New(env, Paste));
   exports.Set("typeText", Napi::Function::New(env, TypeText));
+  exports.Set("sendEnter", Napi::Function::New(env, SendEnter));
   return exports;
 }
 
