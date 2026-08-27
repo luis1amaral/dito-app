@@ -38,18 +38,12 @@ Window ActiveWindow(Display* dpy) {
   if (property == None) return 0;
   Atom type = None;
   int format = 0;
-  unsigned long count = 0;
-  unsigned long bytes = 0;
+  unsigned long count = 0, bytes = 0;
   unsigned char* data = nullptr;
   if (XGetWindowProperty(dpy, DefaultRootWindow(dpy), property, 0, 1, False, AnyPropertyType, &type,
-                         &format, &count, &bytes, &data) != Success) {
-    return 0;
-  }
-  Window active = 0;
-  if (data != nullptr) {
-    if (format == 32 && count >= 1) active = *reinterpret_cast<unsigned long*>(data);
-    XFree(data);
-  }
+                         &format, &count, &bytes, &data) != Success) return 0;
+  Window active = (data != nullptr && format == 32 && count >= 1) ? *reinterpret_cast<unsigned long*>(data) : 0;
+  if (data != nullptr) XFree(data);
   return active;
 }
 
@@ -65,16 +59,14 @@ bool Contains(const std::string& haystack, const char* needle) {
 
 // Ctrl+Shift+V is not a terminal standard: these are the ones that do not have it.
 bool IsDumbTerminal(const std::string& cls) {
-  return Contains(cls, "xterm") || Contains(cls, "urxvt") || Contains(cls, "rxvt") ||
-         Contains(cls, "eterm");
+  return Contains(cls, "xterm") || Contains(cls, "urxvt") || Contains(cls, "rxvt") || Contains(cls, "eterm");
 }
 
 bool IsTerminal(const std::string& cls) {
   return Contains(cls, "terminal") || Contains(cls, "konsole") || Contains(cls, "alacritty") ||
          Contains(cls, "kitty") || Contains(cls, "tilix") || Contains(cls, "termite") ||
          Contains(cls, "wezterm") || Contains(cls, "ghostty") || Contains(cls, "console") ||
-         Contains(cls, "terminator") || Contains(cls, "guake") || Contains(cls, "tilda") ||
-         IsDumbTerminal(cls);
+         Contains(cls, "terminator") || Contains(cls, "guake") || Contains(cls, "tilda") || IsDumbTerminal(cls);
 }
 
 std::vector<unsigned int> DecodeUtf8(const std::string& utf8) {
@@ -83,20 +75,11 @@ std::vector<unsigned int> DecodeUtf8(const std::string& utf8) {
     const unsigned char c = static_cast<unsigned char>(utf8[i]);
     unsigned int cp = c;
     size_t extra = 0;
-    if (c >= 0xF0) {
-      cp = c & 0x07u;
-      extra = 3;
-    } else if (c >= 0xE0) {
-      cp = c & 0x0Fu;
-      extra = 2;
-    } else if (c >= 0xC0) {
-      cp = c & 0x1Fu;
-      extra = 1;
-    }
+    if (c >= 0xF0) { cp = c & 0x07u; extra = 3; }
+    else if (c >= 0xE0) { cp = c & 0x0Fu; extra = 2; }
+    else if (c >= 0xC0) { cp = c & 0x1Fu; extra = 1; }
     if (i + extra >= utf8.size()) extra = 0;
-    for (size_t k = 1; k <= extra; ++k) {
-      cp = (cp << 6) | (static_cast<unsigned char>(utf8[i + k]) & 0x3Fu);
-    }
+    for (size_t k = 1; k <= extra; ++k) cp = (cp << 6) | (static_cast<unsigned char>(utf8[i + k]) & 0x3Fu);
     out.push_back(cp);
     i += extra + 1;
   }
@@ -106,19 +89,15 @@ std::vector<unsigned int> DecodeUtf8(const std::string& utf8) {
 KeySym KeysymFor(unsigned int codepoint) {
   if (codepoint == '\n' || codepoint == '\r') return XK_Return;
   if (codepoint == '\t') return XK_Tab;
-  // Latin-1 maps one to one; everything above needs the Unicode keysym range.
-  return codepoint < 0x100 ? static_cast<KeySym>(codepoint)
-                           : static_cast<KeySym>(codepoint | 0x01000000u);
+  // Latin-1 maps one to one; everything above needs Unicode keysym range.
+  return codepoint < 0x100 ? static_cast<KeySym>(codepoint) : static_cast<KeySym>(codepoint | 0x01000000u);
 }
 
 // A keycode with no keysym at all: remapping a used one would break the real keyboard.
 int SpareKeycode(Display* dpy) {
-  int min_code = 0;
-  int max_code = 0;
+  int min_code = 0, max_code = 0, per_code = 0;
   XDisplayKeycodes(dpy, &min_code, &max_code);
-  int per_code = 0;
-  KeySym* map = XGetKeyboardMapping(dpy, static_cast<KeyCode>(min_code), max_code - min_code + 1,
-                                    &per_code);
+  KeySym* map = XGetKeyboardMapping(dpy, static_cast<KeyCode>(min_code), max_code - min_code + 1, &per_code);
   if (map == nullptr) return 0;
   int spare = 0;
   for (int code = max_code; code >= min_code && spare == 0; --code) {
@@ -158,9 +137,7 @@ std::string TargetClass(Window target) {
   if (dpy == nullptr || target == 0) return std::string();
   XClassHint hint{};
   if (XGetClassHint(dpy, target, &hint) == 0) return std::string();
-  std::string out;
-  if (hint.res_class != nullptr) out = hint.res_class;
-  if (out.empty() && hint.res_name != nullptr) out = hint.res_name;
+  std::string out = hint.res_class ? hint.res_class : (hint.res_name ? hint.res_name : "");
   if (hint.res_name != nullptr) XFree(hint.res_name);
   if (hint.res_class != nullptr) XFree(hint.res_class);
   return out;
@@ -170,17 +147,15 @@ std::string TargetTitle(Window target) {
   std::lock_guard<std::mutex> lock(g_display_mutex);
   Display* dpy = InputDisplay();
   if (dpy == nullptr || target == 0) return std::string();
-  // _NET_WM_NAME is UTF-8; WM_NAME is latin-1 and only worth reading when the first is absent.
+  // _NET_WM_NAME is UTF-8; WM_NAME is latin-1 and only fallback.
   const Atom net_name = XInternAtom(dpy, "_NET_WM_NAME", True);
   if (net_name != None) {
     Atom type = None;
     int format = 0;
-    unsigned long count = 0;
-    unsigned long bytes = 0;
+    unsigned long count = 0, bytes = 0;
     unsigned char* data = nullptr;
     if (XGetWindowProperty(dpy, target, net_name, 0, 512, False, AnyPropertyType, &type, &format,
-                           &count, &bytes, &data) == Success &&
-        data != nullptr) {
+                           &count, &bytes, &data) == Success && data != nullptr) {
       std::string out(reinterpret_cast<char*>(data), count);
       XFree(data);
       if (!out.empty()) return out;
@@ -220,7 +195,6 @@ bool SendKeyStroke(const char* keysym_name, bool ctrl, bool shift) {
   if (code == 0) return false;
   const KeyCode ctrl_code = XKeysymToKeycode(dpy, XK_Control_L);
   const KeyCode shift_code = XKeysymToKeycode(dpy, XK_Shift_L);
-
   if (ctrl) XTestFakeKeyEvent(dpy, ctrl_code, True, 0);
   if (shift) XTestFakeKeyEvent(dpy, shift_code, True, 0);
   XTestFakeKeyEvent(dpy, code, True, 0);
@@ -256,7 +230,6 @@ bool SendUnicodeText(const std::string& utf8) {
     TapKeycode(dpy, static_cast<KeyCode>(spare));
     usleep(kTypeDelayUs);
   }
-
   KeySym cleared[2] = {NoSymbol, NoSymbol};
   XChangeKeyboardMapping(dpy, spare, 2, cleared, 1);
   XSync(dpy, False);

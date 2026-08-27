@@ -3,16 +3,13 @@ import { app } from 'electron'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
-// Override for gates outside Electron; || not ?? because an empty value must not win. Set, it
-// wins for every directory below, so gates never scatter files across two locations.
+// Override for gates outside Electron; set, it wins for every directory below.
 const override = process.env['DITO_APPDATA']
 export const APPDATA = override || app.getPath('appData')
 
 const legacyDir = join(APPDATA, 'dito')
 
-// Linux splits data/state per the XDG base dir spec instead of dumping gigabytes of speech
-// model into ~/.config; Electron already resolves appData to $XDG_CONFIG_HOME there, so config
-// keeps riding legacyDir unchanged.
+// Linux splits data/state per XDG base dir spec; config keeps riding legacyDir.
 const useXdg = !override && process.platform === 'linux'
 function xdgDir(envVar: string, ...fallback: string[]): string {
   return join(process.env[envVar] || join(homedir(), ...fallback), 'dito')
@@ -25,6 +22,7 @@ export const DATA_DIR = dataDir
 export const CONFIG_FILE = join(legacyDir, 'config.json')
 export const LOG_FILE = join(stateDir, 'logs', 'app.log')
 export const HISTORY_FILE = join(dataDir, 'history.jsonl')
+export const LEGACY_HISTORY_FILE = join(legacyDir, 'historico.jsonl')
 export const MODELS_DIR = join(dataDir, 'speech-models')
 
 /** Files shipped with the app: icons and the native addon. */

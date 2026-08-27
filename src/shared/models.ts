@@ -42,6 +42,7 @@ export type EngineInput = {
   modelDir: string
   sherpaPath: string
   manifest: Pick<ModelManifest, 'id' | 'type' | 'streaming' | 'modelingUnit'>
+  language?: string
 }
 
 export type EngineMessage =

@@ -1,6 +1,6 @@
 // Every IPC handler, typed by the shared contract in src/shared/ipc.ts.
 import { app, ipcMain } from 'electron'
-import { readFileSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import type { AppStatus, HistoryEntry, InvokeChannel, InvokeMap } from '../shared/ipc'
 import type { Config } from '../shared/config'
 import { t, type Lang } from '../shared/i18n'
@@ -12,7 +12,7 @@ import * as models from './models'
 import * as native from './native'
 import * as updater from './updater'
 import * as windows from './windows'
-import { APPDATA, HISTORY_FILE } from './paths'
+import { APPDATA, HISTORY_FILE, LEGACY_HISTORY_FILE } from './paths'
 import { log } from './logger'
 
 type Handler<C extends InvokeChannel> = (arg: InvokeMap[C]['arg']) => InvokeMap[C]['ret'] | Promise<InvokeMap[C]['ret']>
@@ -43,7 +43,7 @@ export function startEngine(): void {
     log('ERROR: no model installed')
     return
   }
-  engine.start(manifest, dictation.onText, dictation.onSegment)
+  engine.start(manifest, resolveLang(), dictation.onText, dictation.onSegment)
 }
 
 // Failing here used to be silent: the log had the reason and the screen just said "no model".
@@ -77,13 +77,71 @@ async function switchModel(id: string): Promise<ModelRow[]> {
   return models.list(config.get().model)
 }
 
+export function getConfig(): ReturnType<typeof config.get> {
+  return config.get()
+}
+
+export function migrateLegacyHistory(): void {
+  try {
+    if (!existsSync(LEGACY_HISTORY_FILE)) return
+    const raw = readFileSync(LEGACY_HISTORY_FILE, 'utf8')
+    const legacyEntries = raw
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          const p = JSON.parse(l)
+          const at = p.at || p.em || new Date().toISOString()
+          const text = p.text || p.texto || ''
+          return text ? { at, text } : null
+        } catch {
+          return null
+        }
+      })
+      .filter((e): e is HistoryEntry => e !== null)
+
+    if (legacyEntries.length > 0) {
+      let existing: HistoryEntry[] = []
+      if (existsSync(HISTORY_FILE)) {
+        existing = readFileSync(HISTORY_FILE, 'utf8')
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+          .map((l) => {
+            try {
+              const p = JSON.parse(l)
+              return { at: p.at || p.em || new Date().toISOString(), text: p.text || p.texto || '' }
+            } catch {
+              return null
+            }
+          })
+          .filter((e): e is HistoryEntry => e !== null)
+      }
+      const combined = [...legacyEntries, ...existing]
+      const lines = combined.map((e) => JSON.stringify(e)).join('\n') + '\n'
+      writeFileSync(HISTORY_FILE, lines, 'utf8')
+    }
+    unlinkSync(LEGACY_HISTORY_FILE)
+    log('history: migrated legacy historico.jsonl')
+  } catch (err) {
+    log('history migration failed: ' + String(err))
+  }
+}
+
 export function register(): void {
+  migrateLegacyHistory()
+
   handle('config:read', () => config.get())
 
-  handle('config:write', (patch: Partial<Config>) => {
-    const before = config.get().key
+  handle('config:write', async (patch: Partial<Config>) => {
+    const before = config.get()
     const next = config.update(patch)
-    if (patch.key && patch.key !== before) dictation.rebindKey()
+    if (patch.key && patch.key !== before.key) dictation.rebindKey()
+    if (patch.lang && patch.lang !== before.lang) {
+      await engine.stop()
+      startEngine()
+    }
     return next
   })
 
@@ -103,12 +161,16 @@ export function register(): void {
 
   handle('history:read', (): HistoryEntry[] => {
     try {
+      migrateLegacyHistory()
       return readFileSync(HISTORY_FILE, 'utf8')
         .trim()
         .split('\n')
         .filter(Boolean)
         .slice(-100)
-        .map((l) => JSON.parse(l) as HistoryEntry)
+        .map((l) => {
+          const p = JSON.parse(l)
+          return { at: p.at || p.em || new Date().toISOString(), text: p.text || p.texto || '' }
+        })
         .toReversed()
     } catch {
       return []

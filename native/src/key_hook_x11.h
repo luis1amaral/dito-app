@@ -25,8 +25,7 @@ struct KeyTick {
   int64_t micros;
 };
 
-// XGrabKey on the root window is the X11 answer to WH_KEYBOARD_LL with suppress: it delivers press
-// and release to us and never to the focused client, without root or the input group.
+// XGrabKey on the root window delivers press/release without root or the input group.
 class KeyHookX11 {
  public:
   static KeyHookX11& Shared();

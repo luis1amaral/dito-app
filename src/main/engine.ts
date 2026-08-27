@@ -16,10 +16,10 @@ export function isReady(): boolean {
   return ready
 }
 
-export function start(manifest: ModelManifest, onText: OnText, onSegment: OnSegment): void {
+export function start(manifest: ModelManifest, language: string, onText: OnText, onSegment: OnSegment): void {
   ready = false
   const modelDir = dirFor(manifest.id)
-  log('engine: model at ' + modelDir)
+  log('engine: model at ' + modelDir + (language ? ' (lang: ' + language + ')' : ''))
   worker = new Worker(join(__dirname, 'engine-worker.js'), {
     workerData: {
       modelDir,
@@ -29,7 +29,8 @@ export function start(manifest: ModelManifest, onText: OnText, onSegment: OnSegm
         type: manifest.type,
         streaming: manifest.streaming,
         modelingUnit: manifest.modelingUnit
-      }
+      },
+      language
     }
   })
   worker.on('message', (m: EngineMessage) => {

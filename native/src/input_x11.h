@@ -24,8 +24,7 @@ std::string TargetTitle(Window target);
 bool SendUnicodeText(const std::string& utf8);
 bool SendKeyStroke(const char* keysym_name, bool ctrl, bool shift);
 
-// Pastes into the remembered target, picking the method from its window class.
-// The clipboard is filled by Electron before this runs; see src/main/native.ts.
+// Pastes into the remembered target; clipboard is filled by Electron before this runs.
 bool PasteIntoTarget(const std::string& utf8);
 
 void CloseInputDisplay();

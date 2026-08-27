@@ -52,7 +52,7 @@ function resolveTokens(names: string[], dir: string): string {
   return join(dir, match)
 }
 
-function build(sherpa: Sherpa, manifest: Manifest, dir: string): unknown {
+function build(sherpa: Sherpa, manifest: Manifest, dir: string, language?: string): unknown {
   const names = readdirSync(dir)
   const base = { tokens: resolveTokens(names, dir), numThreads: 2, provider: 'cpu', debug: 0 }
   const feat = { featConfig: { sampleRate: SAMPLE_RATE, featureDim: 80 } }
@@ -75,7 +75,8 @@ function build(sherpa: Sherpa, manifest: Manifest, dir: string): unknown {
     return new sherpa.OnlineRecognizer({ ...feat, modelConfig, ...greedy, enableEndpoint: 0 })
   }
   if (manifest.type === 'whisper') {
-    return new sherpa.OfflineRecognizer({ ...feat, modelConfig: { whisper: encoderDecoder(), ...base }, ...greedy })
+    const whisper = { ...encoderDecoder(), language: language || '', task: 'transcribe' }
+    return new sherpa.OfflineRecognizer({ ...feat, modelConfig: { whisper, ...base }, ...greedy })
   }
   if (manifest.type === 'nemo-ctc') {
     const nemoCtc = { model: resolveFile(names, 'model', dir) }
@@ -94,7 +95,7 @@ try {
   const sherpa = require(input.sherpaPath) as Sherpa
   streaming = input.manifest.streaming
   const startedAt = Date.now()
-  recognizer = build(sherpa, input.manifest, input.modelDir)
+  recognizer = build(sherpa, input.manifest, input.modelDir, input.language)
   post({ kind: 'ready', ms: Date.now() - startedAt })
 } catch (err) {
   post({ kind: 'error', error: (err as Error).message ?? String(err) })

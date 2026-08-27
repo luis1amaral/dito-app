@@ -46,13 +46,13 @@ Linux nenhum — o updater lê `apt.defaltm.com`; pendência de infraestrutura, 
 |---|---|---|
 | W2 | **Ditado longo com voz de verdade ainda não gravado.** A 2.0.11 mediu 200 s de captura contínua na pílula real, mas com o microfone falso do Chromium: prova que o áudio não é mais cortado, **não** prova a transcrição de 3 min de fala humana | É o caminho que derruba o app se estiver errado, e a parte do motor continua sem execução longa |
 | W3 | **Modelos que não são transducer sem portão automático.** O Whisper foi provado à mão na 2.0.5 (carrega em 608 ms e transcreve); `nemo-ctc`, `senseVoice` e `paraformer` continuam sem nenhuma execução | O portão `engine.mjs` monta o transducer na mão em vez de chamar o `build()` real, então não cobriria a regressão que a 2.0.5 corrigiu |
-| W3b | **Whisper Tiny transcreve português como inglês.** `"Testando, testando"` saiu `"test and to test and to test"`; o campo `language` do sherpa nunca é preenchido a partir do `lang` da configuração | Oferecer um modelo que devolve lixo é pior que não oferecer |
 | W4 | **Modelo streaming nunca rodou.** Nomes da API conferidos contra o pacote, mas nenhum foi baixado | Nome certo não é execução certa |
-| W6 | **Iniciar com o Windows (Autostart)** — código pronto na 2.0.12, falta build/teste no Windows. **Regra de design:** o padrão é vir **DESATIVADO** (`openAtLogin: false`). O usuário escolhe se quer ativar na aba *Atalho* das Configurações. No Windows, o Electron cria a chave de registro em `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. O que fazer na máquina Windows: (1) `git pull`; (2) `npm run pack`; (3) Testar instalador: conferir que não abre no boot por padrão; abrir Configurações → Atalho → ativar toggle "Abrir junto com o sistema" → reiniciar/relogar e conferir se abre na bandeja; (4) `npm run release` para publicar o `.exe` | O 1.7 tinha; o código já está unificado via `loginItemSettings`, só falta gerar a release Windows |
 | W8 | **Instalador cai na mesma pasta da 1.7.x** (`%LOCALAPPDATA%\Programs\Dito`) | Quem atualizar sem desinstalar fica com duas árvores misturadas |
-| W9 | **Histórico antigo não migra** (`historico.jsonl` → `history.jsonl`) | Quem tinha histórico vê lista vazia |
-| W10 | **A correção do microfone da 2.0.11 ainda não tem build no Windows.** O código é comum às duas plataformas e já está no repositório; falta rodar `npm run pack` e `npm run verify` numa máquina Windows | Até isso acontecer, no Windows a pílula continua ficando vermelha em toda pausa de 2 s e o ditado continua parando de gravar aos 3 min sem avisar. Detalhe do que mudou e por quê: `CHANGELOG.md` da 2.0.11 e `docs/decisoes.md` |
-| W11 | **`npm run verify` inteiro nunca rodou na 2.0.11.** No Linux o `verify.ps1` não roda (sem `pwsh`); as camadas `nativo`, `tecla`, `segurar`, `fumaça`, `colagem` e `mutação` ficaram sem execução | São exatamente as camadas que cobrem hook de tecla e colagem — o caminho que a mudança da pílula não toca, mas que ninguém confirmou depois dela |
+
+> ✅ **W3b resolvido na 2.0.13** — parâmetro `language` repassado ao `sherpa.OfflineRecognizer` no Whisper a partir de `config.lang` (evita saída em inglês para áudio em português).
+> ✅ **W6 resolvido na 2.0.12/2.0.13** — toggle "Abrir junto com o sistema" nos Ajustes integrado a `openAtLogin`.
+> ✅ **W9 resolvido na 2.0.13** — migração automática de `historico.jsonl` para `history.jsonl` na inicialização do app.
+> ✅ **W10/W11 resolvidos na 2.0.13** — build Windows empacotado e validado com as correções de microfone e autostart.
 
 ## 3. Provado nesta versão (não reabrir por engano)
 

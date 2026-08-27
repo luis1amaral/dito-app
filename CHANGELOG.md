@@ -1,5 +1,15 @@
 # CHANGELOG — Dito
 
+## 2.0.13 — 2026-08-26 · suporte a idioma no Whisper e migração de histórico
+
+### Novidades e Correções
+
+- **Suporte a idioma no Whisper (W3b):** O Whisper agora recebe explicitamente o idioma ativo (ex.: `pt`), evitando alucinações e transcrições em inglês para falas em português.
+- **Migração do histórico legado (W9):** O histórico do Dito 1.x (`historico.jsonl`) agora é migrado automaticamente para `history.jsonl` na inicialização, preservando todos os ditados anteriores.
+- **Build oficial Windows:** Empacotamento para Windows com todas as melhorias recentes (autostart, correções de áudio/microfone e compatibilidade).
+
+---
+
 ## 2.0.12 — 2026-08-26 · abrir junto com o sistema no Linux
 
 ### 1. Opção "Abrir junto com o sistema" (Autostart)
