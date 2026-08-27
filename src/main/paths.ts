@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 
 // Override for gates outside Electron; set, it wins for every directory below.
 const override = process.env['DITO_APPDATA']
-export const APPDATA = override || app.getPath('appData')
+export const APPDATA = override || (app?.getPath ? app.getPath('appData') : '')
 
 const legacyDir = join(APPDATA, 'dito')
 
@@ -27,11 +27,13 @@ export const MODELS_DIR = join(dataDir, 'speech-models')
 
 /** Files shipped with the app: icons and the native addon. */
 export function asset(name: string): string {
-  return join(app.getAppPath(), 'assets', name)
+  const root = app?.getAppPath ? app.getAppPath() : process.cwd()
+  return join(root, 'assets', name)
 }
 
 export function addonPath(): string {
   // Unpacked from the asar by electron-builder; the loader needs a real path on disk.
   const file = process.platform === 'linux' ? 'dito_linux.node' : 'dito_win32.node'
-  return join(app.getAppPath().replace('app.asar', 'app.asar.unpacked'), 'native', 'build', 'Release', file)
+  const root = app?.getAppPath ? app.getAppPath() : process.cwd()
+  return join(root.replace('app.asar', 'app.asar.unpacked'), 'native', 'build', 'Release', file)
 }
