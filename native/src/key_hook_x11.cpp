@@ -219,8 +219,6 @@ void KeyHookX11::ThreadMain() {
       for (Binding& binding : bindings_) {
         if (binding.code == 0) continue;
         const bool physical = KeycodeIsDown(keymap, binding.code);
-        // The keymap is the authority: a lost event would otherwise wedge the edge state forever.
-        binding.last_down = physical;
         if (physical) tick.down.push_back(binding.action);
       }
     }

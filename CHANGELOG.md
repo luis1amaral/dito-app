@@ -10,6 +10,11 @@ O Dito agora tem a opção de iniciar automaticamente com a sessão no Linux, mi
 - **Implementação:** Usa a API nativa `app.setLoginItemSettings()` / `app.getLoginItemSettings()` do Electron, integrando com o padrão XDG autostart (`~/.config/autostart`).
 - **Persistência:** O estado reflete a configuração real do sistema operacional e persiste entre reinícios.
 
+### 2. Correção de dois cliques para parar o áudio no modo alternar (X11)
+
+- **Causa:** No loop de eventos do addon nativo X11 (`native/src/key_hook_x11.cpp`), a checagem periódica `XQueryKeymap` sobrescrevia `binding.last_down = physical`. Quando o usuário apertava a tecla para parar, o polling físico marcava o estado como `down=true` antes do `XNextEvent` retirar o evento `KeyPress` da fila. O `XNextEvent` então comparava `last_down == down` e descartava o evento como repetição falsa de auto-repeat.
+- **Correção:** O estado de borda (`last_down`) agora é mantido exclusivamente pela fila de eventos reais (`KeyPress` e `KeyRelease`), eliminando o descarte indevido do comando de parada no modo alternar.
+
 ---
 
 ## 2.0.11 — 2026-08-25 · o microfone parou de "desligar sozinho"
