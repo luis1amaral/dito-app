@@ -101,9 +101,11 @@ function remember(text: string): void {
   }
 }
 
+const PRESS_ENTER_DELAY_MS = 120
+
 function typeInto(text: string, pressEnter: boolean): boolean {
   const typed = native.paste(text)
-  if (typed && pressEnter) setTimeout(() => native.sendEnter(), 50)
+  if (typed && pressEnter) setTimeout(() => native.sendEnter(), PRESS_ENTER_DELAY_MS)
   return typed
 }
 
@@ -145,7 +147,7 @@ export function onText(m: Extract<EngineMessage, { kind: 'text' }>): void {
     if (rest) typed = typeInto(rest, cfg.pressEnter)
     else {
       typed = true
-      if (cfg.pressEnter) setTimeout(() => native.sendEnter(), 50)
+      if (cfg.pressEnter) setTimeout(() => native.sendEnter(), PRESS_ENTER_DELAY_MS)
     }
     log('type: ' + typed + ' into ' + target.kind + ' "' + target.title + '"')
   }

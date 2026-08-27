@@ -187,14 +187,16 @@ bool SendKeyStroke(const char* keysym_name, bool ctrl, bool shift) {
   std::lock_guard<std::mutex> lock(g_display_mutex);
   Display* dpy = InputDisplay();
   if (dpy == nullptr) return false;
-  const KeySym symbol = XStringToKeysym(keysym_name);
-  const KeyCode code = XKeysymToKeycode(dpy, symbol);
+  const KeyCode code = XKeysymToKeycode(dpy, XStringToKeysym(keysym_name));
   if (code == 0) return false;
   const KeyCode ctrl_code = XKeysymToKeycode(dpy, XK_Control_L);
   const KeyCode shift_code = XKeysymToKeycode(dpy, XK_Shift_L);
   if (ctrl) XTestFakeKeyEvent(dpy, ctrl_code, True, 0);
   if (shift) XTestFakeKeyEvent(dpy, shift_code, True, 0);
+  XFlush(dpy);
   XTestFakeKeyEvent(dpy, code, True, 0);
+  XFlush(dpy);
+  usleep(kTypeDelayUs * 3);
   XTestFakeKeyEvent(dpy, code, False, 0);
   if (shift) XTestFakeKeyEvent(dpy, shift_code, False, 0);
   if (ctrl) XTestFakeKeyEvent(dpy, ctrl_code, False, 0);
@@ -249,10 +251,7 @@ bool SendEnter() { return SendKeyStroke("Return", false, false); }
 
 void CloseInputDisplay() {
   std::lock_guard<std::mutex> lock(g_display_mutex);
-  if (g_display != nullptr) {
-    XCloseDisplay(g_display);
-    g_display = nullptr;
-  }
+  if (g_display != nullptr) { XCloseDisplay(g_display); g_display = nullptr; }
 }
 
 }  // namespace dito

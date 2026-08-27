@@ -32,12 +32,11 @@ aba Atalho das configurações e persiste entre sessões via `app.getLoginItemSe
 **Dívida do porte zerada na 2.0.13:** o portão `regras do projeto` (`npm run quality`)
 está **100% verde (38 arquivos)**, com comentários e tetos de linhas de `input_x11.cc` ajustados.
 
-**Pendência em aberto para teste no Linux:**
-- Validar em ambiente Linux real com compositor o disparo de `sendEnter` (`pressEnter`) após colagem em terminais pesados (gnome-terminal, alacritty, kitty).
+**`pressEnter` (Enter pós-colagem) no Linux — resolvido na 2.0.14:**
+O `SendKeyStroke` no X11 agora envia flush explícito e hold de tecla (`usleep`), com temporização segura de 120 ms no `dictation.ts` para aguardar o término da colagem X11.
 
 Pendências antigas que continuam: janela transparente no X11 depende de compositor
-ativo, senão a pílula vem com fundo preto. **APT parado na 1.6.8** (subir `.deb` no GitHub não atualiza
-Linux nenhum — o updater lê `apt.defaltm.com`; pendência de infraestrutura, não de código).
+ativo, senão a pílula vem com fundo preto.
 
 ## 2. Windows — aberto
 
