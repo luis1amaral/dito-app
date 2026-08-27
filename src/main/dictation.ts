@@ -1,5 +1,5 @@
 // The dictation flow: key -> record -> transcribe -> type. One state machine, one place.
-import { clipboard } from 'electron'
+import { clipboard, desktopCapturer } from 'electron'
 import { appendFileSync } from 'node:fs'
 import type { DictationPhase } from '../shared/ipc'
 import type { EngineMessage } from '../shared/models'
@@ -56,7 +56,7 @@ function busy(): boolean {
   return phase === 'recording' || phase === 'transcribing'
 }
 
-export function start(): void {
+export async function start(): Promise<void> {
   if (busy()) return
   if (!engine.isReady()) {
     flash('error', 'o motor ainda está carregando', 1600)
@@ -66,7 +66,16 @@ export function start(): void {
   unsent = ''
   recordingSince = Date.now()
   setPhase('recording')
-  windows.sendTo('pill', 'record', { microphone: config.get().microphone })
+  let desktopSourceId: string | null = null
+  if (config.get().captureSystemAudio) {
+    try {
+      const sources = await desktopCapturer.getSources({ types: ['screen'] })
+      if (sources.length > 0) desktopSourceId = sources[0]!.id
+    } catch (err) {
+      log('desktopCapturer failed: ' + (err as Error).message)
+    }
+  }
+  windows.sendTo('pill', 'record', { microphone: config.get().microphone, desktopSourceId })
   ceiling = setTimeout(() => {
     log('take: teto de ' + MAX_TAKE_MS + ' ms atingido, encerrando e entregando o texto')
     stop()

@@ -66,7 +66,7 @@ export type EventMap = {
   state: PillState
   /** Text decoded while the person is still speaking, so a long take is never lost. */
   partial: { text: string }
-  record: { microphone: string | null }
+  record: { microphone: string | null; desktopSourceId: string | null }
   stop: void
   'models:progress': DownloadProgress | null
 }

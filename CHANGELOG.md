@@ -1,10 +1,19 @@
 # CHANGELOG — Dito
 
+## 2.0.15 — 2026-08-27 · captura de som do computador (loopback de áudio)
+
+### Novidades e Recursos
+
+- **Captura de som do computador (loopback de sistema):** O Dito agora capta diretamente o áudio emitido pelo computador (mensagens de voz no WhatsApp Web, vídeos do YouTube, reuniões e qualquer aplicativo), mesmo com fones de ouvido conectados. O áudio do sistema é somado em tempo real com a voz do microfone no Web Audio API (descartando streams de vídeo para zero impacto de GPU/processamento).
+- **Controle nos Ajustes:** Nova opção "Capturar som do computador" na aba Áudio das Configurações para ligar/desligar a qualquer momento.
+
+---
+
 ## 2.0.14 — 2026-08-26 · correção do "Apertar Enter depois de colar"
 
 ### Correções
 
-- **Disparo real da tecla Enter (pressEnter):** A opção "Apertar Enter depois de colar" agora dispara a tecla virtual `VK_RETURN` via `SendKeyStroke` no Win32 (e `sendEnter` / `XK_Return` no Linux) em vez de enviar o caractere `\r` como glifo Unicode (`KEYEVENTF_UNICODE`). Isso permite que terminais (Windows Terminal, conhost), IDEs (Antigravity IDE, VS Code), navegadores e CLIs (Claude Code, Gemini CLI) reconheçam o Enter como submissão de comando.
+- **Disparo real da tecla Enter (pressEnter):** A opção "Apertar Enter depois de colar" agora dispara a tecla virtual `VK_RETURN` via `SendKeyStroke` no Win32 (e `sendEnter` / `XK_Return` no Linux) em vez de enviar o caractere `\r` como glifo Unicode (`KEYEVENTF_UNICODE`). Isso permite que terminais (Windows Terminal, conhost), IDEs (Antigravity IDE, VS Code), navegadores e CLIs reconheçam o Enter como submissão de comando.
 - **Temporização segura pós-colagem:** Adicionado intervalo de segurança (50 ms) para garantir que a aplicação em primeiro plano processe a colagem da área de transferência antes de receber o Enter, evitando perda de caracteres ou execuções prematuras.
 - **Qualidade de código:** Dívidas técnicas de formatação e limites de linhas de arquivo zeradas no portão de qualidade (`npm run quality`).
 

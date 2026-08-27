@@ -17,6 +17,7 @@ export type Config = {
   key: HotKey
   mode: Mode
   microphone: string | null
+  captureSystemAudio: boolean
   /** Types the text into the window that had focus when the key went down. */
   autoPaste: boolean
   /** Presses Enter after pasting, so a typed command actually runs. */
@@ -30,6 +31,7 @@ export const DEFAULT_CONFIG: Config = {
   key: 'F10',
   mode: 'toggle',
   microphone: null,
+  captureSystemAudio: true,
   autoPaste: true,
   pressEnter: false,
   model: 'parakeet-tdt-0.6b-v3-int8',

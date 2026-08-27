@@ -180,6 +180,7 @@ function paintStaticText(): void {
   $<HTMLSelectElement>('key').value = config.key
   $('mode').textContent = t(lang, MODE_LABEL_KEYS[config.mode])
   $<HTMLSelectElement>('lang').value = config.lang
+  $<HTMLInputElement>('captureSystemAudio').checked = config.captureSystemAudio
   $<HTMLInputElement>('autoPaste').checked = config.autoPaste
   $<HTMLInputElement>('pressEnter').checked = config.pressEnter
   for (const k of all<HTMLElement>('kbd.t')) k.textContent = config.key
@@ -191,6 +192,7 @@ async function save(): Promise<void> {
     key: $<HTMLSelectElement>('key').value as Config['key'],
     mode: config.mode,
     microphone: $<HTMLSelectElement>('microphone').value || null,
+    captureSystemAudio: $<HTMLInputElement>('captureSystemAudio').checked,
     autoPaste: $<HTMLInputElement>('autoPaste').checked,
     pressEnter: $<HTMLInputElement>('pressEnter').checked,
     lang: $<HTMLSelectElement>('lang').value as Config['lang']
@@ -214,7 +216,7 @@ async function main(): Promise<void> {
   void loadHistory()
 
   await listMicrophones()
-  for (const id of ['key', 'lang', 'microphone', 'autoPaste', 'pressEnter']) {
+  for (const id of ['key', 'lang', 'microphone', 'captureSystemAudio', 'autoPaste', 'pressEnter']) {
     $(id).addEventListener('change', () => void save())
   }
   $<HTMLInputElement>('openAtLogin').checked = await window.api.invoke('system:openAtLogin:get')

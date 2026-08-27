@@ -45,9 +45,11 @@ window.api.on('state', ({ phase, detail }) => {
 })
 
 let ctx: AudioContext | null = null
-let source: MediaStreamAudioSourceNode | null = null
+let micSource: MediaStreamAudioSourceNode | null = null
+let sysSource: MediaStreamAudioSourceNode | null = null
 let processor: ScriptProcessorNode | null = null
-let stream: MediaStream | null = null
+let micStream: MediaStream | null = null
+let sysStream: MediaStream | null = null
 let pending: Float32Array[] = []
 let pendingSamples = 0
 let sampleRate = 0
@@ -85,7 +87,13 @@ function failCapture(label: string, why: string): void {
   phrase.textContent = why
 }
 
-async function record({ microphone }: { microphone: string | null }): Promise<void> {
+async function record({
+  microphone,
+  desktopSourceId
+}: {
+  microphone: string | null
+  desktopSourceId: string | null
+}): Promise<void> {
   try {
     const audio: MediaTrackConstraints = {
       channelCount: 1,
@@ -94,21 +102,64 @@ async function record({ microphone }: { microphone: string | null }): Promise<vo
       autoGainControl: true
     }
     if (microphone) audio.deviceId = { exact: microphone }
-    stream = await navigator.mediaDevices.getUserMedia({ audio })
+    micStream = await navigator.mediaDevices.getUserMedia({ audio })
   } catch (err) {
-    window.api.send('renderer-log', 'getUserMedia failed: ' + (err as Error).message)
-    failCapture(t(lang, 'pillNoMicTitle'), (err as Error).message)
+    window.api.send('renderer-log', 'mic getUserMedia failed: ' + (err as Error).message)
+  }
+
+  if (desktopSourceId) {
+    try {
+      sysStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: desktopSourceId
+          }
+        } as unknown as MediaTrackConstraints,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: desktopSourceId
+          }
+        } as unknown as MediaTrackConstraints
+      })
+      sysStream.getVideoTracks().forEach((track) => track.stop())
+    } catch (err) {
+      window.api.send('renderer-log', 'sys getUserMedia failed: ' + (err as Error).message)
+    }
+  }
+
+  if (!micStream && !sysStream) {
+    failCapture(t(lang, 'pillNoMicTitle'), t(lang, 'pillNoSoundDetail'))
     return
   }
+
   ctx = new AudioContext()
   sampleRate = ctx.sampleRate
-  source = ctx.createMediaStreamSource(stream)
   processor = ctx.createScriptProcessor(4096, 1, 1)
   pending = []
   pendingSamples = 0
   levels.fill(0)
   signal.start(Date.now())
   delete root.dataset.silent
+
+  if (micStream && micStream.getAudioTracks().length > 0) {
+    micSource = ctx.createMediaStreamSource(micStream)
+    micSource.connect(processor)
+    // Losing the track mid-capture is real (headset unplugged): say so instead of faking a recording.
+    micStream.getAudioTracks()[0]?.addEventListener('ended', () => {
+      window.api.send('renderer-log', 'mic audio track ended')
+      if (!sysStream) failCapture(t(lang, 'pillMicLostTitle'), t(lang, 'pillMicLostDetail'))
+    })
+  }
+
+  if (sysStream && sysStream.getAudioTracks().length > 0) {
+    sysSource = ctx.createMediaStreamSource(sysStream)
+    sysSource.connect(processor)
+    sysStream.getAudioTracks()[0]?.addEventListener('ended', () => {
+      window.api.send('renderer-log', 'system audio track ended')
+    })
+  }
 
   processor.onaudioprocess = (e): void => {
     const block = e.inputBuffer.getChannelData(0)
@@ -126,31 +177,28 @@ async function record({ microphone }: { microphone: string | null }): Promise<vo
     const dead = signal.isDead(rms, Date.now())
     if (dead && !root.dataset.silent) {
       failCapture(t(lang, 'pillNoSoundTitle'), t(lang, 'pillNoSoundDetail'))
-      window.api.send('renderer-log', 'nada chega do microfone ha ' + DEAD_INPUT_MS + ' ms')
+      window.api.send('renderer-log', 'nada chega do audio ha ' + DEAD_INPUT_MS + ' ms')
     } else if (!dead && root.dataset.silent) {
       delete root.dataset.silent
       title.textContent = t(lang, 'pillRecording')
       phrase.textContent = ''
     }
   }
-  source.connect(processor)
   processor.connect(ctx.destination)
-
-  // Losing the track mid-capture is real (headset unplugged): say so instead of faking a recording.
-  stream.getAudioTracks()[0]?.addEventListener('ended', () => {
-    window.api.send('renderer-log', 'audio track ended on its own')
-    failCapture(t(lang, 'pillMicLostTitle'), t(lang, 'pillMicLostDetail'))
-  })
 }
 
 function stop(): void {
   processor?.disconnect()
-  source?.disconnect()
-  stream?.getTracks().forEach((track) => track.stop())
+  micSource?.disconnect()
+  sysSource?.disconnect()
+  micStream?.getTracks().forEach((track) => track.stop())
+  sysStream?.getTracks().forEach((track) => track.stop())
   void ctx?.close()
   processor = null
-  source = null
-  stream = null
+  micSource = null
+  sysSource = null
+  micStream = null
+  sysStream = null
   ctx = null
 
   flushPending()
