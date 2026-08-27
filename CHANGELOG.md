@@ -1,5 +1,15 @@
 # CHANGELOG — Dito
 
+## 2.0.16 — 2026-08-27 · trava de sessão de áudio e correção de vazamento em idle
+
+### Correções Críticas
+
+- **Eliminação de vazamento de áudio em background:** Corrigida uma condição de corrida no ciclo de vida de captura (`pill.ts` e `dictation.ts`) onde chamadas rápidas ou interrupções antes do término do `getUserMedia` assíncrono deixavam a stream de áudio do sistema/microfone gravando em segundo plano.
+- **Identificador de sessão (`activeRecordId`):** A pílula agora rastreia o ID da sessão ativa e aborta instantaneamente qualquer captura cujas promises resolvam após o ditado ter sido cancelado ou finalizado.
+- **Travas rígidas de fase no processo principal:** As funções `feedAudio`, `onSegment` e `onText` em `dictation.ts` agora rejeitam estritamente qualquer áudio ou texto que chegue fora da fase correspondente (`recording` / `transcribing`), impedindo digitação involuntária de sons de fundo (músicas do YouTube, chamadas, etc.) quando o app está inativo.
+
+---
+
 ## 2.0.15 — 2026-08-27 · captura de som do computador (loopback de áudio)
 
 ### Novidades e Recursos

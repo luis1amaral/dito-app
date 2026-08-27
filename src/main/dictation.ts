@@ -75,6 +75,8 @@ export async function start(): Promise<void> {
       log('desktopCapturer failed: ' + (err as Error).message)
     }
   }
+  // If the user already released or stopped the take while desktopCapturer was awaiting:
+  if (phase !== 'recording') return
   windows.sendTo('pill', 'record', { microphone: config.get().microphone, desktopSourceId })
   ceiling = setTimeout(() => {
     log('take: teto de ' + MAX_TAKE_MS + ' ms atingido, encerrando e entregando o texto')
@@ -95,6 +97,7 @@ export function stop(): void {
 }
 
 export function feedAudio(samples: Float32Array, sampleRate: number): void {
+  if (phase !== 'recording') return
   engine.feed(samples, sampleRate)
 }
 
@@ -120,6 +123,7 @@ function typeInto(text: string, pressEnter: boolean): boolean {
 
 // Typed mid-take only while the target still has focus; otherwise it waits for the end.
 export function onSegment(text: string): void {
+  if (phase !== 'recording') return
   const delta = segmentDelta(spoken, text)
   spoken += delta
   windows.sendTo('pill', 'partial', { text: spoken })
@@ -135,6 +139,7 @@ export function onSegment(text: string): void {
 }
 
 export function onText(m: Extract<EngineMessage, { kind: 'text' }>): void {
+  if (phase !== 'transcribing') return
   // Same rule as onSegment: the tail carries its own separator, and joinSegment would eat it.
   const tail = segmentDelta(spoken, m.text ?? '')
   spoken += tail

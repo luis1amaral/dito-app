@@ -36,7 +36,7 @@ está **100% verde (38 arquivos)**, com comentários e tetos de linhas de `input
 O `SendKeyStroke` no X11 agora envia flush explícito e hold de tecla (`usleep`), com temporização segura de 120 ms no `dictation.ts` para aguardar o término da colagem X11.
 
 **Captura de som do computador no Linux (aberto para validação):**
-A captura de loopback de sistema implementada na 2.0.15 via Web Audio API e `desktopCapturer` é agnóstica no Chromium, mas deve ser testada e medida em ambiente Linux sob X11 (PulseAudio / PipeWire).
+A captura de loopback de sistema implementada na 2.0.15 via Web Audio API e `desktopCapturer` foi protegida contra vazamento de áudio em background na 2.0.16 (session token `activeRecordId` e travas de fase `recording`/`transcribing`). No Linux sob X11, deve ser testada a integração com PulseAudio/PipeWire monitor para confirmar que o áudio das aplicações desktop é recebido pelo Chromium sem requerer permissão manual de tela.
 
 Pendências antigas que continuam: janela transparente no X11 depende de compositor
 ativo, senão a pílula vem com fundo preto.
@@ -50,6 +50,9 @@ ativo, senão a pílula vem com fundo preto.
 | W8 | **Instalador cai na mesma pasta da 1.7.x** (`%LOCALAPPDATA%\Programs\Dito`) | Quem atualizar sem desinstalar fica com duas árvores misturadas |
 
 ## 3. Provado nesta versão (não reabrir por engano)
+
+**Da 2.0.16 (Windows):**
+- **Trava de ciclo de vida de áudio (`activeRecordId`) e isolamento de fase:** Corrigido vazamento onde cancelamento durante `getUserMedia` assíncrono deixava stream capturando música/áudio do sistema em segundo plano e digitando em idle.
 
 **Da 2.0.15 (Windows):**
 - **Captura de som do computador (loopback de sistema):** Captura direta do áudio emitido pelo computador (WhatsApp Web, YouTube, reuniões, apps) via loopback de desktop no Chromium, com mixagem em tempo real junto ao microfone no Web Audio API e controle liga/desliga nos Ajustes de Áudio.

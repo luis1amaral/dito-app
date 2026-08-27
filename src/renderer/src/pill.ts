@@ -44,6 +44,7 @@ window.api.on('state', ({ phase, detail }) => {
   }
 })
 
+let activeRecordId = 0
 let ctx: AudioContext | null = null
 let micSource: MediaStreamAudioSourceNode | null = null
 let sysSource: MediaStreamAudioSourceNode | null = null
@@ -66,6 +67,23 @@ function flushPending(): void {
   pending = []
   pendingSamples = 0
   window.api.send('audio:chunk', { samples: all, sampleRate })
+}
+
+function cleanupAudio(): void {
+  processor?.disconnect()
+  micSource?.disconnect()
+  sysSource?.disconnect()
+  micStream?.getTracks().forEach((track) => track.stop())
+  sysStream?.getTracks().forEach((track) => track.stop())
+  void ctx?.close()
+  processor = null
+  micSource = null
+  sysSource = null
+  micStream = null
+  sysStream = null
+  ctx = null
+  pending = []
+  pendingSamples = 0
 }
 
 const levels = Array.from<number>({ length: BAR_COUNT }).fill(0)
@@ -94,6 +112,12 @@ async function record({
   microphone: string | null
   desktopSourceId: string | null
 }): Promise<void> {
+  const currentRecordId = ++activeRecordId
+  cleanupAudio()
+
+  let acquiredMic: MediaStream | null = null
+  let acquiredSys: MediaStream | null = null
+
   try {
     const audio: MediaTrackConstraints = {
       channelCount: 1,
@@ -102,14 +126,20 @@ async function record({
       autoGainControl: true
     }
     if (microphone) audio.deviceId = { exact: microphone }
-    micStream = await navigator.mediaDevices.getUserMedia({ audio })
+    acquiredMic = await navigator.mediaDevices.getUserMedia({ audio })
   } catch (err) {
     window.api.send('renderer-log', 'mic getUserMedia failed: ' + (err as Error).message)
   }
 
+  // Abort if user stopped or phase changed while awaiting microphone:
+  if (activeRecordId !== currentRecordId || root.dataset.phase !== 'recording') {
+    acquiredMic?.getTracks().forEach((track) => track.stop())
+    return
+  }
+
   if (desktopSourceId) {
     try {
-      sysStream = await navigator.mediaDevices.getUserMedia({
+      acquiredSys = await navigator.mediaDevices.getUserMedia({
         audio: {
           mandatory: {
             chromeMediaSource: 'desktop',
@@ -123,22 +153,29 @@ async function record({
           }
         } as unknown as MediaTrackConstraints
       })
-      sysStream.getVideoTracks().forEach((track) => track.stop())
+      acquiredSys.getVideoTracks().forEach((track) => track.stop())
     } catch (err) {
       window.api.send('renderer-log', 'sys getUserMedia failed: ' + (err as Error).message)
     }
   }
 
-  if (!micStream && !sysStream) {
+  // Abort if user stopped or phase changed while awaiting desktop audio:
+  if (activeRecordId !== currentRecordId || root.dataset.phase !== 'recording') {
+    acquiredMic?.getTracks().forEach((track) => track.stop())
+    acquiredSys?.getTracks().forEach((track) => track.stop())
+    return
+  }
+
+  if (!acquiredMic && !acquiredSys) {
     failCapture(t(lang, 'pillNoMicTitle'), t(lang, 'pillNoSoundDetail'))
     return
   }
 
+  micStream = acquiredMic
+  sysStream = acquiredSys
   ctx = new AudioContext()
   sampleRate = ctx.sampleRate
   processor = ctx.createScriptProcessor(4096, 1, 1)
-  pending = []
-  pendingSamples = 0
   levels.fill(0)
   signal.start(Date.now())
   delete root.dataset.silent
@@ -162,6 +199,7 @@ async function record({
   }
 
   processor.onaudioprocess = (e): void => {
+    if (activeRecordId !== currentRecordId || root.dataset.phase !== 'recording') return
     const block = e.inputBuffer.getChannelData(0)
     // No length cap: flushPending ships every second, so nothing accumulates here to cap.
     pending.push(new Float32Array(block))
@@ -188,20 +226,9 @@ async function record({
 }
 
 function stop(): void {
-  processor?.disconnect()
-  micSource?.disconnect()
-  sysSource?.disconnect()
-  micStream?.getTracks().forEach((track) => track.stop())
-  sysStream?.getTracks().forEach((track) => track.stop())
-  void ctx?.close()
-  processor = null
-  micSource = null
-  sysSource = null
-  micStream = null
-  sysStream = null
-  ctx = null
-
+  activeRecordId += 1
   flushPending()
+  cleanupAudio()
   window.api.send('audio:end', undefined)
 }
 
