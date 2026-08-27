@@ -161,6 +161,12 @@ export function register(): void {
 
   handle('i18n:lang', () => resolveLang())
 
+  handle('system:openAtLogin:get', () => app.getLoginItemSettings().openAtLogin)
+  handle('system:openAtLogin:set', (enabled: boolean) => {
+    app.setLoginItemSettings({ openAtLogin: enabled })
+    return app.getLoginItemSettings().openAtLogin
+  })
+
   ipcMain.on('audio:chunk', (_e, data: { samples: Float32Array; sampleRate: number }) => {
     dictation.feedAudio(data.samples, data.sampleRate)
   })

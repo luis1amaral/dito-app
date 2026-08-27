@@ -49,6 +49,8 @@ export type InvokeMap = {
   'update:check': { arg: void; ret: UpdateState }
   'update:install': { arg: void; ret: UpdateState }
   'i18n:lang': { arg: void; ret: Lang }
+  'system:openAtLogin:get': { arg: void; ret: boolean }
+  'system:openAtLogin:set': { arg: boolean; ret: boolean }
 }
 
 /** Messages the renderer sends without waiting. */

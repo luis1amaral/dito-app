@@ -23,6 +23,7 @@ export type Config = {
   pressEnter: boolean
   model: string
   lang: 'auto' | Lang
+  openAtLogin: boolean
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -32,7 +33,8 @@ export const DEFAULT_CONFIG: Config = {
   autoPaste: true,
   pressEnter: false,
   model: 'parakeet-tdt-0.6b-v3-int8',
-  lang: 'auto'
+  lang: 'auto',
+  openAtLogin: false
 }
 
 // Values and field names were pt-BR before the rename; a stale one silently never matches.

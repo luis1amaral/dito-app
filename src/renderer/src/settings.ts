@@ -217,6 +217,10 @@ async function main(): Promise<void> {
   for (const id of ['key', 'lang', 'microphone', 'autoPaste', 'pressEnter']) {
     $(id).addEventListener('change', () => void save())
   }
+  $<HTMLInputElement>('openAtLogin').checked = await window.api.invoke('system:openAtLogin:get')
+  $('openAtLogin').addEventListener('change', () =>
+    void window.api.invoke('system:openAtLogin:set', $<HTMLInputElement>('openAtLogin').checked)
+  )
   // Cycles instead of flipping a pair, so a third mode would work without touching this.
   $('mode').addEventListener('click', () => {
     config = { ...config, mode: MODES[(MODES.indexOf(config.mode) + 1) % MODES.length]! }

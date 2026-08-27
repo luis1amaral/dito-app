@@ -1,5 +1,17 @@
 # CHANGELOG — Dito
 
+## 2.0.12 — 2026-08-26 · abrir junto com o sistema no Linux
+
+### 1. Opção "Abrir junto com o sistema" (Autostart)
+
+O Dito agora tem a opção de iniciar automaticamente com a sessão no Linux, minimizado na bandeja.
+
+- **Interface:** Adicionado toggle "Abrir junto com o sistema" na aba Atalho das configurações.
+- **Implementação:** Usa a API nativa `app.setLoginItemSettings()` / `app.getLoginItemSettings()` do Electron, integrando com o padrão XDG autostart (`~/.config/autostart`).
+- **Persistência:** O estado reflete a configuração real do sistema operacional e persiste entre reinícios.
+
+---
+
 ## 2.0.11 — 2026-08-25 · o microfone parou de "desligar sozinho"
 
 Dois defeitos diferentes davam a mesma sensação: o ditado morria no meio sem avisar. Nenhum dos

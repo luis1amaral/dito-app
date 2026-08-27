@@ -97,6 +97,8 @@ const pt = {
   pillNoSoundDetail: 'nada está chegando do microfone',
   pillMicLostTitle: 'Microfone caiu',
   pillMicLostDetail: 'a entrada foi desconectada',
+  openAtLoginLabel: 'Abrir junto com o sistema',
+  openAtLoginHelp: 'O Dito vai para a bandeja automaticamente ao ligar o computador.',
 } as const
 
 export type MessageKey = keyof typeof pt
@@ -192,6 +194,8 @@ const en: Record<MessageKey, string> = {
   pillNoSoundDetail: 'nothing is coming in from the microphone',
   pillMicLostTitle: 'Microphone lost',
   pillMicLostDetail: 'the input was disconnected',
+  openAtLoginLabel: 'Open at login',
+  openAtLoginHelp: 'Dito will go to the tray automatically when the computer starts.',
 }
 
 const DICTS: Record<Lang, Record<MessageKey, string>> = { pt, en }
