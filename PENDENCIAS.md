@@ -43,12 +43,15 @@ Linux nenhum — o updater lê `apt.defaltm.com`; pendência de infraestrutura, 
 
 | # | Pendência | Por quê importa |
 |---|---|---|
-| W2 | **Ditado longo com voz de verdade ainda não gravado.** A 2.0.11 mediu 200 s de captura contínua na pílula real, mas com o microfone falso do Chromium: prova que o áudio não é mais cortado, **não** prova a transcrição de 3 min de fala humana | É o caminho que derruba o app se estiver errado, e a parte do motor continua sem execução longa |
 | W3 | **Modelos que não são transducer sem portão automático.** O Whisper foi provado à mão na 2.0.5 (carrega em 608 ms e transcreve); `nemo-ctc`, `senseVoice` e `paraformer` continuam sem nenhuma execução | O portão `engine.mjs` monta o transducer na mão em vez de chamar o `build()` real, então não cobriria a regressão que a 2.0.5 corrigiu |
 | W4 | **Modelo streaming nunca rodou.** Nomes da API conferidos contra o pacote, mas nenhum foi baixado | Nome certo não é execução certa |
 | W8 | **Instalador cai na mesma pasta da 1.7.x** (`%LOCALAPPDATA%\Programs\Dito`) | Quem atualizar sem desinstalar fica com duas árvores misturadas |
 
 ## 3. Provado nesta versão (não reabrir por engano)
+
+**Da 2.0.14 (Windows):**
+- **W2 resolvido (Ditado longo em uso real):** Ditado contínuo e extenso de fala humana com múltiplos períodos provado na prática, gravando, decodificando e entregando o texto completo sem truncar nem engasgar.
+- **`pressEnter` (Enter pós-colagem):** Corrigido com disparo real de `VK_RETURN` via `SendKeyStroke` no Win32 e temporização segura de 50 ms.
 
 **Da 2.0.13 (Windows):**
 - **W3b resolvido:** parâmetro `language` repassado ao `sherpa.OfflineRecognizer` no Whisper a partir de `config.lang` (evita saída em inglês para áudio em português).
