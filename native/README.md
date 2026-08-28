@@ -23,7 +23,17 @@ foi o defeito que quebrou a 2.0.0.
 
 ## Linux
 
-`binding.gyp` já tem o bloco `OS=='linux'`, apontando para `src/input_x11.cc` e
-`src/key_hook_x11.cpp` — **que ainda não existem**. O que precisa ser escrito, e a armadilha de
-cada peça, está em `PENDENCIAS.md`. A referência de porte é
-`dito-app/packages/dito_win32/linux/dito_win32_plugin.cc` (1.687 linhas, já funciona).
+`src/input_x11.cc`, `src/key_hook_x11.cpp` e `src/addon_x11.cc` cumprem o **mesmo contrato de 9
+funções** sobre X11: `XGrabKey` na janela raiz, `XTest` para digitar, EWMH para achar e ativar a
+janela alvo. Escritos na 2.0.10 e compilados pelo bloco `OS=='linux'` do `binding.gyp`.
+
+A tradução API por API do Win32 para o X11, as armadilhas de cada peça e os portões que provam cada
+uma estão em `_docs/port-linux/`.
+
+## Regra do Linux
+
+Não editar sem rodar, antes e depois:
+
+```
+npm run addon && npm run build && node quality/native.mjs && node quality/hotkey-linux.mjs
+```

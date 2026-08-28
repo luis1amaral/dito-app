@@ -6,7 +6,7 @@ vem para cá e o código deixa um ponteiro.
 | Arquivo | O que é |
 |---|---|
 | `decisoes.md` | Por que cada peça é como é: corte do áudio, download de modelo, feed de atualização, entrega do texto |
-| `PENDENCIAS.md` | O que **não** foi feito e por que importa, com o que já foi provado e não deve ser reaberto |
+| `PENDENCIAS.md` | Só o que continua **em aberto**, e por que importa |
 | `PARIDADE.md` | Comportamento por comportamento: quem prova e em que estado está |
 | `port-linux/` | Playbook de portar um app Electron de Windows para Linux/X11 — tradução de API, armadilhas e portões |
 

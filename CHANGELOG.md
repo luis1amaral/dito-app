@@ -188,7 +188,7 @@ terminar, e uma tecla esquecida gravaria para sempre.
 `tecla`, `segurar`, `fumaça`, `colagem` e `mutação` **não rodaram**. O portão `regras do projeto`
 roda e está **vermelho com 5 itens herdados do porte X11** (comentários de mais de uma linha em
 `paths.ts`, `input_x11.h` e `key_hook_x11.h`; `input_x11.cc` com 287 linhas para um teto de 260) —
-nenhum deles tocado aqui. Está registrado em `_docs/PENDENCIAS.md`.
+nenhum deles tocado aqui — foram zerados na 2.0.13.
 
 
 ## 2.0.10 — 2026-08-24 · agora também no Linux
@@ -409,7 +409,7 @@ o alternar, que está provado.
 ### Não incluído
 
 Linux. O addon de atalho global e colagem é Win32; sem o equivalente em X11 o app abriria mas não
-ouviria a tecla nem colaria em lugar nenhum. O que falta está em `_docs/PENDENCIAS.md`.
+ouviria a tecla nem colaria em lugar nenhum. (Entregue na 2.0.10.)
 
 ---
 
