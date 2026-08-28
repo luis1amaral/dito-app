@@ -1,85 +1,102 @@
-// Publica a release. Existe porque a v2.0.1 e a v2.0.2 saíram só com o .exe, e sem o latest.yml
-// anexado o electron-updater quebra logo depois de achar a versão. Ver docs/decisoes.md.
+// Publishes the release. Exists because v2.0.1 and v2.0.2 shipped with the installer alone, and
+// without the channel file attached electron-updater breaks right after finding the version.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const RAIZ = join(import.meta.dirname, '..')
+const ROOT = join(import.meta.dirname, '..')
 const REPO = 'luis1amaral/dito-app'
 
-function morrer(msg) {
+function die(msg) {
   console.error('FALHA: ' + msg)
   process.exit(1)
 }
 
-function gh(args, { silencioso = false } = {}) {
+function gh(args, { quiet = false } = {}) {
   return execFileSync('gh', args, {
-    cwd: RAIZ,
+    cwd: ROOT,
     encoding: 'utf8',
-    stdio: silencioso ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'pipe', 'inherit'],
+    stdio: quiet ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'pipe', 'inherit'],
   })
 }
 
 function git(args) {
-  return execFileSync('git', args, { cwd: RAIZ, encoding: 'utf8' }).trim()
+  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim()
 }
 
-const { version } = JSON.parse(readFileSync(join(RAIZ, 'package.json'), 'utf8'))
+const { version } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
 const tag = 'v' + version
-const dist = join(RAIZ, 'dist')
+const dist = join(ROOT, 'dist')
 
-const arquivos = [
-  join(dist, `dito-${version}-setup.exe`),
-  join(dist, `dito-${version}-setup.exe.blockmap`),
-  join(dist, 'latest.yml'),
-]
-
-for (const f of arquivos) {
-  if (!existsSync(f)) morrer(`falta ${f} — rode "npm run pack" antes`)
-  if (statSync(f).size === 0) morrer(`${f} está vazio`)
+// One platform per run: each machine publishes its own binary into the same release.
+const TARGETS = {
+  win32: {
+    label: 'Windows',
+    installer: `dito-${version}-setup.exe`,
+    channelFile: 'latest.yml',
+    extra: [`dito-${version}-setup.exe.blockmap`],
+    packScript: 'npm run pack',
+  },
+  linux: {
+    label: 'Linux',
+    installer: `dito-${version}-amd64.deb`,
+    channelFile: 'latest-linux.yml',
+    extra: [],
+    packScript: 'npm run pack:linux',
+  },
 }
 
-// O latest.yml é o manifesto que o app lê: se ele descrever outra versão, o updater oferece o que
-// não existe.
-const manifesto = readFileSync(join(dist, 'latest.yml'), 'utf8')
-const versaoManifesto = /^version:\s*(.+)$/m.exec(manifesto)?.[1]?.trim()
-if (versaoManifesto !== version)
-  morrer(`latest.yml diz ${versaoManifesto}, package.json diz ${version} — rode "npm run pack"`)
-if (!manifesto.includes(`dito-${version}-setup.exe`))
-  morrer('latest.yml não aponta para o instalador desta versão')
+const target = TARGETS[process.platform]
+if (!target) die(`plataforma ${process.platform} não publica release — rode no Windows ou no Linux`)
 
-// Publicar um binário cujo fonte não está no remoto deixa a release sem commit correspondente.
-if (git(['status', '--porcelain'])) morrer('árvore suja — comite antes de publicar')
+const files = [target.installer, ...target.extra, target.channelFile].map((n) => join(dist, n))
+
+for (const f of files) {
+  if (!existsSync(f)) die(`falta ${f} — rode "${target.packScript}" antes`)
+  if (statSync(f).size === 0) die(`${f} está vazio`)
+}
+
+// The channel file is the manifest the app reads: describing another version offers what does not
+// exist, and naming another file downloads bytes the app then refuses.
+const manifest = readFileSync(join(dist, target.channelFile), 'utf8')
+const manifestVersion = /^version:\s*(.+)$/m.exec(manifest)?.[1]?.trim()
+if (manifestVersion !== version)
+  die(`${target.channelFile} diz ${manifestVersion}, package.json diz ${version} — rode "${target.packScript}"`)
+if (!manifest.includes(target.installer))
+  die(`${target.channelFile} não aponta para o instalador desta versão (${target.installer})`)
+
+// Publishing a binary whose source is not on the remote leaves the release with no matching commit.
+if (git(['status', '--porcelain'])) die('árvore suja — comite antes de publicar')
 git(['fetch', '--tags', '--quiet', 'origin'])
-if (git(['rev-parse', 'HEAD']) !== git(['rev-parse', '@{u}'])) morrer('HEAD não está no remoto — dê push antes')
+if (git(['rev-parse', 'HEAD']) !== git(['rev-parse', '@{u}'])) die('HEAD não está no remoto — dê push antes')
 
-// As notas saem do CHANGELOG: release sem entrada no changelog é mudança sem registro.
-const changelog = readFileSync(join(RAIZ, 'CHANGELOG.md'), 'utf8')
-const bloco = changelog
+// The notes come from the CHANGELOG: a release with no entry is a change with no record.
+const changelog = readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8')
+const block = changelog
   .split(/^## /m)
   .find((b) => b.startsWith(version + ' ') || b.startsWith(version + '\n'))
-const notas = bloco?.split('\n').slice(1).join('\n').replace(/\n*---\s*$/, '').trim()
-if (!notas) morrer(`CHANGELOG.md não tem a seção "## ${version}"`)
+const notes = block?.split('\n').slice(1).join('\n').replace(/\n*---\s*$/, '').trim()
+if (!notes) die(`CHANGELOG.md não tem a seção "## ${version}"`)
 
-let existe = true
+let exists = true
 try {
-  gh(['release', 'view', tag, '--repo', REPO, '--json', 'tagName'], { silencioso: true })
+  gh(['release', 'view', tag, '--repo', REPO, '--json', 'tagName'], { quiet: true })
 } catch {
-  existe = false
+  exists = false
 }
 
-if (existe) {
-  console.log(`release ${tag} já existe — subindo os assets com --clobber`)
-  gh(['release', 'upload', tag, ...arquivos, '--repo', REPO, '--clobber'])
+if (exists) {
+  console.log(`release ${tag} já existe — subindo os assets de ${target.label} com --clobber`)
+  gh(['release', 'upload', tag, ...files, '--repo', REPO, '--clobber'])
 } else {
-  console.log(`criando release ${tag}`)
-  gh(['release', 'create', tag, ...arquivos, '--repo', REPO, '--title', `Dito ${version}`, '--notes', notas])
+  console.log(`criando release ${tag} com os assets de ${target.label}`)
+  gh(['release', 'create', tag, ...files, '--repo', REPO, '--title', `Dito ${version}`, '--notes', notes])
 }
 
-// Prova de que a release ficou completa, em vez de confiar no exit code do upload.
-const publicados = JSON.parse(gh(['release', 'view', tag, '--repo', REPO, '--json', 'assets'], { silencioso: true }))
-const nomes = publicados.assets.filter((a) => a.state === 'uploaded').map((a) => a.name)
-const faltando = arquivos.map((f) => f.split(/[\\/]/).pop()).filter((n) => !nomes.includes(n))
-if (faltando.length) morrer('release publicada sem: ' + faltando.join(', '))
+// Proof the release ended up complete, instead of trusting the upload's exit code.
+const published = JSON.parse(gh(['release', 'view', tag, '--repo', REPO, '--json', 'assets'], { quiet: true }))
+const names = published.assets.filter((a) => a.state === 'uploaded').map((a) => a.name)
+const missing = files.map((f) => f.split(/[\\/]/).pop()).filter((n) => !names.includes(n))
+if (missing.length) die('release publicada sem: ' + missing.join(', '))
 
-console.log(`${tag} publicada com ${nomes.length} assets: ${nomes.join(', ')}`)
+console.log(`${tag} publicada com ${names.length} assets: ${names.join(', ')}`)

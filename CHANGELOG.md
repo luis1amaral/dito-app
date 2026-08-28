@@ -1,5 +1,17 @@
 # CHANGELOG — Dito
 
+## Não publicado
+
+### Por dentro
+
+- **`npm run release` publica nos dois sistemas.** O script só conhecia o instalador do Windows e
+  recusava rodar em qualquer outro lugar; agora escolhe os arquivos pela plataforma
+  (`.exe` + `.blockmap` + `latest.yml` no Windows, `.deb` + `latest-linux.yml` no Linux) e aplica a
+  mesma exigência de manifesto: a versão do arquivo de canal tem de bater com a do `package.json` e
+  apontar para o instalador desta versão.
+
+---
+
 ## 2.0.16 — 2026-08-27 · trava de sessão de áudio e correção de vazamento em idle
 
 ### Correções Críticas
