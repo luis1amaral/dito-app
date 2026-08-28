@@ -33,8 +33,9 @@ aba Atalho das configurações e persiste entre sessões via `app.getLoginItemSe
 está **100% verde (38 arquivos)**, com comentários e tetos de linhas de `input_x11.cc` ajustados.
 
 **Portão no Linux deixou de ser pendência:** `npm run verify` roda nos dois sistemas desde a faxina
-de 2026-08-28. O que ainda não existe aqui é o equivalente do `smoke.ps1` (subir o app instalado e
-fotografar a tela), listado como H5 no `PARIDADE.md`.
+de 2026-08-28, e a tecla passou a ter portão de ponta a ponta aqui (`quality/hotkey-linux.mjs`) —
+foi ele que pegou o filtro de 250 ms que engolia o comando de parar. O que ainda não existe é o
+equivalente do `smoke.ps1` (subir o app e fotografar a tela), listado como H7 no `PARIDADE.md`.
 
 **`pressEnter` (Enter pós-colagem) no Linux — resolvido na 2.0.14:**
 O `SendKeyStroke` no X11 agora envia flush explícito e hold de tecla (`usleep`), com temporização segura de 120 ms no `dictation.ts` para aguardar o término da colagem X11.

@@ -49,6 +49,24 @@ no meio do ditado (mute no botão do headset), coisa que o limiar não fazia sem
 **Por que o aquecimento de 1200 ms continua:** o dispositivo pode entregar blocos nulos enquanto
 acorda de `suspend-on-idle`, e isso não é falha.
 
+## Anti-repique da tecla — `src/main/dictation.ts`
+
+O modo alternar ignorava qualquer toque que chegasse **menos de 250 ms** depois do anterior. O filtro
+nasceu contra a repetição automática do teclado, quando o addon ainda emitia borda repetida.
+
+Isso deixou de ser verdade: desde a 2.0.12 a borda só é emitida quando o estado **muda**
+(`if (binding.last_down == down) continue`, no hook dos dois sistemas), e no X11 a repetição é
+detectável (`XkbSetDetectableAutoRepeat`). O filtro de 250 ms virou redundante — e nocivo: um toque
+duplo rápido para **parar** caía dentro da janela e era descartado em silêncio. A pílula sumia, o
+usuário achava que tinha parado, e o app seguia gravando o som do ambiente e do computador até o
+teto do ditado — e no fim digitava aquilo na janela que estivesse em foco. Medido em 2026-08-28:
+com 150 ms entre os dois toques, sobravam **2 streams de captura vivos** no PipeWire e o ditado
+correu por 29 s.
+
+A janela caiu para **40 ms**, que cobre o repique físico da chave (poucos milissegundos) e não
+alcança toque humano nenhum. Quem prova é `quality/hotkey-linux.mjs`, que aperta a tecla duas vezes
+com 150 ms e exige o `stopped` no log e zero captura sobrando.
+
 ## Duração de um ditado — `src/renderer/src/pill.ts` e `src/main/dictation.ts`
 
 **Por que o teto de 180 s do renderer foi removido.** Ele parava de enfileirar áudio aos 3 minutos

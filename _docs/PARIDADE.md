@@ -115,7 +115,8 @@ Onde a coluna "Quem prova" cita um arquivo de `quality/`, ele roda em `npm run v
 | H2 | Colagem e digitação com acento em janela real | `quality/paste-linux.js` (Electron + `xed`) | **OK** |
 | H3 | Pacote `.deb` instala e atualiza pelo `apt` | repositório assinado em `apt.defaltm.com` | **OK** |
 | H4 | Feed de atualização do Linux serve o `.deb` anunciado | `quality/update-feed.mts` | **OK** |
-| H5 | App sobe, pílula aparece, sem erro de JS | equivalente ao `smoke.ps1` ainda não existe aqui | PENDENTE |
+| H5 | A tecla abre **e fecha** o ditado, sem sobrar captura | `quality/hotkey-linux.mjs` no binário empacotado | **OK** |
+| H7 | App sobe, pílula aparece, sem erro de JS | equivalente ao `smoke.ps1` ainda não existe aqui | PENDENTE |
 | H6 | Pílula transparente sem compositor | depende do ambiente gráfico | BLOQUEADO |
 
 ---

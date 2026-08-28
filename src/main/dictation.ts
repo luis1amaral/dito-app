@@ -19,6 +19,8 @@ let spoken = ''
 /** What is decoded but not yet typed, because the target was not focused at the time. */
 let unsent = ''
 
+// Physical switch bounce only; a wider window swallowed the key that stops (_docs/decisoes.md).
+const KEY_BOUNCE_MS = 40
 // Last resort for a lost key-up in hold mode (_docs/decisoes.md).
 const MAX_HOLD_MS = Number(process.env['DITO_MAX_HOLD_MS'] ?? 180_000)
 
@@ -200,7 +202,7 @@ export function bindKey(): void {
     // Toggle: only the key-down counts; key-up is ignored on purpose.
     if (!e.down) return
     const now = Date.now()
-    if (now - lastDown < 250) return
+    if (now - lastDown < KEY_BOUNCE_MS) return
     lastDown = now
     if (phase === 'recording') stop()
     else start()

@@ -29,11 +29,12 @@ const LAYERS = [
   { name: 'sinal (pausa nao vira falha?)', run: npx('tsx', join(QUALITY, 'mic-signal.ts')) },
   { name: 'captura (cancelar solta o microfone?)', run: npx('electron', join(QUALITY, 'audio-leak.mjs')) },
   { name: 'nativo (hook instala?)', run: node('native.mjs') },
-  { name: 'tecla (a tecla dita mesmo?)', run: node('hotkey.mjs'), only: 'win32' },
+  { name: 'tecla (abre e fecha o ditado?)', run: node('hotkey.mjs'), only: 'win32' },
   { name: 'segurar (5 ciclos e teto)', run: node('hold.mjs'), only: 'win32' },
   { name: 'fumaca (o app sobe?)', run: { cmd: 'pwsh', args: ['-NoProfile', '-File', join(QUALITY, 'smoke.ps1')] }, only: 'win32' },
   { name: 'colagem (console cru)', run: node('paste-wiring.mjs'), only: 'win32' },
   { name: 'colagem (via gui)', run: node('paste-targets.mjs'), only: 'win32' },
+  { name: 'tecla (abre e fecha o ditado?)', run: node('hotkey-linux.mjs'), only: 'linux' },
   { name: 'colagem (x11)', run: npx('electron', join(QUALITY, 'paste-linux.js')), only: 'linux' },
   { name: 'feed (o app acha a versao?)', run: npx('tsx', join(QUALITY, 'update-feed.mts')), env: ISOLATED },
 ]

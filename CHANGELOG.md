@@ -47,15 +47,24 @@
 - **O processo principal recusa o que chega fora de hora.** Áudio só é aceito enquanto está gravando
   e texto só enquanto está transcrevendo — som de fundo (vídeo, chamada, música) não vira mais texto
   digitado com o app ocioso.
+- **Apertar a tecla para parar volta a parar, mesmo no toque duplo rápido.** O modo alternar
+  descartava qualquer toque que chegasse menos de 250 ms depois do anterior — filtro criado contra a
+  repetição automática de tecla, que desde a 2.0.12 já é resolvida no addon. O efeito era o pior
+  possível: a pílula sumia, você achava que tinha parado, e o app **seguia gravando** o ambiente e o
+  som do computador até o teto do ditado, despejando aquilo na janela em foco no fim. A janela caiu
+  para 40 ms, que cobre repique físico de tecla e não alcança toque humano nenhum.
 
 ### No Linux
 
 - **Mesma versão publicada para Linux**, com o `.deb` no repositório APT e no feed de atualização.
-- Medido antes e depois nesta máquina: com a 2.0.15, parar 150 ms depois de começar deixava **dois
-  streams de captura vivos** no PipeWire (microfone e som do sistema) e o ditado seguia gravando por
-  14 s. Com a 2.0.16, **nenhum stream sobra**.
-- O defeito virou portão (`captura`), que roda nos dois sistemas e reprova se sobrar captura viva ou
-  se chegar áudio depois do comando de parar.
+- Medido nesta máquina, com o `pactl`: com o filtro de 250 ms, um toque duplo em 150 ms deixava
+  **dois streams de captura vivos** (microfone e som do computador) e o ditado corria sozinho — num
+  dos ciclos foram 29 s de um vídeo do YouTube transcritos e digitados na janela em foco. Com a
+  janela em 40 ms, **nenhum stream sobra** e o ditado fecha no segundo toque.
+- Os dois defeitos viraram portão: `captura` (nos dois sistemas, headless) prova que cancelar solta
+  o microfone; `tecla` (no Linux, no binário empacotado) aperta a tecla duas vezes com 150 ms e exige
+  o ditado fechado e zero captura sobrando. Medido: com o filtro de 250 ms, `parou false` e **2
+  capturas vivas**; com 40 ms, `parou true` e **zero**.
 
 ---
 
