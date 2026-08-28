@@ -1,4 +1,4 @@
-// Settings; every option comes from the shared config types (docs/decisoes.md).
+// Settings; every option comes from the shared config types (_docs/decisoes.md).
 import { HOTKEYS, MODE_LABEL_KEYS, MODES, type Config } from '../../shared/config'
 import { applyI18n, LANG_CHOICES, LANG_LABEL_KEYS, t, type Lang } from '../../shared/i18n'
 import { bindUpdate, paintUpdate } from './update-pane'

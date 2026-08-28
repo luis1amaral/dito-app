@@ -1,4 +1,4 @@
-// The one place the config shape is declared; why it matters in docs/decisoes.md.
+// The one place the config shape is declared; why it matters in _docs/decisoes.md.
 import { LANGS, type Lang, type MessageKey } from './i18n'
 
 export const HOTKEYS = ['F8', 'F9', 'F10', 'F11', 'F12', 'ScrollLock', 'Pause'] as const

@@ -4,67 +4,115 @@
 
 ### Por dentro
 
-- **`npm run release` publica nos dois sistemas.** O script só conhecia o instalador do Windows e
-  recusava rodar em qualquer outro lugar; agora escolhe os arquivos pela plataforma
-  (`.exe` + `.blockmap` + `latest.yml` no Windows, `.deb` + `latest-linux.yml` no Linux) e aplica a
-  mesma exigência de manifesto: a versão do arquivo de canal tem de bater com a do `package.json` e
-  apontar para o instalador desta versão.
+- **O portão de qualidade roda nos dois sistemas.** `npm run verify` era um script PowerShell: num
+  app que hoje é Windows **e** Linux, metade do projeto não tinha portão nenhum onde estava sendo
+  desenvolvida. A entrada única virou `quality/verify.mjs`, em Node; cada camada declara em que
+  sistema existe, e a que não existe aqui entra como **PENDENTE** — nunca como passe.
+- **Portão novo: `captura`.** Prova que cancelar um ditado solta o microfone e para de enviar áudio,
+  headless, nos dois sistemas. É o defeito da 2.0.16 virado teste, com os quatro cenários de corrida
+  em volta do `getUserMedia`.
+- **Portão novo: `compartilhado`.** Cobre o que só tinha tipo e nenhum teste: emenda de segmentos,
+  migração da configuração antiga em pt-BR e a garantia de que toda chave usada nas telas tem texto
+  nos dois idiomas.
+- **`mutacao` cobre os portões novos.** Cinco defeitos plantados, cada um exigindo reprovação — e o
+  portão agora falha alto quando a mutação não compila, em vez de rodar em cima do bundle anterior e
+  passar cego.
+- **`feed` confere o feed da plataforma certa.** No Linux ele checava o manifesto do Windows.
+- **`motor` deixou de depender da pasta do Orca** para achar o modelo: usa o diretório do próprio
+  app, com o antigo só como segunda opção.
+- **`npm run release` publica dos dois lados** (`.exe` + `latest.yml` no Windows, `.deb` +
+  `latest-linux.yml` no Linux), com a mesma exigência de manifesto batendo com a versão.
+
+### Organização
+
+- Documentação reunida em `_docs/` (`decisoes.md`, `PENDENCIAS.md`, `PARIDADE.md` e o playbook do
+  porte para Linux). Saíram do repositório o `plano.md`, que ainda descrevia o Linux como trabalho
+  futuro, e a pasta de herança do Dito 1.x em Flutter — que continua no histórico do Git.
+- `README.md` passou a descrever o que o app é hoje: instalação no Linux por `apt` e o portão
+  camada por camada, com o sistema onde cada uma roda.
 
 ---
 
-## 2.0.16 — 2026-08-27 · trava de sessão de áudio e correção de vazamento em idle
-
-### Correções Críticas
-
-- **Eliminação de vazamento de áudio em background:** Corrigida uma condição de corrida no ciclo de vida de captura (`pill.ts` e `dictation.ts`) onde chamadas rápidas ou interrupções antes do término do `getUserMedia` assíncrono deixavam a stream de áudio do sistema/microfone gravando em segundo plano.
-- **Identificador de sessão (`activeRecordId`):** A pílula agora rastreia o ID da sessão ativa e aborta instantaneamente qualquer captura cujas promises resolvam após o ditado ter sido cancelado ou finalizado.
-- **Travas rígidas de fase no processo principal:** As funções `feedAudio`, `onSegment` e `onText` em `dictation.ts` agora rejeitam estritamente qualquer áudio ou texto que chegue fora da fase correspondente (`recording` / `transcribing`), impedindo digitação involuntária de sons de fundo (músicas do YouTube, chamadas, etc.) quando o app está inativo.
-
----
-
-## 2.0.15 — 2026-08-27 · captura de som do computador (loopback de áudio)
-
-### Novidades e Recursos
-
-- **Captura de som do computador (loopback de sistema):** O Dito agora capta diretamente o áudio emitido pelo computador (mensagens de voz no WhatsApp Web, vídeos do YouTube, reuniões e qualquer aplicativo), mesmo com fones de ouvido conectados. O áudio do sistema é somado em tempo real com a voz do microfone no Web Audio API (descartando streams de vídeo para zero impacto de GPU/processamento).
-- **Controle nos Ajustes:** Nova opção "Capturar som do computador" na aba Áudio das Configurações para ligar/desligar a qualquer momento.
-
----
-
-## 2.0.14 — 2026-08-26 · correção do "Apertar Enter depois de colar"
+## 2.0.16 — 2026-08-27 · o app parou de gravar quando ninguém pediu
 
 ### Correções
 
-- **Disparo real da tecla Enter (pressEnter):** A opção "Apertar Enter depois de colar" agora dispara a tecla virtual `VK_RETURN` via `SendKeyStroke` no Win32 (e `sendEnter` / `XK_Return` no Linux) em vez de enviar o caractere `\r` como glifo Unicode (`KEYEVENTF_UNICODE`). Isso permite que terminais (Windows Terminal, conhost), IDEs (Antigravity IDE, VS Code), navegadores e CLIs reconheçam o Enter como submissão de comando.
-- **Temporização segura pós-colagem:** Adicionado intervalo de segurança (50 ms) para garantir que a aplicação em primeiro plano processe a colagem da área de transferência antes de receber o Enter, evitando perda de caracteres ou execuções prematuras.
-- **Qualidade de código:** Dívidas técnicas de formatação e limites de linhas de arquivo zeradas no portão de qualidade (`npm run quality`).
+- **Cancelar um ditado agora solta o microfone de verdade.** Apertar a tecla para parar logo depois
+  de começar deixava a captura viva em segundo plano: o microfone — e o som do computador, novidade
+  da 2.0.15 — continuavam gravando com o app parado, e o que entrasse ali podia ser digitado sozinho
+  depois. A causa era uma corrida: o pedido de captura é assíncrono e, quando ele terminava, o ditado
+  já tinha sido cancelado; ninguém mais desligava aquela captura.
+- **A pílula passou a carregar o número da sessão.** Toda captura que fica pronta depois de o ditado
+  ter sido cancelado é descartada na hora, em vez de virar gravação órfã.
+- **O processo principal recusa o que chega fora de hora.** Áudio só é aceito enquanto está gravando
+  e texto só enquanto está transcrevendo — som de fundo (vídeo, chamada, música) não vira mais texto
+  digitado com o app ocioso.
+
+### No Linux
+
+- **Mesma versão publicada para Linux**, com o `.deb` no repositório APT e no feed de atualização.
+- Medido antes e depois nesta máquina: com a 2.0.15, parar 150 ms depois de começar deixava **dois
+  streams de captura vivos** no PipeWire (microfone e som do sistema) e o ditado seguia gravando por
+  14 s. Com a 2.0.16, **nenhum stream sobra**.
+- O defeito virou portão (`captura`), que roda nos dois sistemas e reprova se sobrar captura viva ou
+  se chegar áudio depois do comando de parar.
 
 ---
 
-## 2.0.13 — 2026-08-26 · suporte a idioma no Whisper e migração de histórico
+## 2.0.15 — 2026-08-27 · o Dito passou a ouvir o som do computador
 
-### Novidades e Correções
+### Novidades
 
-- **Suporte a idioma no Whisper (W3b):** O Whisper agora recebe explicitamente o idioma ativo (ex.: `pt`), evitando alucinações e transcrições em inglês para falas em português.
-- **Migração do histórico legado (W9):** O histórico do Dito 1.x (`historico.jsonl`) agora é migrado automaticamente para `history.jsonl` na inicialização, preservando todos os ditados anteriores.
-- **Build oficial Windows:** Empacotamento para Windows com todas as melhorias recentes (autostart, correções de áudio/microfone e compatibilidade).
+- **Capturar o som do computador.** Além do microfone, o Dito transcreve o que sai pelas caixas ou
+  pelo fone: áudio de WhatsApp Web, vídeo do YouTube, reunião, qualquer aplicativo. Os dois sinais
+  são somados na hora, então dá para ditar por cima do que está tocando.
+- **Liga e desliga nos Ajustes**, na aba Áudio. As faixas de vídeo da captura são descartadas na
+  entrada — nada de processamento de tela para pegar som.
 
 ---
 
-## 2.0.12 — 2026-08-26 · abrir junto com o sistema no Linux
+## 2.0.14 — 2026-08-26 · o "Apertar Enter depois de colar" passou a apertar Enter
 
-### 1. Opção "Abrir junto com o sistema" (Autostart)
+### Correções
 
-O Dito agora tem a opção de iniciar automaticamente com a sessão no Linux, minimizado na bandeja.
+- **O Enter não chegava a terminal nenhum.** A opção mandava o caractere de nova linha como se fosse
+  uma letra digitada; terminal, IDE e navegador entendem isso como texto, não como "executa". Agora é
+  a tecla Enter de verdade (`VK_RETURN` no Windows, `XK_Return` no Linux), e o comando ditado no
+  terminal roda.
+- **Espera antes de apertar.** A janela de destino precisa terminar de receber a colagem antes do
+  Enter, senão o comando saía pela metade — 50 ms no Windows, 120 ms no Linux, medidos.
+- **Dívida de formatação e tamanho de arquivo zerada** no portão `regras do projeto`.
 
-- **Interface:** Adicionado toggle "Abrir junto com o sistema" na aba Atalho das configurações.
-- **Implementação:** Usa a API nativa `app.setLoginItemSettings()` / `app.getLoginItemSettings()` do Electron, integrando com o padrão XDG autostart (`~/.config/autostart`).
-- **Persistência:** O estado reflete a configuração real do sistema operacional e persiste entre reinícios.
+---
 
-### 2. Correção de dois cliques para parar o áudio no modo alternar (X11)
+## 2.0.13 — 2026-08-26 · Whisper em português e histórico antigo de volta
 
-- **Causa:** No loop de eventos do addon nativo X11 (`native/src/key_hook_x11.cpp`), a checagem periódica `XQueryKeymap` sobrescrevia `binding.last_down = physical`. Quando o usuário apertava a tecla para parar, o polling físico marcava o estado como `down=true` antes do `XNextEvent` retirar o evento `KeyPress` da fila. O `XNextEvent` então comparava `last_down == down` e descartava o evento como repetição falsa de auto-repeat.
-- **Correção:** O estado de borda (`last_down`) agora é mantido exclusivamente pela fila de eventos reais (`KeyPress` e `KeyRelease`), eliminando o descarte indevido do comando de parada no modo alternar.
+### Correções
+
+- **O Whisper respondia em inglês para fala em português.** O idioma escolhido nos Ajustes não estava
+  chegando ao modelo; agora chega, e a transcrição sai na língua certa.
+- **O histórico da 1.x reaparece.** Os ditados antigos (`historico.jsonl`) são migrados sozinhos para
+  o formato atual quando o app sobe, em vez de ficarem invisíveis.
+
+### Por dentro
+
+- Build oficial de Windows publicado com as correções de microfone e de início automático.
+
+---
+
+## 2.0.12 — 2026-08-26 · abrir junto com o sistema, no Linux
+
+### Novidades
+
+- **"Abrir junto com o sistema"** na aba Atalho: o Dito sobe minimizado na bandeja quando a sessão
+  começa. Usa o autostart do próprio sistema (XDG), então o estado na tela é o estado real — e
+  sobrevive a reinício.
+
+### Correções
+
+- **No modo alternar, era preciso apertar duas vezes para parar.** A checagem periódica do estado
+  físico da tecla marcava "apertada" antes de o evento real de parar sair da fila, e o evento era
+  descartado como repetição falsa. A borda passou a ser decidida só pelos eventos reais de teclado.
 
 ---
 
@@ -73,7 +121,7 @@ O Dito agora tem a opção de iniciar automaticamente com a sessão no Linux, mi
 Dois defeitos diferentes davam a mesma sensação: o ditado morria no meio sem avisar. Nenhum dos
 dois era do microfone — os dois eram do app mentindo sobre o que estava fazendo.
 
-### 1. "Sem som" disparava em toda pausa de 2 segundos
+### "Sem som" disparava em toda pausa de 2 segundos
 
 A pílula ficava **inteira vermelha** ("Sem som — nada está chegando do microfone") sempre que o RMS
 passava 2 s abaixo de `0.006`. Quem via aquilo desligava o ditado achando que o microfone tinha
@@ -96,7 +144,7 @@ tecla). Num único ditado de 317 s disparou 34 vezes.
 do ditado (mute no botão do headset), coisa que o limiar não conseguia fazer sem gritar sem parar.
 A regra virou `src/shared/mic-signal.ts`, fora do renderer, para poder ter portão.
 
-### 2. O ditado parava de gravar aos 3 minutos e continuava escrito "Ouvindo"
+### O ditado parava de gravar aos 3 minutos e continuava escrito "Ouvindo"
 
 O renderer tinha um teto de 180 s que **parava de enfileirar áudio e não avisava ninguém**: a
 pílula seguia dizendo "Ouvindo", a onda seguia se mexendo, e nada mais era transcrito. É o defeito
@@ -125,13 +173,13 @@ terminar, e uma tecla esquecida gravaria para sempre.
   antigo recolocado, a mesma medição trava (registro abaixo, na contraprova).
 - `npx tsc --noEmit` e `npx oxlint`: exit 0. `quality/chunker.ts`: PASSA.
 
-### O que este release **não** provou
+### O que esta versão não provou
 
 `npm run verify` inteiro exige `pwsh`, que não existe nesta máquina Linux — as camadas `nativo`,
 `tecla`, `segurar`, `fumaça`, `colagem` e `mutação` **não rodaram**. O portão `regras do projeto`
 roda e está **vermelho com 5 itens herdados do porte X11** (comentários de mais de uma linha em
 `paths.ts`, `input_x11.h` e `key_hook_x11.h`; `input_x11.cc` com 287 linhas para um teto de 260) —
-nenhum deles tocado aqui. Está registrado em `PENDENCIAS.md`.
+nenhum deles tocado aqui. Está registrado em `_docs/PENDENCIAS.md`.
 
 
 ## 2.0.10 — 2026-08-24 · agora também no Linux
@@ -212,17 +260,21 @@ está tudo lá para colar à mão.
 
 ## 2.0.8 — 2026-08-24
 
-Nenhuma mudança de comportamento em relação à 2.0.6. Publicada, como a 2.0.7, só para exercitar o
-botão de atualizar.
+Sem mudança de comportamento: publicada para exercitar o fluxo de atualização de ponta a ponta, com
+uma versão nova de verdade do outro lado.
+
+---
 
 ## 2.0.7 — 2026-08-24
 
-Nenhuma mudança de comportamento em relação à 2.0.6. Publicada para exercitar o fluxo novo de
-atualização — baixar em segundo plano, mostrar o progresso, e o app fechar e reabrir sozinho.
+Sem mudança de comportamento: publicada para exercitar o fluxo de atualização de ponta a ponta, com
+uma versão nova de verdade do outro lado.
+
+---
 
 ## 2.0.6 — 2026-08-24
 
-### Mudou
+### Mudanças
 
 - **Atualizar virou um clique, e o app volta sozinho.** Antes ele instalava escondido quando você
   fechava o Dito — e não reabria: da sua cadeira, o app simplesmente sumia. Agora a versão nova baixa
@@ -230,8 +282,8 @@ atualização — baixar em segundo plano, mostrar o progresso, e o app fechar e
   Ao clicar, o Dito fecha, instala e **abre de novo sozinho**.
 - **Fechar o Dito não mexe mais na instalação.** Sair é só sair.
 
-Mesmo comportamento do Slime Animes, de onde a regra veio: *só encerra depois que o atualizador
-provar que subiu — fechar sozinho e não atualizar nada é o pior resultado possível.*
+A regra por trás: **só encerra depois que o atualizador provar que subiu** — fechar sozinho e não
+atualizar nada é o pior resultado possível.
 
 ## 2.0.5 — 2026-08-24
 
@@ -244,15 +296,17 @@ provar que subiu — fechar sozinho e não atualizar nada é o pior resultado po
   o app sem transcrever nada até voltar ao modelo anterior. O caminho de cada família de modelo já
   existia, mas o app procurava um arquivo que só o Parakeet tem antes de chegar nele.
 
-### Mudou
+### Mudanças
 
 - **O modo virou um botão**, em vez de uma lista para abrir: são dois estados, então um clique
   alterna entre "alternar" e "segurar".
 
 ## 2.0.4 — 2026-08-23
 
-Nenhuma mudança de comportamento em relação à 2.0.3. Publicada para exercitar a atualização pelo
-botão **Procurar atualização** com uma versão nova de verdade do outro lado.
+Sem mudança de comportamento: publicada para exercitar o fluxo de atualização de ponta a ponta, com
+uma versão nova de verdade do outro lado.
+
+---
 
 ## 2.0.3 — 2026-08-23
 
@@ -304,7 +358,7 @@ atualização é sozinha.
 ### Conhecido
 
 O modo **segurar** tem um portão de teste intermitente sob repetição muito rápida. O modo padrão é
-o alternar, que está provado. Detalhes e evidência em `plano.md`.
+o alternar, que está provado.
 
 ## 2.0.1 — 2026-08-23
 
@@ -346,7 +400,7 @@ o alternar, que está provado. Detalhes e evidência em `plano.md`.
 ### Não incluído
 
 Linux. O addon de atalho global e colagem é Win32; sem o equivalente em X11 o app abriria mas não
-ouviria a tecla nem colaria em lugar nenhum. O que falta está em `PENDENCIAS.md`.
+ouviria a tecla nem colaria em lugar nenhum. O que falta está em `_docs/PENDENCIAS.md`.
 
 ---
 
@@ -362,5 +416,5 @@ Saiu com o defeito da tecla descrito acima e virou rascunho no mesmo dia.
 
 ## 1.x — Flutter
 
-O histórico da versão em Flutter está no histórico do Git. O que aprendemos nela e continua valendo
-foi preservado em `docs/heranca/`.
+O histórico da versão em Flutter está no histórico do Git, e as armadilhas que ela custou viraram
+regra no código e portão em `quality/` — que é onde elas param de se repetir.

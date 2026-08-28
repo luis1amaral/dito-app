@@ -1,4 +1,4 @@
-// Model install state, download, pick and delete; download shape in docs/decisoes.md.
+// Model install state, download, pick and delete; download shape in _docs/decisoes.md.
 import { createHash } from 'node:crypto'
 import {
   copyFileSync,
@@ -30,7 +30,7 @@ function manifest(id: string): ModelManifest | undefined {
   return CATALOG.find((m) => m.id === id)
 }
 
-// Every catalog file at its exact size; models name files differently (docs/decisoes.md).
+// Every catalog file at its exact size; models name files differently (_docs/decisoes.md).
 export function isInstalled(id: string): boolean {
   const model = manifest(id)
   if (!model) return false
@@ -128,7 +128,7 @@ function requestOnce(url: string, partial: string, from: number, onChunk: () => 
   })
 }
 
-// Range-resume, canonical URL, size on disk, stall counter: why each in docs/decisoes.md.
+// Range-resume, canonical URL, size on disk, stall counter: why each in _docs/decisoes.md.
 async function downloadFile(url: string, dest: string, expected: number, onBytes: (n: number) => void): Promise<void> {
   const partial = dest + '.partial'
   let stalled = 0

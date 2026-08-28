@@ -19,14 +19,14 @@ let spoken = ''
 /** What is decoded but not yet typed, because the target was not focused at the time. */
 let unsent = ''
 
-// Last resort for a lost key-up in hold mode (docs/decisoes.md).
+// Last resort for a lost key-up in hold mode (_docs/decisoes.md).
 const MAX_HOLD_MS = Number(process.env['DITO_MAX_HOLD_MS'] ?? 180_000)
 
 // Toggle has no key-up to end a take; this ends it out loud instead of recording forever.
 const MAX_TAKE_MS = Number(process.env['DITO_MAX_TAKE_MS'] ?? 3_600_000)
 let ceiling: ReturnType<typeof setTimeout> | null = null
 
-// Above the 1400 ms window quality/paste-targets.mjs proves a paste lands in (docs/decisoes.md).
+// Above the 1400 ms window quality/paste-targets.mjs proves a paste lands in (_docs/decisoes.md).
 const CLIPBOARD_HANDOVER_MS = 1500
 
 function setPhase(next: DictationPhase, detail = ''): void {
@@ -166,7 +166,7 @@ export function onText(m: Extract<EngineMessage, { kind: 'text' }>): void {
     log('type: ' + typed + ' into ' + target.kind + ' "' + target.title + '"')
   }
 
-  // Ctrl+V is the only guarantee; why it waits after a real paste is in docs/decisoes.md.
+  // Ctrl+V is the only guarantee; why it waits after a real paste is in _docs/decisoes.md.
   if (typed) setTimeout(() => clipboard.writeText(spoken), CLIPBOARD_HANDOVER_MS)
   else clipboard.writeText(spoken)
   flash(typed ? 'pasted' : 'copied', spoken, typed ? 2000 : 2600)

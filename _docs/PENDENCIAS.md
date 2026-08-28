@@ -1,6 +1,6 @@
 # Pendências
 
-Escrito em 2026-08-23 na 2.0.1, atualizado em 2026-08-25 na 2.0.11. O que **não** foi feito e por
+Escrito em 2026-08-23 na 2.0.1, atualizado em 2026-08-28 na 2.0.16. O que **não** foi feito e por
 que importa.
 
 ---
@@ -32,11 +32,20 @@ aba Atalho das configurações e persiste entre sessões via `app.getLoginItemSe
 **Dívida do porte zerada na 2.0.13:** o portão `regras do projeto` (`npm run quality`)
 está **100% verde (38 arquivos)**, com comentários e tetos de linhas de `input_x11.cc` ajustados.
 
+**Portão no Linux deixou de ser pendência:** `npm run verify` roda nos dois sistemas desde a faxina
+de 2026-08-28. O que ainda não existe aqui é o equivalente do `smoke.ps1` (subir o app instalado e
+fotografar a tela), listado como H5 no `PARIDADE.md`.
+
 **`pressEnter` (Enter pós-colagem) no Linux — resolvido na 2.0.14:**
 O `SendKeyStroke` no X11 agora envia flush explícito e hold de tecla (`usleep`), com temporização segura de 120 ms no `dictation.ts` para aguardar o término da colagem X11.
 
-**Captura de som do computador no Linux (aberto para validação):**
-A captura de loopback de sistema implementada na 2.0.15 via Web Audio API e `desktopCapturer` foi protegida contra vazamento de áudio em background na 2.0.16 (session token `activeRecordId` e travas de fase `recording`/`transcribing`). No Linux sob X11, deve ser testada a integração com PulseAudio/PipeWire monitor para confirmar que o áudio das aplicações desktop é recebido pelo Chromium sem requerer permissão manual de tela.
+**Captura de som do computador no Linux — validada na 2.0.16, com número:**
+A captura de loopback chega ao Chromium sob X11 com PipeWire sem pedir permissão de tela. O
+vazamento que a 2.0.16 corrigiu foi medido aqui nos dois sentidos: com a 2.0.15, parar 150 ms depois
+de começar deixava **2 streams de captura vivos** (`pactl list source-outputs`, microfone e som do
+sistema) e o ditado seguia gravando por 14 s; com a 2.0.16, **nenhum stream sobra**. O caso virou
+portão (`quality/audio-leak.mjs`), que roda nos dois sistemas e reprova se sobrar captura viva ou se
+chegar áudio depois do comando de parar.
 
 Pendências antigas que continuam: janela transparente no X11 depende de compositor
 ativo, senão a pílula vem com fundo preto.
@@ -51,8 +60,10 @@ ativo, senão a pílula vem com fundo preto.
 
 ## 3. Provado nesta versão (não reabrir por engano)
 
-**Da 2.0.16 (Windows):**
-- **Trava de ciclo de vida de áudio (`activeRecordId`) e isolamento de fase:** Corrigido vazamento onde cancelamento durante `getUserMedia` assíncrono deixava stream capturando música/áudio do sistema em segundo plano e digitando em idle.
+**Da 2.0.16 (Windows e Linux):**
+- **Cancelar o ditado solta a captura:** o vazamento em que parar durante o `getUserMedia` deixava o
+  microfone e o som do sistema gravando em segundo plano — e digitando som de fundo com o app ocioso
+  — está corrigido e coberto pelo portão `captura`, provado nos dois sentidos.
 
 **Da 2.0.15 (Windows):**
 - **Captura de som do computador (loopback de sistema):** Captura direta do áudio emitido pelo computador (WhatsApp Web, YouTube, reuniões, apps) via loopback de desktop no Chromium, com mixagem em tempo real junto ao microfone no Web Audio API e controle liga/desliga nos Ajustes de Áudio.
@@ -90,4 +101,4 @@ ativo, senão a pílula vem com fundo preto.
   era faltar duas versões, era o feed apontar para um repositório privado sem credencial — 404 —
   e as releases saírem sem `latest.yml`). O feed passou a ser o Worker `dito-api`; o portão `feed`
   do `npm run verify` cobre isso e `npm run release` recusa publicar sem o manifesto. O clique de
-  ponta a ponta na 2.0.3 está registrado no `CHANGELOG.md`. Ver `docs/decisoes.md`.
+  ponta a ponta na 2.0.3 está registrado no `CHANGELOG.md`. Ver `_docs/decisoes.md`.

@@ -1,4 +1,4 @@
-// Every IPC channel, argument and return declared once; why in docs/decisoes.md.
+// Every IPC channel, argument and return declared once; why in _docs/decisoes.md.
 import type { Config } from './config'
 import type { Lang } from './i18n'
 import type { ModelRow } from './models'

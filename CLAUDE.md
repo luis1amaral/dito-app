@@ -4,7 +4,7 @@
 
 - **All code is English**: identifiers, file names, directory names, function names, comments.
 - **Only user-visible strings are pt-BR** — window text, labels, log messages shown to the user.
-- Docs (`CHANGELOG.md`, `PARIDADE.md`, `PENDENCIAS.md`, `README.md`) stay in pt-BR.
+- Docs (`CHANGELOG.md`, `README.md` and everything in `_docs/`) stay in pt-BR.
 - Comments: English, one line max, and only when they carry a *why* the code cannot.
 
 ## What this app is
@@ -15,7 +15,7 @@ No agent, no chat, no browser.
 ## Quality gate
 
 `npm run verify` is the single entry point. Exit 0 PASS, 1 FAIL, 2 INCOMPLETE.
-INCOMPLETE is never green. See `quality/PARIDADE.md`.
+INCOMPLETE is never green. See `_docs/PARIDADE.md`.
 
 Every new gate must be proven **both ways**: put the defect back and require it to fail.
 A gate that has never failed is not a gate.

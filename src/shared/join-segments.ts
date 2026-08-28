@@ -1,4 +1,4 @@
-// Joins decoded windows; only the space between them is decided (docs/decisoes.md).
+// Joins decoded windows; only the space between them is decided (_docs/decisoes.md).
 
 const NO_SPACE_BEFORE = ',.;:!?%)]}»…'
 const NO_SPACE_AFTER = '([{«'

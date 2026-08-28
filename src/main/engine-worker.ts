@@ -101,7 +101,7 @@ try {
   post({ kind: 'error', error: (err as Error).message ?? String(err) })
 }
 
-// Decode in windows; a single unbounded call kills the app (docs/decisoes.md).
+// Decode in windows; a single unbounded call kills the app (_docs/decisoes.md).
 function decodeOffline(samples: Float32Array): string {
   const perWindow = MAX_WINDOW_SECONDS * SAMPLE_RATE
   const parts: string[] = []

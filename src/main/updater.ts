@@ -1,4 +1,4 @@
-// Auto-update with backoff on a failing feed; why in docs/decisoes.md.
+// Auto-update with backoff on a failing feed; why in _docs/decisoes.md.
 import type { AppUpdater } from 'electron-updater'
 import type { UpdateState } from '../shared/ipc'
 import { log } from './logger'
@@ -82,7 +82,7 @@ export async function checkNow(): Promise<UpdateState> {
   return state
 }
 
-// Quits and reopens itself; why install-on-quit was dropped is in docs/decisoes.md.
+// Quits and reopens itself; why install-on-quit was dropped is in _docs/decisoes.md.
 export function installNow(): UpdateState {
   const u = load()
   if (!u || state.state !== 'ready') {

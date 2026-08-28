@@ -1,4 +1,4 @@
-// Cuts a take into decodable windows; window size and cut rule in docs/decisoes.md.
+// Cuts a take into decodable windows; window size and cut rule in _docs/decisoes.md.
 const SAMPLE_RATE = 16000
 const WINDOW_SECONDS = 8
 const SPLIT_SEARCH_SECONDS = 2
@@ -15,7 +15,7 @@ function rms(samples: Float32Array, from: number, length: number): number {
   return Math.sqrt(sum / Math.max(1, end - from))
 }
 
-// Cuts at the quietest 100 ms probe; why that size in docs/decisoes.md.
+// Cuts at the quietest 100 ms probe; why that size in _docs/decisoes.md.
 function splitPoint(samples: Float32Array): number {
   const searchStart = Math.max(0, WINDOW - SEARCH)
   let bestIndex = WINDOW

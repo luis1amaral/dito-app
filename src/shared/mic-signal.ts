@@ -1,4 +1,4 @@
-// Tells a dead input from a person pausing; why rms alone cannot do it is in docs/decisoes.md.
+// Tells a dead input from a person pausing; why rms alone cannot do it is in _docs/decisoes.md.
 
 /** A block only counts as nothing arriving when it is digitally null, not merely quiet. */
 export const DEAD_INPUT_MS = 2000
