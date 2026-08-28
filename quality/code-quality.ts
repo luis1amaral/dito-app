@@ -33,7 +33,7 @@ const rel = (f: string): string => relative(ROOT, f).replace(/\\/g, '/')
 const sourceFiles = [...walk(join(ROOT, 'src'), ['.ts']), ...walk(join(ROOT, 'native', 'src'), ['.cc', '.cpp', '.h'])]
 const screenFiles = walk(join(ROOT, 'src', 'renderer'), ['.html'])
 
-// 1. A comment longer than one line means the why belongs in docs/, with a pointer here.
+// 1. A comment longer than one line means the why belongs in _docs/, with a pointer here.
 for (const file of sourceFiles) {
   const lines = readFileSync(file, 'utf8').split('\n')
   let i = 0

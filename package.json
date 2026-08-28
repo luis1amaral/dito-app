@@ -2,7 +2,7 @@
   "name": "dito",
   "version": "2.0.16",
   "private": true,
-  "description": "Ditado por voz - aperte F9, fale, o texto aparece onde o cursor esta",
+  "description": "Ditado por voz - aperte a tecla, fale, o texto aparece onde o cursor esta",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -15,7 +15,7 @@
     "models": "node -e \"process.env.DITO_APPDATA=require('os').tmpdir();require('child_process').execFileSync(process.execPath,[require.resolve('tsx/cli'),'quality/models.mts'],{stdio:'inherit',env:process.env})\"",
     "native": "node quality/native.mjs",
     "hotkey": "node quality/hotkey.mjs",
-    "verify": "pwsh -NoProfile -File quality/verify.ps1",
+    "verify": "node quality/verify.mjs",
     "lint": "oxlint",
     "quality": "tsx quality/code-quality.ts",
     "hold": "node quality/hold.mjs",
