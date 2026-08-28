@@ -51,6 +51,25 @@ chegar áudio depois do comando de parar.
 Pendências antigas que continuam: janela transparente no X11 depende de compositor
 ativo, senão a pílula vem com fundo preto.
 
+## 2. Captura de som do computador — aberto
+
+**O áudio que está tocando entra misturado com a voz, e o texto sai embaralhado.** A opção
+`captureSystemAudio` nasceu ligada na 2.0.15, então quem dita com um vídeo, uma reunião ou uma música
+tocando recebe as duas fontes somadas no mesmo ditado. O motor transcreve a mistura, e a frase final
+intercala o que a pessoa falou com o que o computador estava dizendo.
+
+Medido em 2026-08-28, com um vídeo do YouTube aberto: dois ditados seguidos de 14 s vieram com
+narração de terceiro grudada na fala do dono ("é uma prop do componente React e vaza pro bundle,
+variável `VITE_`…"), sem nenhuma marca de onde uma acaba e a outra começa. O ciclo da tecla estava
+íntegro nos dois casos (`started` e `stopped` no log, zero captura órfã) — o defeito é de produto,
+não de mecanismo.
+
+Caminhos possíveis, nenhum decidido:
+
+- **Nascer desligada** e ligar sob demanda para transcrever reunião ou áudio de WhatsApp.
+- **Separar as duas fontes** em vez de somar, transcrevendo cada uma e rotulando quem falou.
+- **Avisar na pílula** quando houver som do sistema entrando junto, para a pessoa pausar antes.
+
 ## 2. Windows — aberto
 
 | # | Pendência | Por quê importa |
