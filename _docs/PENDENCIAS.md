@@ -70,7 +70,7 @@ Caminhos possíveis, nenhum decidido:
 - **Separar as duas fontes** em vez de somar, transcrevendo cada uma e rotulando quem falou.
 - **Avisar na pílula** quando houver som do sistema entrando junto, para a pessoa pausar antes.
 
-## 2. Windows — aberto
+## 3. Windows — aberto
 
 | # | Pendência | Por quê importa |
 |---|---|---|
@@ -78,7 +78,7 @@ Caminhos possíveis, nenhum decidido:
 | W4 | **Modelo streaming nunca rodou.** Nomes da API conferidos contra o pacote, mas nenhum foi baixado | Nome certo não é execução certa |
 | W8 | **Instalador cai na mesma pasta da 1.7.x** (`%LOCALAPPDATA%\Programs\Dito`) | Quem atualizar sem desinstalar fica com duas árvores misturadas |
 
-## 3. Provado nesta versão (não reabrir por engano)
+## 4. Provado nesta versão (não reabrir por engano)
 
 **Da 2.0.16 (Windows e Linux):**
 - **Cancelar o ditado solta a captura:** o vazamento em que parar durante o `getUserMedia` deixava o
