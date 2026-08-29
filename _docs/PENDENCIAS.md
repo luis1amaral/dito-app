@@ -17,6 +17,7 @@ as duas linhas do Linux que seguem sem portão, `H6` (pílula transparente sem c
 | W4 | **Modelo streaming nunca rodou.** Nomes da API conferidos contra o pacote, mas nenhum foi baixado | Nome certo não é execução certa |
 | W8 | **Instalador cai na mesma pasta da 1.7.x** (`%LOCALAPPDATA%\Programs\Dito`) | Quem atualizar sem desinstalar fica com duas árvores misturadas |
 | W12 | **Toque duplo em 150 ms sem portão no Windows.** O `hotkey.mjs` prova que a tecla abre e fecha; o repique que engolia o toque de parar (corrigido na 2.0.16) só tem portão no Linux, o `H5` do `hotkey-linux.mjs` | O defeito que fazia o app seguir gravando sozinho pode voltar aqui sem nenhuma camada acusar |
+| W13 | **O portão `tecla` tem default próprio e diverge do app.** `hotkey.mjs:25` cai em `F9` quando não acha o `config.json`; o default real do app é `F10` (`src/shared/config.ts:31`). Numa máquina recém-instalada, sem config, o portão aperta a tecla errada e reprova um app são | Deu FALHA num binário correto em 2026-08-29 e quase virou relato de defeito inexistente. A causa raiz é a duplicação do default em dois lugares |
 
 ## 2. Captura de som do computador — aberto (os dois sistemas)
 
