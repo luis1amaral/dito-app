@@ -54,6 +54,21 @@
   som do computador até o teto do ditado, despejando aquilo na janela em foco no fim. A janela caiu
   para 40 ms, que cobre repique físico de tecla e não alcança toque humano nenhum.
 
+### No Windows
+
+- **Binário do Windows republicado na mesma tag em 2026-08-29.** O `.exe` original da v2.0.16 saiu
+  em 27/08, **antes** da correção do toque duplo, que foi feita e publicada no dia 28 só do lado do
+  Linux: a tag ficou com dois binários de código diferente sob o mesmo número. O instalador foi
+  reempacotado no `07f90bd` e substituído por `--clobber`, junto com o `latest.yml`. O `.deb` e o
+  `latest-linux.yml` não foram tocados — os dois sistemas passaram a rodar o mesmo código.
+- Provado antes de publicar: `KEY_BOUNCE_MS = 40` dentro do `app.asar` empacotado; `captura` com 4
+  cenários de corrida e zero captura viva; `tecla` no binário empacotado (F10 abre, F10 fecha, áudio
+  foi ao motor e voltou); `feed` verde, com o `sha512` servido em produção igual ao do build.
+- **Quem já estava na 2.0.16 do Windows não recebe isto pelo update automático** — o
+  `electron-updater` compara número de versão. É preciso baixar o instalador e reinstalar.
+- Segue sem portão aqui o cenário do toque duplo em 150 ms (o `H5` do Linux): o `hotkey.mjs` prova
+  abre-e-fecha, não o repique. Está na lista de pendências.
+
 ### No Linux
 
 - **Mesma versão publicada para Linux**, com o `.deb` no repositório APT e no feed de atualização.
